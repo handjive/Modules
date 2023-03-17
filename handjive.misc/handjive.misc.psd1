@@ -66,10 +66,10 @@ Copyright = '(c) handjive. All rights reserved.'
 # FormatsToProcess = @()
 
 # Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
-NestedModules = @('Get-PathDepth.ps1','CollectionOperator.ps1')
+NestedModules = @('Get-PathDepth.ps1')
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-FunctionsToExport = @('Beep','Write-HostByFlag','CollectionOperator','Get-PathDepth')
+FunctionsToExport = @('Beep','Write-HostByFlag','Get-PathDepth')
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = @()

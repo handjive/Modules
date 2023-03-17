@@ -94,7 +94,7 @@ function CollectionOperator
 {
      [CmdletBinding()]
      Param(
-           [parameter(Mandatory,Position=0,ValueFromPipeline)]   [object[]]$substance
+           [parameter(Position=0)][AllowNull()][object[]]$Substance = $null
           
           ,[parameter(Mandatory,ParameterSetName="Select")]      [ScriptBlock]$Select
           ,[parameter(Mandatory,ParameterSetName="Collect")]     [ScriptBlock]$Collect
@@ -110,7 +110,8 @@ function CollectionOperator
 
           ,[parameter(Mandatory,ParameterSetName="At")]          [object]$At
           ,[parameter(Mandatory,ParameterSetName="At")]          [ScriptBlock]$ifAbsent
-           
+          
+          ,[Parameter(ValueFromPipeline)][AllowNull()][object]$StreamInput = $null          
      )
 
      Process{
