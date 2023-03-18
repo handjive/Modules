@@ -2,8 +2,8 @@ class Config : HashTable{
     static [Config]$Current 
     [string]$Filename = $filename
 
-    static [Config]LoadFromFileOrDefault([string]$commandPath,[string]$filename){
-        $actualFilename = $filename
+    static [Config]LoadFromSpecifiedOrDefault([string]$commandPath,[string]$filename){
+            $actualFilename = $filename
         if( "" -eq $filename ){
             $actualFilename = $commandPath.Trim()
             $aExt = Split-Path $actualFilename -Extension
