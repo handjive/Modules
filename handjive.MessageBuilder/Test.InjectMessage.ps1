@@ -106,6 +106,16 @@ switch($args){
         &$f $scaleLine 40
         #>
     }
+    7 {
+        $scaleLine = '0---+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----'
+        write-host $scaleLine
+
+        $mb = [MessageBuilder]::new()
+        1,3,5 | InjectMessage $mb -Left 5 -OneLine -NoNewLine
+
+        1,3,5 | InjectMessage $mb -Right 10 -NoNewLine
+        $mb.Flush()
+    }
 }
 
 

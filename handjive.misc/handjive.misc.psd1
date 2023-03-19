@@ -69,7 +69,7 @@ Copyright = '(c) handjive. All rights reserved.'
 NestedModules = @('Get-PathDepth.ps1')
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-FunctionsToExport = @('Beep','Write-HostByFlag','Get-PathDepth')
+FunctionsToExport = @('Beep','Write-HostByFlag','Get-PathDepth','SizeInByte')
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = @()

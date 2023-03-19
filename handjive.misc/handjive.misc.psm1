@@ -4,7 +4,13 @@ function Beep
     [console]::Beep(880,250)
 }
 
-function Write-HostByFlag{
+function SizeInByte{
+     param($encodingName,$str)
+     $encoder = [Text.Encoding]::GetEncoding($encoderName)
+     return ($encoder.GetByteCount($str))
+}
+
+function Write-HostByFlag{ <# Obsolete#>
     [CmdletBinding()]
     Param([Parameter(Mandatory)][boolean]$ifTrue
          ,$message
@@ -73,9 +79,3 @@ function Write-HostByFlag{
 }
 
 
-
-<#Export-ModuleMember -Function Write-HostByFlag
-Export-ModuleMember -Function CollectionOperator
-Export-ModuleMember -Function Beep
-Export-ModuleMember -Function Get-PathDepth
-#>

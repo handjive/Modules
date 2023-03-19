@@ -25,8 +25,10 @@ function InjectMessage{
          [parameter(Mandatory,Position=0)][MessageBuilder]$Builder
         ,[parameter(ValueFromPipeline)][object]$streamInput
         ,[parameter(ParameterSetName='OneLine')][switch]$OneLine
-        ,[parameter(ParameterSetName='OneLine')][switch]$NoNewLine
         ,[parameter(ParameterSetName='OneLine')][string]$Delimiter = " "
+        ,[parameter()][switch]$NoNewLine
+        ,[parameter()][int]$Left
+        ,[parameter()][int]$Right
         ,[parameter(ValueFromRemainingArguments=$true)]$Lefts
     )
 
@@ -35,19 +37,31 @@ function InjectMessage{
     }
 
     process{
+        $aValue = if(0 -ne $Left ){
+            $aFormat = [String]::Format('{{0,-{0}}}',$Left)
+            [String]::Format($aFormat,$streamInput)
+        }
+        elseif( 0 -ne $Right ){
+            $aFormat = [String]::Format('{{0,{0}}}',$Right)
+            [String]::Format($aFormat,$streamInput)
+        }
+        else{
+            $streamInput
+        }
+
         switch($PsCmdlet.ParameterSetName){
             OneLine {
-                if( $null -eq $streamInput ){
+                if( $null -eq $aValue ){
                     break
                 }
-                OneLineAppender $Builder $actualDelimiter $Delimiter @( $streamInput )
+                OneLineAppender $Builder $actualDelimiter $Delimiter @( $aValue )
                 $actualDelimiter = $Delimiter
             }
             default {
                 if( $null -eq $streamInput ){
                     break
                 }
-                $Builder.AppendLine($streamInput)
+                $Builder.Append($aValue)
             }
        }
     }
@@ -67,6 +81,8 @@ function InjectMessage{
         switch( $PsCmdlet.ParameterSetName ){
             OneLine {
                 $Builder.PopIndentLevel()
+            }
+            default{
                 if( !$NoNewLine){
                     $Builder.NL()
                 }

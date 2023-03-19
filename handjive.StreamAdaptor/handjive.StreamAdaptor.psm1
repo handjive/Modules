@@ -153,7 +153,7 @@ function StreamAdaptor
                Select    { SA_Select $streamInput $Subject $Select }
                Reject    { SA_Reject $streamInput $Subject $Reject }
                Treat     { SA_Treat $streamInput $Subject $Treat }    # Treat is an alias of Collect
-               Collect   { SA_Treat $streamInput $Subject $Treat }
+               Collect   { SA_Treat $streamInput $Subject $Collect }
                InjectInto{ $injectResult = SA_InjectInto $streamInput $Subject $injectResult $Into }
                PassThru  { SA_PassThru $streamInput $Subject }
           }
