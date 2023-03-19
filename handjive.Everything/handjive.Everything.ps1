@@ -129,6 +129,7 @@ class Everything : IEverything {
     [ValueHolder]$QueryBaseHolder
     [bool]$isSearchStringDirty
     [DependencyHolder]$PostBuildElementListeners
+    [int]$NumberingOffset = 1
 
     Everything()
     {
@@ -265,7 +266,7 @@ class Everything : IEverything {
         for($i =0;$i -lt $this.esapi::Everything_GetNumResults();$i++)
         {
             $anElement = $this.NewElement()
-            $anElement.Number = ($i+1)
+            $anElement.Number = ($this.NumberingOffset+$i)
             $anElement.Name =$this.ResultFileNameAt($i)
             $anElement.ContainerPath = $this.ResultPathAt($i)
             $anElement.QueryBase = $this.QueryBase
