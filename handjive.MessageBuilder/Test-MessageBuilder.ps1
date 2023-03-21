@@ -1,4 +1,5 @@
-. '.\handjive.MessageBuilder\handjive.MessageBuilder.Classes.ps1'
+#. '.\handjive.MessageBuilder\handjive.MessageBuilder.Classes.ps1'
+$scale = "0        1         2         3         4         5         6         7         8         9`n123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
 
 switch($args){
     0 {
@@ -9,12 +10,42 @@ switch($args){
         $mb.ToString()
     }
     1 { # Test for MessageHelper.ClipRightInWidth
-        $scale = "0        1         2         3         4         5         6         7         8         9`n123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
         $mh = [MessageHelper]::new()
         #                     0        1         2         3         4         5         6         7         8         9
         #                     123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
-        $result = $mh.ClipRightInWidth('ほげhogeほげたろうgoing on!',20)
-        $sacle | Write-Host -ForegroundColor DarkGreen
+        $result = $mh.Left('ほげhogeほげたろうgoing on!',20,'<<')
+        $scale | Write-Host -ForegroundColor DarkGreen
+        $result | write-Host
+        $result = $mh.Left('ほげhogeほげたろうgだoing on!',20,'<<')
+        $scale | Write-Host -ForegroundColor DarkGreen
+        $result | write-Host
+        $result = $mh.Left('ほげhoge',20,'<<')
+        $scale | Write-Host -ForegroundColor DarkGreen
+        $result | write-Host
+        $result = $mh.Left('ほげhogeほ',20,'<<')
+        $scale | Write-Host -ForegroundColor DarkGreen
+        $result | write-Host
+    }
+    2 {
+        $mh = [MessageHelper]::new()
+        $scale | write-host -ForegroundColor DarkGreen
+        $mh.ReverseString('ほげhogeほげたろうgoing on!') | write-host
+        $mh.ClipLeftInWidth('ほげhogeほげたろうgoing on!',20) | write-host
+
+    }
+    3 {
+        $mh = [MessageHelper]::new()
+        $result = $mh.Right('ほげhogeほげたろうgoing on!',20,'>>')
+        $scale | Write-Host -ForegroundColor DarkGreen
+        $result | write-Host
+        $result = $mh.Right('ほげhogeほげたろうgだoing on!',20,'>>')
+        $scale | Write-Host -ForegroundColor DarkGreen
+        $result | write-Host
+        $result = $mh.Right('ほげhoge',20,'>>')
+        $scale | Write-Host -ForegroundColor DarkGreen
+        $result | write-Host
+        $result = $mh.Right('ほげhogeほ',20,'>>')
+        $scale | Write-Host -ForegroundColor DarkGreen
         $result | write-Host
     }
 }

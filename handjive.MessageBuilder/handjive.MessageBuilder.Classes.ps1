@@ -118,35 +118,83 @@ class MessageHelper{
         return($this.modifier.modify($modifier))
     }
     
+    [string]ReverseString([string]$str){
+        $chars = $str[($str.Length-1)..0]
+        return (($chars -join('')))
+    }
+
+    [string]ClipLeftInWidth([string]$str,[int]$width){
+        return($this.ReverseString(($this.ClipRightInWidth($this.ReverseString($str),$width))))
+    }
+
     [string]ClipRightInWidth([string]$str,[int]$width){
-        $buffer = ""
-        for($i = 0; $i -lt (SizeInByte $buffer); $i++){
-            $buffer += $str[$i]
+        #$a[($a.Length-1)..0]  
+        $buffer = ''
+        for($i = 0; $i -lt $str.Length; $i++){
+            $bufferWidth = SizeInByte $buffer
+            $charWidth = SizeInByte $str[$i]
+            if( ($bufferWidth+$charWidth) -le $width ){
+                $buffer += $str[$i]
+            }
+            else{ 
+                break
+            }
         }
+
         if( (SizeInByte $buffer) -gt $width ){
             throw "What a HELL!?"
         }
         return ($buffer)
     }
 
-    [string]Left([string]$str,[int]$width,[string]$filler){
+    [string]Left([string]$str,[int]$width){
+        return($this.Left($str,$width,' '))
+    }
+
+    [string]Left([String]$str,[int]$width,[string]$filler){
+        $str,$padding = $this.ClipAndCulculatePadding($str,$width,$filler)
+        return($str+$padding)
+    }
+
+    [string]Right([string]$str,[int]$width){
+        return($this.Right($str,$width,' '))
+    }
+
+    [string]Right([String]$str,[int]$width,[string]$filler){
+        $str,$padding = $this.ClipAndCulculatePadding($this.ReverseString($str),$width,$filler)
+        return($padding+$this.ReverseString($str))
+    }
+
+
+
+    [string[]]ClipAndCulculatePadding([string]$str,[int]$width,[string]$filler){
         $widthInBytes = SizeInByte $str
-        $widthDiff = $width - $widthInBytes
 
         $result = $str
+        
+        # 幅ぴったしなら処理不要
         if( $widthInBytes -eq $width){
             return($result)
         }
-        elseif( $widthInBytes -lt $width){
-            # Padding処理対象
-            $aStr = $filler * $widthDiff
-            $fillerWidth = SizeInBytes $aStr
 
+        # 指定幅より長ければクリップ
+        # (クリップ結果は指定幅より短い可能性がある)
+        if( $widthInBytes -gt $width){
+            $result = $this.ClipRightInWidth($str,$width)
         }
-        else{
-            # Clipping処理対象(どうすんの?)
+
+        # クリップした結果ﾄﾞﾝﾋﾟｼｬならそのまま返す
+        if( ($resultWidth = SizeInByte $result) -eq $width ){ return($result) }
+
+        # フィラー処理
+        $widthDiff = $width - $resultWidth
+        $fillerCandidate = ($filler * $widthDiff)   # Fillerが一文字ならこれでいいんだけど…
+        $actualFiller = $fillerCandidate
+        if( (SizeInByte $fillerCandidate) -gt $widthDiff ){
+            $actualFiller = $this.ClipRightInWidth($fillerCandidate,$widthDiff)
         }
-        return($result)
+
+        return(@($result,$actualFiller))
     }
 }
 

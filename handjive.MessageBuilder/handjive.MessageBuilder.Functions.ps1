@@ -20,20 +20,32 @@ function OneLineAppender
 }
 
 function InjectMessage{
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName='CharMod')]
     param(
+
          [parameter(Mandatory,Position=0)][MessageBuilder]$Builder
         ,[parameter(ValueFromPipeline)][object]$streamInput
-        ,[parameter(ParameterSetName='OneLine')][switch]$OneLine
-        ,[parameter(ParameterSetName='OneLine')][string]$Delimiter = " "
+<#
+        ,[parameter(Mandatory,ParameterSetName='Left')][int]$Left
+        ,[parameter(Mandatory,ParameterSetName='Right')][int]$Right
+        ,[parameter(Mandatory,ParameterSetName='FormatByStream')][switch]$FormatByStream
+        ,[parameter(Mandatory,ParameterSetName='Format')][string]$Format
+        ,[parameter(Mandatory,ParameterSetName='CharMod')][switch]$CharMod
+#>
+        ,[parameter(ParameterSetName='Left')][int]$Left
+        ,[parameter(ParameterSetName='Right')][int]$Right
+        ,[parameter(ParameterSetName='FormatByStream')][switch]$FormatByStream
+        ,[parameter(ParameterSetName='Format')][string]$Format
+        ,[parameter(ParameterSetName='CharMod')][switch]$CharMod
 
+        ,[parameter()][string]$Padding
+        ,[parameter()][switch]$OneLine
+        ,[parameter()][string]$Delimiter = " "
         ,[parameter()][switch]$NoNewLine
-
-        ,[parameter()][int]$Left
-        ,[parameter()][int]$Right
 
         ,[parameter()][VT100CharMod]$ForegroundColor
         ,[parameter()][VT100CharMod]$BackgroundColor
+        
         ,[parameter()][switch]$Bold
         ,[parameter()][switch]$Italic
         ,[parameter()][switch]$Underline
@@ -41,14 +53,17 @@ function InjectMessage{
         ,[parameter()][switch]$Hide
         ,[parameter()][switch]$Strike
         ,[parameter()][switch]$Normal
-        ,[parameter()][switch]$Reset
-        ,[parameter()][switch]$ResetAfterInject
+        ,[parameter()][switch]$ResetModify
+        ,[parameter()][switch]$KeepModify
 
         ,[parameter(ValueFromRemainingArguments=$true)]$Lefts
     )
 
     begin{
         $local:actualDelimiter=''
+        $actualPadding = if( "" -eq $Padding ){ ' ' } else{ $Padding }
+        $local:leftAlone = $Lefts
+
         if( $null -ne $ForegroundColor ){
             $Builder.Append($Builder.Helper.modifier.ForegroundColor($ForegroundColor))
         }
@@ -67,19 +82,47 @@ function InjectMessage{
     }
 
     process{
-        $aValue = if(0 -ne $Left ){
-            $aFormat = [String]::Format('{{0,-{0}}}',$Left)
-            [String]::Format($aFormat,$streamInput)
-        }
-        elseif( 0 -ne $Right ){
-            $aFormat = [String]::Format('{{0,{0}}}',$Right)
-            [String]::Format($aFormat,$streamInput)
-        }
-        else{
-            $streamInput
+        # 出力値を変更するもの
+        $aValue = switch($PsCmdlet.ParameterSetName){
+            Left {
+                $aStr = $Builder.Helper.Left($streamInput,$Left,$actualPadding)
+                $aStr
+            }
+            Right {
+                $aStr = $Builder.Helper.Right($streamInput,$Right,$actualPadding)
+                $aStr
+            }
+            FormatByStream {
+                $aStr = [String]::Format($streamInput,[array]$leftAlone)
+                $leftAlone = @()
+                $aStr
+            }
+            Format {
+                [String]::Format($Format,$streamInput)
+            }
+            default {
+                $streamInput
+            }
         }
 
-        switch($PsCmdlet.ParameterSetName){
+        if( $OneLine ){
+            if( $null -ne $aValue ){
+                OneLineAppender $Builder $actualDelimiter $Delimiter @( $aValue )
+                $actualDelimiter = $Delimiter
+            }
+        }
+        else{
+            if( $null -ne $aValue ){
+                if( $NoNewLine ){
+                    $Builder.Append($aValue)
+                }
+                else{
+                    $Builder.AppendLine($aValue)
+                }
+            }
+        }
+
+<#        switch($PsCmdlet.ParameterSetName){
             OneLine {
                 if( $null -eq $aValue ){
                     break
@@ -91,33 +134,54 @@ function InjectMessage{
                 if( $null -eq $streamInput ){
                     break
                 }
-                $Builder.Append($aValue)
+                if( $NoNewLine ){
+                    $Builder.Append($aValue)
+                }
+                else{
+                    $Builder.AppendLine($aValue)
+                }
             }
        }
+       #>
     }
     end{
-        if( $Lefts.Count -gt 0){    # 残りの引数がある時
-            switch($PsCmdlet.ParameterSetName ){
-                OneLine {
-                    OneLineAppender $Builder $actualDelimiter $Delimiter $Lefts
-                    $local:actualDelimiter=$Delimiter
+        if( $leftAlone.Count -gt 0){    # 残りの引数がある時
+            if( $PsCmdlet.ParameterSetName -eq 'Format'){
+                $leftAlone = StreamAdaptor $leftAlone -Collect{ [String]::Format($Format,$args[0]) }
+            }
+
+            if($PsCmdlet.ParameterSetName -eq 'Left' ){
+                #$leftAlone = $leftAlone.foreach{ $Builder.Helper.Left($_,$Left,$Padding)}
+                $leftAlone = StreamAdaptor $leftAlone -Collect{ $Builder.Helper.Left($args[0],$Left,$Padding)}
+            }
+            if($PsCmdlet.ParameterSetName -eq 'Right' ){
+                $leftAlone = StreamAdaptor $leftAlone -Collect{ $Builder.Helper.Right($args[0],$Right,$Padding)}
+            }
+
+            if($OneLine){
+                OneLineAppender $Builder $actualDelimiter $Delimiter $leftAlone
+                $local:actualDelimiter=$Delimiter
+                if( !$NoNewLine){
+                    $Builder.NL()
                 }
-                default{
-                    $Lefts.foreach{ $Builder.AppendLine($args[0]) }
+            }
+            else{
+                $leftAlone.foreach{ 
+                    if( $NoNewLine ){
+                        $Builder.Append($_)
+                    }
+                    else{
+                        $Builder.AppendLine($_) 
+                    }
                 }
             }
         }
 
-        if( $ResetAfterInject ){ $Builder.Append($Builder.Helper.modifier.Reset()) }
+        if( !$KeepModify ){ $Builder.Append($Builder.Helper.modifier.Reset()) }
 
         switch( $PsCmdlet.ParameterSetName ){
             OneLine {
                 $Builder.PopIndentLevel()
-            }
-            default{
-                if( !$NoNewLine){
-                    $Builder.NL()
-                }
             }
         }
     }

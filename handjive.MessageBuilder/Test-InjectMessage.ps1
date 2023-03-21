@@ -118,16 +118,36 @@ switch($args){
     }
     8 {
         $mb = [MessageBuilder]::new()
-        'hogehoge' | InjectMessage $mb -ForegroundColor Yellow -NoNewLine -Left 40
-        'Bold' | InjectMessage $mb -Bold
-        'Italic' | InjectMessage $mb -Italic
-        'Underline'  | InjectMessage $mb -Underline
-        'Reset' | InjectMessage $mb -Reset
-        'Hide' | InjectMessage $mb -Hide -ResetAfterInject
-        'Strike' | InjectMessage $mb -Strike -ResetAfterInject
+        'hogehoge' | InjectMessage $mb -ForegroundColor Yellow -Left 40
+        'hogehoge' | InjectMessage $mb -ForegroundColor Yellow -Right 40 -Padding '>>'
+        'Bold&Italic&Underline' | InjectMessage $mb -Bold -Italic -Underline
+        'Italic' | InjectMessage $mb -Italic 
+        'Underline'  | InjectMessage $mb -Underline 
+        'Reset' | InjectMessage $mb -Reset 
+        'Hide' | InjectMessage $mb -Hide 
+        'Strike' | InjectMessage $mb -Strike 
         ' taratara ' | InjectMessage $mb -ForegroundColor BRIGHT_YELLOW -BackgroundColor CYAN
         $mb.Flush()
     }
+    9 {
+        $mb = [MessageBuilder]::new()
+        'hoge {0}/{1}' | InjectMessage $mb -FormatByStream 'a' 'b' -BackgroundColor Cyan 
+        $mb.Flush()
+    }
+    10 {
+        $mb = [MessageBuilder]::new()
+        'hoge' | InjectMessage $mb -Left 20 -Padding '<<' -ForegroundColor Yellow 1 2 3 -OneLine -Delimiter '|'
+        'tara' | InjectMessage $mb -Right 20 -Padding '>>' -ForegroundColor Green 4 5 6
+        $mb.Flush()
+    }
+    11 {
+        $mb = [MessageBuilder]::new()
+        @(1..10) | InjectMessage $mb -Format 'Value is "{0}"' 11 12 13 -Bold -Italic -Underline -Strike
+        $mb.Flush()
+        @(1..10) | InjectMessage $mb -Format 'Value is "{0}"' 11 12 13 -Oneline -Delimiter ','
+        $mb.Flush()
+    }
+
 }
 
 
