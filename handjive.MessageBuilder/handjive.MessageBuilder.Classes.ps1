@@ -27,7 +27,78 @@ enum OutputColor{
     DNS         = -1
 }
 
+enum VT100CharMod{
+    RESET = 0
+    BOLD = 1
+    FAINT = 2
+    ITALIC = 3
+    UNDERLINE = 4
+    #SLOWBLINK = 5
+    #RAPIDBLINK = 6
+    INVERT = 7
+    HIDE = 8
+    STRIKE =9
+    #DOULBEUNDERLINE = 21
+    NORMAL = 22
+    #NOTREVERSED = 27
+    #REVEAL = 28
+    NOTCROSSEDOUT = 29
+
+    BLACK = 30
+    RED = 31
+    GREEN = 32
+    YELLOW = 33
+    BLUE = 34
+    MAGENTA = 35
+    CYAN = 36
+    WHITE = 37
+
+    BRIGHT_BLACK = 30+60
+    BRIGHT_RED = 31+60
+    BRIGHT_GREEN = 32+60
+    BRIGHT_YELLOW = 33+60
+    BRIGHT_BLUE = 34+60
+    BRIGHT_MAGENTA = 35+60
+    BRIGHT_CYAN = 36+60
+    BRIGHT_WHITE = 37+60
+
+    BACKGROUND = 10
+    DEFAULTCOLOR = 39
+}
+
+class VT100CharacterModifier{
+    static [string]$CHAR_MOD_FRAME="`e[{0}m"
+    [string]$FRAME = ""
+
+
+    [string]Modify([Vt100CharMod]$mod){
+        return([String]::Format(($this.FRAME),[int]$mod))
+    }
+    [string]Reset(){
+        return($this.Modify([VT100CharMod]::RESET))
+    }
+    [string]ForegroundColor([VT100CharMod]$color){
+        return($this.Modify($color))
+    }
+    [string]BackgroundColor([VT100CharMod]$color){
+        return($this.Modify($color+[VT100CharMod]::BACKGROUND))
+    }
+
+    VT100CharacterModifier(){
+        # 端末がVt100をサポートしていないなら、修飾指定されても空文字出力
+        if( (Get-host).UI.SupportsVirtualTerminal ){
+            $this.FRAME = [VT100CharacterModifier]::CHAR_MOD_FRAME
+        }
+    }
+}
+
 class MessageHelper{
+    [VT100CharacterModifier]$modifier
+
+    MessageHelper(){
+        $this.modifier = [VT100CharacterModifier]::new()
+    }
+
     [string]Line([int]$width,[string]$element){
         $a = $element * $width
         return($a.Substring(0,$width))
@@ -35,6 +106,47 @@ class MessageHelper{
 
     [string]Line([int]$width){
         return($this.Line($width,'-'))
+    }
+
+    [string]ForegroundColor([VT100CharMod]$color){
+        return($this.modifier.ForegroundColor($color))
+    }
+    [string]BackgroundColor([VT100CharMod]$color){
+        return($this.modifier.BackgroundColor($color))
+    }
+    [string]Modify([VT100CharMod]$modifier){
+        return($this.modifier.modify($modifier))
+    }
+    
+    [string]ClipRightInWidth([string]$str,[int]$width){
+        $buffer = ""
+        for($i = 0; $i -lt (SizeInByte $buffer); $i++){
+            $buffer += $str[$i]
+        }
+        if( (SizeInByte $buffer) -gt $width ){
+            throw "What a HELL!?"
+        }
+        return ($buffer)
+    }
+
+    [string]Left([string]$str,[int]$width,[string]$filler){
+        $widthInBytes = SizeInByte $str
+        $widthDiff = $width - $widthInBytes
+
+        $result = $str
+        if( $widthInBytes -eq $width){
+            return($result)
+        }
+        elseif( $widthInBytes -lt $width){
+            # Padding処理対象
+            $aStr = $filler * $widthDiff
+            $fillerWidth = SizeInBytes $aStr
+
+        }
+        else{
+            # Clipping処理対象(どうすんの?)
+        }
+        return($result)
     }
 }
 

@@ -90,7 +90,7 @@ function SA_Treat{
 function SA_InjectInto{
      param(
            [AllowNull()][object]$streamInput
-          ,[AllowNull()][object[]]$argumentInput
+          ,[object[]]$argumentInput
           ,[object]$injectResult
           ,[ScriptBlock]$injectionBlock
      )
@@ -98,7 +98,7 @@ function SA_InjectInto{
           return &$injectionBlock $injectResult $streamInput
      }
      else{
-          $result = $injectionResult
+          $result = $injectResult
           $argumentInput.foreach{
                $result = &$injectionBlock $result $_
           }
@@ -123,7 +123,7 @@ function StreamAdaptor
 {
      [CmdletBinding()]
      Param(
-           [Parameter(Position=0)][AllowNull()][object[]]$Subject = $null
+           [Parameter(Position=0)][object[]]$Subject = $null
           ,[Parameter(Mandatory,ParameterSetName="Head")][ValidateRange([ValidateRangeKind]::Positive)][int]$Head
           ,[Parameter(Mandatory,ParameterSetName="Tail")][ValidateRange([ValidateRangeKind]::Positive)][int]$Tail
           ,[Parameter(Mandatory,ParameterSetName="Select")][scriptBlock]$Select

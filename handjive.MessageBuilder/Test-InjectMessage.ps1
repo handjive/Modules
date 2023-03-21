@@ -116,6 +116,18 @@ switch($args){
         1,3,5 | InjectMessage $mb -Right 10 -NoNewLine
         $mb.Flush()
     }
+    8 {
+        $mb = [MessageBuilder]::new()
+        'hogehoge' | InjectMessage $mb -ForegroundColor Yellow -NoNewLine -Left 40
+        'Bold' | InjectMessage $mb -Bold
+        'Italic' | InjectMessage $mb -Italic
+        'Underline'  | InjectMessage $mb -Underline
+        'Reset' | InjectMessage $mb -Reset
+        'Hide' | InjectMessage $mb -Hide -ResetAfterInject
+        'Strike' | InjectMessage $mb -Strike -ResetAfterInject
+        ' taratara ' | InjectMessage $mb -ForegroundColor BRIGHT_YELLOW -BackgroundColor CYAN
+        $mb.Flush()
+    }
 }
 
 

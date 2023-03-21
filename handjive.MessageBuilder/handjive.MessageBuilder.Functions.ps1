@@ -26,14 +26,44 @@ function InjectMessage{
         ,[parameter(ValueFromPipeline)][object]$streamInput
         ,[parameter(ParameterSetName='OneLine')][switch]$OneLine
         ,[parameter(ParameterSetName='OneLine')][string]$Delimiter = " "
+
         ,[parameter()][switch]$NoNewLine
+
         ,[parameter()][int]$Left
         ,[parameter()][int]$Right
+
+        ,[parameter()][VT100CharMod]$ForegroundColor
+        ,[parameter()][VT100CharMod]$BackgroundColor
+        ,[parameter()][switch]$Bold
+        ,[parameter()][switch]$Italic
+        ,[parameter()][switch]$Underline
+        ,[parameter()][switch]$Invert
+        ,[parameter()][switch]$Hide
+        ,[parameter()][switch]$Strike
+        ,[parameter()][switch]$Normal
+        ,[parameter()][switch]$Reset
+        ,[parameter()][switch]$ResetAfterInject
+
         ,[parameter(ValueFromRemainingArguments=$true)]$Lefts
     )
 
     begin{
         $local:actualDelimiter=''
+        if( $null -ne $ForegroundColor ){
+            $Builder.Append($Builder.Helper.modifier.ForegroundColor($ForegroundColor))
+        }
+        if( $null -ne $BackgroundColor ){
+            $Builder.Append($Builder.Helper.modifier.BackgroundColor($BackgroundColor))
+        }
+
+        if( $Bold       ){ $Builder.Append($Builder.Helper.modifier.Modify('Bold')) }
+        if( $Italic     ){ $Builder.Append($Builder.Helper.modifier.Modify('Italic')) }
+        if( $Underline  ){ $Builder.Append($Builder.Helper.modifier.Modify('Underline')) }
+        if( $Invert     ){ $Builder.Append($Builder.Helper.modifier.Modify('Invert')) }
+        if( $Hide       ){ $Builder.Append($Builder.Helper.modifier.Modify('Hide')) }
+        if( $Strike     ){ $Builder.Append($Builder.Helper.modifier.Modify('Strike')) }
+        if( $Normal     ){ $Builder.Append($Builder.Helper.modifier.Modify('Normal')) }
+        if( $Reset      ){ $Builder.Append($Builder.Helper.modifier.Reset()) }
     }
 
     process{
@@ -77,6 +107,8 @@ function InjectMessage{
                 }
             }
         }
+
+        if( $ResetAfterInject ){ $Builder.Append($Builder.Helper.modifier.Reset()) }
 
         switch( $PsCmdlet.ParameterSetName ){
             OneLine {
