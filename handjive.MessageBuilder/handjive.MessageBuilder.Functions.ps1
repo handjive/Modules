@@ -141,7 +141,7 @@ function InjectMessage{
                 &$modifyBlock
                 OneLineAppender $Builder $actualDelimiter $Delimiter $leftAlone
                 $local:actualDelimiter=$Delimiter
-#                $Builder.NL(!$NoNewLine)
+                $Builder.NL(!$NoNewLine)
             }
             else{
                 for($i=0; $i -lt $leftAlone.Count; $i++){
