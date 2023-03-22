@@ -12,14 +12,16 @@ switch($args){
         # Basics
         $mb.Reset()
         $mb.IndentLevel(1)
-        @(1..5) | InjectMessage $mb -OneLine -Delimiter ','
+        @(1..5) | InjectMessage $mb -OneLine -Delimiter ',' -ForegroundColor BRIGHT_BLUE -Italic
+        $mb.ToString() | Set-Content -Path '.\aaa.txt'
         $mb.Flush()
         @(1..5) | InjectMessage $mb -OneLine -Delimiter ''
         $mb.Flush()
         $mb.IndentRight()
-        @(1..5) | InjectMessage $mb 'Additional 1 ' 'Additional 2' 'Additional 3'
-        Write-Host '----- Write Cyan -----'
-        $mb.Flush([OutputColor]::Cyan,[OutputColor]::DNS)
+        @(1..5) | InjectMessage $mb 'Additional 1 ' 'Additional 2' 'Additional 3' -Bold -BackgroundColor BLUE
+        Write-Host '----- Write Host -----'
+        $mb.ToString() | Add-Content -Path '.\aaa.txt'
+        $mb.Flush()
         
         write-Host '----- Write into Warning Stream -----'
         $mb.Flush([StreamName]::Warning)
@@ -29,84 +31,49 @@ switch($args){
 
         write-host '----- Write into Debug stream -----'
         $mb.Flush([StreamName]::Debug)
-
-        write-host '----- Write into Information stream -----'
-        $mb.Flush([StreamName]::Information)
     }
     2 {
         $mb.Reset()
+
         $mb.IndentRight()
+        '----- Indent Right -----' | InjectMessage $mb
+        @(1..5) | InjectMessage $mb
+
         $mb.IndentRight()
+        '----- Indent Right -----' | InjectMessage $mb
+        @(1..5) | InjectMessage $mb
+
+        '----- Indent Right(3) -----' | InjectMessage $mb
         $mb.IndentRight(3)
+        @(1..5) | InjectMessage $mb
+
         $mb.IndentLeft(4)
-        Write-Host '----- input from arguments -----'
+        '----- Indent left(4), input from arguments -----' | InjectMessage $mb
         InjectMessage $mb '1' '2' '3' 'a' 'b' 'c'
         $mb.Flush()
     }
     3 {
         Write-Host '----- MessageBuilder Turn inactive -----'
         $mb.Active = $false
+        $mb.ResetOnFlush =$false
+        InjectMessage $mb '1' '2' '3' 'a' 'b' 'c'
+        $mb.Flush()
+        Write-Host '----- MessageBuilder Turn active -----'
+        $mb.Active = $true
         $mb.Flush()
     }
     4 {
-        # ToStringとLinesの使い分け ToStringは単一行、Linesは複数行を返したい
-        $mb = [MessageBuilder]::new() 
-        @( 1..20 ) | InjectMessage $mb -OneLine
-        write-host '---- 1 -----'
-        $mb.ToString()
-        write-host '---- 1.1 -----'
-        $mb.Lines.Count
-        $mb.AppendLine("HOGEeeeee!")
-        @(21..25) | InjectMessage $mb 
-        write-host '---- 2 -----'
-        $mb.Lines.Count | Write-Host
-        write-host '---- 3 -----'
-        $mb.Lines
-        write-host '---- 3.1 -----'
-        $mb.ToString()
-        write-host '---- 4 -----'
-        $mb.flush()
-        write-host '---- 5 -----'
-
-    }
-    5 {
-        $mb = [MessageBuilder]::new()
-        @( 1..20 ) | InjectMessage $mb
-        for($i=0; $i -lt $mb.Lines.Count; $i++){
-            if( (($i+1)%2) -eq 0 ){
-                $mb.FlushLine($i,[OutputColor]::Cyan,[OutputColor]::DNS)
-            }
-            else{
-                $mb.FlushLine($i,[OutputColor]::Yellow,[OutputColor]::DNS)
-            }
-        }
-        $mb.Flush()
-    }
-    6 {
         $mb.Reset()
         $scaleLine = '0---+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----'
         write-host $scaleLine
                     
 
-        $mb.Helper.Line(20) | InjectMessage $mb -oneline -NoNewLine
-        $mb.Helper.Line(4,' ') | InjectMessage $mb -oneline -NoNewLine
-        $mb.Helper.Line(20,'~') | InjectMessage $mb 
+        $mb.Helper.Line(20) | InjectMessage $mb -oneline -NoNewLine -ForegroundColor Green
+        $mb.Helper.Line(4,' ') | InjectMessage $mb -oneline -NoNewLine -ForegroundColor RED
+        $mb.Helper.Line(20,'~') | InjectMessage $mb -ForegroundColor Yellow
         $mb.Flush()
-        <#
-        $f = {
-            param($str,$width)
-            $len = $str.Length
-            if( $len -lt $width){
-                $diffLen = $width - $len
-                $actualStr = (' ' * $diffLen)+$str
-                
-
-            }
-        }
-        &$f $scaleLine 40
-        #>
     }
-    7 {
+    5 {
         $scaleLine = '0---+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----'
         write-host $scaleLine
 
@@ -116,17 +83,17 @@ switch($args){
         1,3,5 | InjectMessage $mb -Right 10 -NoNewLine
         $mb.Flush()
     }
-    8 {
+    6 {
         $mb = [MessageBuilder]::new()
         'hogehoge' | InjectMessage $mb -ForegroundColor Yellow -Left 40
         'hogehoge' | InjectMessage $mb -ForegroundColor Yellow -Right 40 -Padding '>>'
         'Bold&Italic&Underline' | InjectMessage $mb -Bold -Italic -Underline
-        'Italic' | InjectMessage $mb -Italic 
         'Underline'  | InjectMessage $mb -Underline 
         'Reset' | InjectMessage $mb -Reset 
         'Hide' | InjectMessage $mb -Hide 
         'Strike' | InjectMessage $mb -Strike 
-        ' taratara ' | InjectMessage $mb -ForegroundColor BRIGHT_YELLOW -BackgroundColor CYAN
+        'taratara ' | InjectMessage $mb -ForegroundColor BRIGHT_YELLOW -BackgroundColor CYAN -Italic -Bold
+        $mb.ToString() | Set-Content -Path aaa.txt
         $mb.Flush()
     }
     9 {
@@ -146,6 +113,12 @@ switch($args){
         $mb.Flush()
         @(1..10) | InjectMessage $mb -Format 'Value is "{0}"' 11 12 13 -Oneline -Delimiter ','
         $mb.Flush()
+    }
+    12 {
+        $mb = [MessageBuilder]::new()
+        @(1..10) | InjectMessage $mb -Format 'Value is "{0}"' 11 12 13 -Bold -Italic -Underline -Strike
+        Set-Content -Path '.\aaa.txt' -Value ($mb.ToString())
+        $mb.ToString() | Set-Content -Path '.\bbb.txt'
     }
 
 }

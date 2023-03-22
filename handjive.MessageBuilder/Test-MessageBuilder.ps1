@@ -28,13 +28,6 @@ switch($args){
     }
     2 {
         $mh = [MessageHelper]::new()
-        $scale | write-host -ForegroundColor DarkGreen
-        $mh.ReverseString('ほげhogeほげたろうgoing on!') | write-host
-        $mh.ClipLeftInWidth('ほげhogeほげたろうgoing on!',20) | write-host
-
-    }
-    3 {
-        $mh = [MessageHelper]::new()
         $result = $mh.Right('ほげhogeほげたろうgoing on!',20,'>>')
         $scale | Write-Host -ForegroundColor DarkGreen
         $result | write-Host
@@ -45,6 +38,12 @@ switch($args){
         $scale | Write-Host -ForegroundColor DarkGreen
         $result | write-Host
         $result = $mh.Right('ほげhogeほ',20,'>>')
+        $scale | Write-Host -ForegroundColor DarkGreen
+        $result | write-Host
+        $result = $mh.Left('ほげhoge',20,'<<')
+        $scale | Write-Host -ForegroundColor DarkGreen
+        $result | write-Host
+        $result = $mh.Left('ほげhogeほ',20,'<<')
         $scale | Write-Host -ForegroundColor DarkGreen
         $result | write-Host
     }

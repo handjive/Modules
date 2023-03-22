@@ -1,7 +1,8 @@
+using module handjive.StringUtility
+
 enum StreamName{
     Host
     Debug
-    Information
     Warning
     Error
     Verbose
@@ -64,9 +65,11 @@ enum VT100CharMod{
 
     BACKGROUND = 10
     DEFAULTCOLOR = 39
+    DNS = -1
 }
 
-class VT100CharacterModifier{
+
+class VT100CharacterModifier {
     static [string]$CHAR_MOD_FRAME="`e[{0}m"
     [string]$FRAME = ""
 
@@ -87,18 +90,22 @@ class VT100CharacterModifier{
     VT100CharacterModifier(){
         # 端末がVt100をサポートしていないなら、修飾指定されても空文字出力
         if( (Get-host).UI.SupportsVirtualTerminal ){
-            $this.FRAME = [VT100CharacterModifier]::CHAR_MOD_FRAME
+            $this.Enable()
         }
+    }
+
+    Enable(){
+        $this.Enabled($true)
+    }
+    Disable(){
+        $this.Enabled($false)
+    }
+    Enabled([bool] $aValue){
+        $this.FRAME = if( $aValue ){ [VT100CharacterModifier]::CHAR_MOD_FRAME } else{ ''}
     }
 }
 
 class MessageHelper{
-    [VT100CharacterModifier]$modifier
-
-    MessageHelper(){
-        $this.modifier = [VT100CharacterModifier]::new()
-    }
-
     [string]Line([int]$width,[string]$element){
         $a = $element * $width
         return($a.Substring(0,$width))
@@ -108,158 +115,78 @@ class MessageHelper{
         return($this.Line($width,'-'))
     }
 
-    [string]ForegroundColor([VT100CharMod]$color){
-        return($this.modifier.ForegroundColor($color))
+    [string]Left([string]$aString,[int]$aWidth){
+        return([StringUtility]::Left($aString,$aWidth))
     }
-    [string]BackgroundColor([VT100CharMod]$color){
-        return($this.modifier.BackgroundColor($color))
+    [string]Left([string]$aString,[int]$aWidth,[string]$aFiller){
+        return([StringUtility]::Left($aString,$aWidth,$aFiller))
     }
-    [string]Modify([VT100CharMod]$modifier){
-        return($this.modifier.modify($modifier))
+    [string]Right([string]$aString,[int]$aWidth){
+        return([StringUtility]::Right($aString,$aWidth))
     }
-    
-    [string]ReverseString([string]$str){
-        $chars = $str[($str.Length-1)..0]
-        return (($chars -join('')))
-    }
-
-    [string]ClipLeftInWidth([string]$str,[int]$width){
-        return($this.ReverseString(($this.ClipRightInWidth($this.ReverseString($str),$width))))
-    }
-
-    [string]ClipRightInWidth([string]$str,[int]$width){
-        #$a[($a.Length-1)..0]  
-        $buffer = ''
-        for($i = 0; $i -lt $str.Length; $i++){
-            $bufferWidth = SizeInByte $buffer
-            $charWidth = SizeInByte $str[$i]
-            if( ($bufferWidth+$charWidth) -le $width ){
-                $buffer += $str[$i]
-            }
-            else{ 
-                break
-            }
-        }
-
-        if( (SizeInByte $buffer) -gt $width ){
-            throw "What a HELL!?"
-        }
-        return ($buffer)
-    }
-
-    [string]Left([string]$str,[int]$width){
-        return($this.Left($str,$width,' '))
-    }
-
-    [string]Left([String]$str,[int]$width,[string]$filler){
-        $str,$padding = $this.ClipAndCulculatePadding($str,$width,$filler)
-        return($str+$padding)
-    }
-
-    [string]Right([string]$str,[int]$width){
-        return($this.Right($str,$width,' '))
-    }
-
-    [string]Right([String]$str,[int]$width,[string]$filler){
-        $str,$padding = $this.ClipAndCulculatePadding($this.ReverseString($str),$width,$filler)
-        return($padding+$this.ReverseString($str))
-    }
-
-
-
-    [string[]]ClipAndCulculatePadding([string]$str,[int]$width,[string]$filler){
-        $widthInBytes = SizeInByte $str
-
-        $result = $str
-        
-        # 幅ぴったしなら処理不要
-        if( $widthInBytes -eq $width){
-            return($result)
-        }
-
-        # 指定幅より長ければクリップ
-        # (クリップ結果は指定幅より短い可能性がある)
-        if( $widthInBytes -gt $width){
-            $result = $this.ClipRightInWidth($str,$width)
-        }
-
-        # クリップした結果ﾄﾞﾝﾋﾟｼｬならそのまま返す
-        if( ($resultWidth = SizeInByte $result) -eq $width ){ return($result) }
-
-        # フィラー処理
-        $widthDiff = $width - $resultWidth
-        $fillerCandidate = ($filler * $widthDiff)   # Fillerが一文字ならこれでいいんだけど…
-        $actualFiller = $fillerCandidate
-        if( (SizeInByte $fillerCandidate) -gt $widthDiff ){
-            $actualFiller = $this.ClipRightInWidth($fillerCandidate,$widthDiff)
-        }
-
-        return(@($result,$actualFiller))
+    [string]Right([string]$aString,[int]$aWidth,[string]$aFiller){
+        return([StringUtility]::Right($aString,$aWidth,$aFiller))
     }
 }
 
-class MessageBuilder : handjive.IMessageBuilder {
+class MessageBuilder {
     static [int]$DefaultIndent = 4
 
-    [Text.StringBuilder]$Substance
+    [Text.StringBuilder]$Substance  
     [MessageHelper]$Helper
+    [VT100CharacterModifier]$modifier
+
+    [bool]$ResetOnFlush
     [bool]$Active
-    [bool]$Dirty
     [int]$Indent
     [int]$wpvIndentLevel
     [string]$wpvIndentFiller = ' '
     [Collections.Stack]$IndentStack
-    [string[]]$wpvLines
-    [bool]$ResetOnFlush
 
-    MessageBuilder(){
+    InitializeInstance(){
         $this.Substance = [Text.StringBuilder]::new()
         $this.Helper = [MessageHelper]::new()
+        $this.modifier = [VT100CharacterModifier]::new()
+        $this.IndentStack = [Collections.Stack]::new()
+        $this.Indent = [MessageBuilder]::DefaultIndent
+        $this.Active = $true
+        $this.ResetOnFlush = $true
+    }
+    MessageBuilder(){
+        $this.InitializeInstance()
         $this.Reset()
     }
     MessageBuilder([bool]$active){
-        $this.Substance = [Text.StringBuilder]::new()
-        $this.Helper = [MessageHelper]::new()
+        $this.InitializeInstance()
         $this.Reset()
         $this.Active = $active
     }
 
     Reset(){
-        $this.Substance.Clear()
-        $this.Active = $true
-        $this.Indent = [MessageBuilder]::DefaultIndent
-        $this.IndentStack = [Collections.Stack]::new()
         $this.wpvIndentLevel = 0
-        $this.ResetOnFlush = $true
+        $this.Substance.Clear()
     }
 
-    [string[]]BuildLines(){
-        if( ($null -eq $this.wpvLines) -or ($this.IsDirty())){
-            $lines = [Collections.ArrayList]::new($this.ToString().split("`n"))
-            if( $lines.Count -gt 0 ){
-                $lines.RemoveAt($lines.Count-1)
-            }
-            $this.wpvLines = [string[]]$lines
-        }
-        return ($this.wpvLines)
+    <# 
+    # VT100 Character modify
+    #>
+    Modify([VT100CharMod]$mod){
+        $this.Substance.Append($this.modifier.Modify($mod))
+    }
+    ResetModify(){
+        $this.Substance.Append($this.modifier.Modify([VT100CharMod]::Reset))
     }
 
-    [string[]]get_Lines(){
-        return($this.BuildLines())
+    ForegroundColor([VT100CharMod]$color){
+        $this.Substance.Append($this.modifier.Modify($color))
+    }
+    BackgroundColor([VT100CharMod]$color){
+        $this.Substance.Append($this.modifier.BackgroundColor($color))
     }
 
-<#    
-    set_Lines([string[]]$newLines){
-        $this.wpvLines = $newLines
-    }
-#>    
-    BeDirty([bool]$value){
-        $this.Dirty = $value
-    }
-    [bool]IsDirty(){
-        return ($this.Dirty)
-    }
-
+    <#
+    # Indent Contol 
+    #>
     [int]IndentLevel(){
         return($this.wpvIndentLevel)
     }
@@ -288,6 +215,9 @@ class MessageBuilder : handjive.IMessageBuilder {
         $this.wpvIndentLevel = [int]::max($newLevel,0)
    }
 
+    PushIndentLevel(){
+        $this.PushIndentlevel($this.IndentLevel())
+    }
     PushIndentlevel([int]$newLevel){
         $this.IndentStack.Push($this.IndentLevel())
         $this.wpvIndentLevel = $newLevel
@@ -303,30 +233,37 @@ class MessageBuilder : handjive.IMessageBuilder {
         return($result)
     }
 
+
+    <#
+    # Append string into buffer
+    #>
     Append([Text.StringBuilder]$sb){
         $this.Substance.Append($this.IndentFiller())
         $this.Substance.Append($sb)
-        $this.BeDirty($true)
     }
     Append([object]$var){
         $this.Substance.Append($this.IndentFiller())
         $this.Substance.Append($var)
-        $this.BeDirty($true)
     }
     AppendLine([Text.StringBuilder]$sb){
         $this.Substance.Append($this.IndentFiller())
-        $this.Substance.AppendLine($sb)
-        $this.BeDirty($true)
+        $this.Substance.Append($sb)
+        $this.NL()
     }
     AppendLine([object]$var){
         $this.Substance.Append($this.IndentFiller())
-        $this.Substance.AppendLine($var)
-        $this.BeDirty($true)
+        $this.Substance.Append($var)
+        $this.NL()
     }
 
     NL(){
-        $this.Substance.AppendLine('')
-        $this.BeDirty($true)
+        $this.NL($true)
+    }
+    NL([bool]$switch){
+        $this.ResetModify()
+        if( $switch ){
+            $this.Substance.AppendLine('')
+        }
     }
 
     [string]ToString(){
@@ -335,7 +272,7 @@ class MessageBuilder : handjive.IMessageBuilder {
     
 
     <#
-        ダイレクト出力
+    # ダイレクト出力
     #>
     Flush([string]$directValue){
         $this.Flush($directValue,[OutputColor]::DNS,[OutputColor]::DNS)
@@ -353,7 +290,7 @@ class MessageBuilder : handjive.IMessageBuilder {
     }
 
     <#
-        バッファ全体の内容出力
+    # バッファ全体の内容出力
     #>
 
     # Stream=Host
@@ -366,22 +303,12 @@ class MessageBuilder : handjive.IMessageBuilder {
         }
     }
 
-    # Stream=Host,色指定付き
-    Flush([OutputColor]$fgc,[OutputColor]$bgc){
-        $this.basicFlush($this.ToString(),[StreamName]::Host,$fgc,$bgc,$false)
-    }
-
     # Stream指定
     Flush([StreamName]$streamName){
-        $this.basicFlush($this.ToString(),$streamName,[OutputColor]::DNS,[OutputColor]::DNS,$false)
+        $this.basicFlush($this.ToString(),$streamName,$false)
     }
 
-    basicFlush(
-             [string]$value
-            ,[StreamName]$streamName
-            ,[OutputColor]$fgColor=[OutputColor]::DNS
-            ,[OutputColor]$bgColor=[OutputColor]::DNS
-            ,[bool]$NewLine){
+    basicFlush([string]$value,[StreamName]$streamName,[bool]$NewLine){
 
         if(! $this.Active ){
             if( $this.ResetOnFlush ){
@@ -390,26 +317,17 @@ class MessageBuilder : handjive.IMessageBuilder {
             return
         }
         
-        $ui = Get-Host.UI.RawUI
-        $curFgc,$curBgc = $ui.ForegroundColor,$ui.BackgroundColor
-
-        $actualFgc = if( [OutputColor]::DNS -eq $fgColor ){ $curFgc }{ $fgColor }
-        $actualBgc = if( [OutputColor]::DNS -eq $bgColor ){ $curBgc }{ $bgColor }
-
         switch($streamName){
             Host {
                 if( $NewLine ){
-                    Write-host $value -ForegroundColor $actualFgc -BackgroundColor $actualBgc
+                    Write-host $value
                 }
                 else{
-                    Write-Host $value -NoNewline -ForegroundColor $actualFgc -BackgroundColor $actualBgc
+                    Write-Host $value
                 }
             }
             Debug {
                 Write-Debug $value
-            }
-            Information {
-                Write-Information $value
             }
             Warning {
                 Write-Warning $value
@@ -424,24 +342,5 @@ class MessageBuilder : handjive.IMessageBuilder {
         if( $this.ResetOnFlush ){
             $this.Reset()
         }
-    }
-
-
-    <#
-     行単位の出力
-    #>
-
-    # Stream=Host
-    FlushLine([int]$index){
-        $this.basicFlush($this.Lines[$index],[StreamName]::Host,[OutputColor]::DNS,[OutputColor]::DNS,$true)
-    }
-
-    # Stream=Host, 色指定
-    FlushLine([int]$index,[OutputColor]$fgColor=[OutputColor]::DNS,[OutputColor]$bgColor=[OutputColor]::DNS){
-        $this.basicFlush($this.Lines[$index],[StreamName]::Host,$fgColor,$bgColor,$true)
-    }
-
-    FlushLine([int]$index,[StreamName]$streamName){
-        $this.basicFlush($this.Lines[$index],$streamName,[OutputColor]::DNS,[OutputColor]::DNS)
     }
 }
