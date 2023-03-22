@@ -176,11 +176,11 @@ class StringUtility{
         return($padding+[StringUtility]::ReverseString($str))
     }
 
-    static [string]ClipLeftInWidth([string]$str,[int]$width){
+    hidden static [string]ClipLeftInWidth([string]$str,[int]$width){
         return([StringUtility]::ReverseString(([StringUtility]::ClipRightInWidth([StringUtility]::ReverseString($str),$width))))
     }
 
-    static [string]ClipRightInWidth([string]$str,[int]$width){
+    hidden static [string]ClipRightInWidth([string]$str,[int]$width){
         $buffer = ''
         for($i = 0; $i -lt $str.Length; $i++){
             $bufferWidth = [StringUtility]::SizeInByte($buffer)
@@ -202,7 +202,7 @@ class StringUtility{
 
 
 
-    static [string[]]ClipAndCulculatePadding([string]$str,[int]$width,[string]$filler){
+    hidden static [string[]]ClipAndCulculatePadding([string]$str,[int]$width,[string]$filler){
         $widthInBytes = [StringUtility]::SizeInByte($str)
 
         $result = $str
