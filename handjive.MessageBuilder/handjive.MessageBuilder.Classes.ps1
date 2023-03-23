@@ -106,6 +106,15 @@ class VT100CharacterModifier {
 }
 
 class MessageHelper{
+    static [VT100CharacterModifier]$modifier
+    
+    [VT100CharacterModifier]modifier(){
+        if( $null -eq [MessageHelper]::modifier ){
+            [MessageHelper]::modifier = [VT100CharacterModifier]::new()
+        }
+        return([MessageHelper]::modifier)
+    }
+
     [string]Line([int]$width,[string]$element){
         $a = $element * $width
         return($a.Substring(0,$width))
@@ -127,6 +136,10 @@ class MessageHelper{
     [string]Right([string]$aString,[int]$aWidth,[string]$aFiller){
         return([StringUtility]::Right($aString,$aWidth,$aFiller))
     }
+    [string]VtModifyString([VT100CharMod]$modifierId){
+        return($this.modifier.modify($modifierId))
+    }
+
 }
 
 class MessageBuilder {

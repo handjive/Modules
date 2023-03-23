@@ -48,6 +48,7 @@ function InjectMessage{
         ,[parameter()][switch]$Strike
         ,[parameter()][switch]$Normal
         ,[parameter()][switch]$ResetModify
+        ,[parameter()][switch]$Flush
 #        ,[parameter()][switch]$KeepModify
 
         ,[parameter(ValueFromRemainingArguments=$true)]$Lefts
@@ -165,6 +166,9 @@ function InjectMessage{
         if( $OneLine ){
             $Builder.PopIndentLevel()
         }
-    }
 
+        if( $Flush ){
+            $Builder.Flush()
+        }
+    }
 }
