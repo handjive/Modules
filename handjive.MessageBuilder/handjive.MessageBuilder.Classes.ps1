@@ -272,11 +272,19 @@ class MessageBuilder {
     NL(){
         $this.NL($true)
     }
+    NL([int]$times){
+        $this.NL($true,$times)
+    }
+
     NL([bool]$switch){
-        $this.ResetModify()
-        if( $switch ){
-            $this.Substance.AppendLine('')
+        $this.NL($switch,1)
+    }
+    NL([bool]$switch,[int]$times){
+        if( !$switch ){
+            return
         }
+        $this.ResetModify()
+        @(1..$times).foreach{ $this.Substance.AppendLine() }
     }
 
     [string]ToString(){

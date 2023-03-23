@@ -49,7 +49,8 @@ function InjectMessage{
         ,[parameter()][switch]$Normal
         ,[parameter()][switch]$ResetModify
         ,[parameter()][switch]$Flush
-#        ,[parameter()][switch]$KeepModify
+        ,[parameter()][switch]$NewLine
+        ,[parameter()][int]$NewLines
 
         ,[parameter(ValueFromRemainingArguments=$true)]$Lefts
     )
@@ -142,7 +143,6 @@ function InjectMessage{
                 &$modifyBlock
                 OneLineAppender $Builder $actualDelimiter $Delimiter $leftAlone
                 $local:actualDelimiter=$Delimiter
-                $Builder.NL(!$NoNewLine)
             }
             else{
                 for($i=0; $i -lt $leftAlone.Count; $i++){
@@ -165,6 +165,14 @@ function InjectMessage{
 
         if( $OneLine ){
             $Builder.PopIndentLevel()
+            $Builder.NL(!$NoNewLine)
+        }
+
+        if( $NewLine ){
+            $Builder.NL()
+        }
+        if( $NewLines -gt 0 ){
+            $Builder.NL($NewLines)
         }
 
         if( $Flush ){

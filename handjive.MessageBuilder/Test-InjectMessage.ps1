@@ -120,6 +120,11 @@ switch($args){
         Set-Content -Path '.\aaa.txt' -Value ($mb.ToString())
         $mb.ToString() | Set-Content -Path '.\bbb.txt'
     }
+    13 {
+        $mb = [MessageBuilder]::new()
+        @(1..10) | InjectMessage $mb -OneLine -NewLine -Flush
+        @(1..10) | InjectMessage $mb -NewLines 3 -Flush
+    }
 
 }
 
