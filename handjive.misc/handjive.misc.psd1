@@ -51,7 +51,7 @@ Copyright = '(c) handjive. All rights reserved.'
 # ProcessorArchitecture = ''
 
 # Modules that must be imported into the global environment prior to importing this module
-RequiredModules = @('handjive.StringUtility','handjvie.RandomFilename')
+RequiredModules = @('handjive.StringUtility','handjive.RandomFilename')
 
 # Assemblies that must be loaded prior to importing this module
 # RequiredAssemblies = @()
