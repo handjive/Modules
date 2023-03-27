@@ -107,7 +107,7 @@ class EverythingSearchResultElement : ISearchResultElement {
 
     [string]AsFullPath()
     {
-        return Join-Path -Path $this.ContainerPath -ChildPath $this.Name
+        return (Join-Path -Path $this.ContainerPath -ChildPath $this.Name)
     }
     [object]AsFilesystemInfo()
     {

@@ -213,9 +213,8 @@ class MessageBuilder {
         }
     }
 
-    [MessageBuilder]IndentRight(){
+    IndentRight(){
         $this.IndentRight(1)
-        return($this)|out-null
     }
     IndentRight([int]$level){
         $this.wpvIndentLevel += $level
