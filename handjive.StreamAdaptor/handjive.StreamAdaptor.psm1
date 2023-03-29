@@ -106,6 +106,57 @@ function SA_InjectInto{
      }
 }
 
+function SA_FindLast{
+     param(
+           [AllowNull()][object]$streamInput
+          ,[object[]]$argumentInput
+          ,[object]$findiLastResult
+          ,[ScriptBlock]$findLastBlock
+     )
+
+     if( $null -ne $streamInput ){
+          if( &$findLastBlock $streamInput ){
+               return $streamInput
+          }
+          else{
+               return $findiLastResult
+          }
+     }
+     else{
+          $result = $findLastResult
+          $argumentInput.foreach{
+               if( (&$findLastBlock $_) ){
+                    $result = $_
+               }
+          }
+          return $result
+     }
+}
+function SA_Find{
+     param(
+           [AllowNull()][object]$streamInput
+          ,[object[]]$argumentInput
+          ,[ScriptBlock]$findBlock
+     )
+
+     if( $null -ne $streamInput ){
+          if( &$findBlock $streamInput ){
+               return $streamInput
+          }
+          else{
+               return $null
+          }
+     }
+     else{
+          $argumentInput.foreach{
+               if( (&$findBlock $_) ){
+                    return $_
+               }
+          }
+          return $null
+     }
+}
+
 function SA_PassThru{
      param(
            [AllowNull()][object]$streamInput
@@ -128,11 +179,13 @@ function StreamAdaptor
           ,[Parameter(Mandatory,ParameterSetName="Tail")][ValidateRange([ValidateRangeKind]::Positive)][int]$Tail
           ,[Parameter(Mandatory,ParameterSetName="Select")][scriptBlock]$Select
           ,[Parameter(Mandatory,ParameterSetName="Reject")][scriptBlock]$Reject
-          ,[Parameter(Mandatory,ParameterSetName="Treat")][scriptBlock]$Treat   # Treat is alias of Collect
-          ,[Parameter(Mandatory,ParameterSetName="Collect")][scriptBlock]$Collect
+          ,[Alias('Treat')][Parameter(Mandatory,ParameterSetName="Collect")][scriptBlock]$Collect
           ,[Parameter(Mandatory,ParameterSetName="InjectInto")][object]$Inject
           ,[Parameter(Mandatory,ParameterSetName="InjectInto")][ScriptBlock]$Into
+          ,[Parameter(Mandatory,ParameterSetName="Find")][ScriptBlock]$Find
+          ,[Parameter(Mandatory,ParameterSetName="FindLast")][ScriptBlock]$FindLast
           ,[Parameter(Mandatory,ParameterSetName="PassThru")][switch]$PassThru
+          ,[Parameter()][ScriptBlock]$ifAbsent
           ,[Parameter(ValueFromPipeline)][AllowNull()][object]$StreamInput = $null
      )
      
@@ -144,6 +197,9 @@ function StreamAdaptor
           elseif($PsCmdlet.ParameterSetName -eq 'InjectInto'){
                $injectResult = $Inject
           }
+          elseif($PsCmdlet.ParameterSetName -eq 'FindLast'){
+               $findResult = $null
+          }
      }
      process{
           ++$counter
@@ -152,9 +208,10 @@ function StreamAdaptor
                Tail      { SA_Tail $streamInput $Subject $buffer $Tail }
                Select    { SA_Select $streamInput $Subject $Select }
                Reject    { SA_Reject $streamInput $Subject $Reject }
-               Treat     { SA_Treat $streamInput $Subject $Treat }    # Treat is an alias of Collect
                Collect   { SA_Treat $streamInput $Subject $Collect }
                InjectInto{ $injectResult = SA_InjectInto $streamInput $Subject $injectResult $Into }
+               Find      { $findResult = SA_Find $streamInput $Subject $Find }
+               FindLast  { $findResult = SA_FindLast $streamInput $Subject $findResult $FindLast }
                PassThru  { SA_PassThru $streamInput $Subject }
           }
      }
@@ -166,6 +223,15 @@ function StreamAdaptor
           }
           elseif($PsCmdlet.ParameterSetName -eq 'InjectInto'){
                write-Output $injectResult
+          }
+          elseif(($PsCmdlet.ParameterSetName -eq 'FindLast') -or  ($PsCmdlet.ParameterSetName -eq 'Find')){
+               if( $null -eq $findResult ){
+                    $aValue = if( $null -ne $ifAbsent ){ &$ifAbsent } else{ $findResult }
+                    write-Output $aValue
+               }
+               else{
+                    write-Output $findResult
+               }
           }
      }
 }
