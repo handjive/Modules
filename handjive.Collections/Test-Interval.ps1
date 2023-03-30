@@ -29,9 +29,4 @@ switch($args){
         write-host '----- foreach -----'
         $iv3.foreach{ write-host $_ }
     }
-    2 {
-        $test = [Test]::new()
-        $test
-        $test.foreach{ write-host $_ }
-    }
 }

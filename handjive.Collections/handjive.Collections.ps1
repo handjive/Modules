@@ -1,48 +1,12 @@
 <#
-    重複を無視する(が、重複数は保持する)コレクション
-
-    Values
-    Includes
-    OccurrencesOf
-    [[int]$index] (keys[$index]を返す)
-    Add
-    AddAll
-    Remove
-    RemoveAll
-    Count
-
+# 一定範囲の整数値
+#
+# [Interval]::new(1,100,2)      1~100、増分2の整数(1,3,5,7....)
+# [Interval]::new(-100,100,10)  -100~100、増分10の整数(-100,-90,-80...80,90,100)
+#
+# while($anInterval.MoveNext(){ $anInterval.Current }
+# $anInterval.foreach{ ------ }
 #>
-
-class Test : handjive.Collections.EnumerableBase {
-    [Collections.Generic.IEnumerator[object]]PSGetEnumerator(){
-        $enumerator = [PluggableEnumerator]::new($this)
-        $enumerator.WorkingSet.Value = $null
-        $enumerator.OnMoveNextBlock = {
-            param($sustance,$workingset)
-            if( $null -eq $workingset.value ){
-                $workingset.value = 0
-            }
-            else{
-                if( $workingset.value -ge 10 ){
-                    return($false)
-                }
-                $workingset.value++
-            }
-            return($null -ne $workingset.value)
-        }
-        $enumerator.OnCurrentBlock = {
-            param($substance,$workingset)
-            return($workingset.value)
-        }
-        $enumerator.OnResetBlock = {
-            param($substance,$workingset)
-            $workingset.value = $null
-        }
-        return $enumerator
-    }
-}
-
-
 class Interval : handjive.Collections.EnumerableBase, Collections.IEnumerator{
     [int]$Start
     [int]$Stop
@@ -59,7 +23,7 @@ class Interval : handjive.Collections.EnumerableBase, Collections.IEnumerator{
         $this.initialize($start,$stop,1)
     }
 
-    hidden [object]calcvalue([nullable[int]]$value,[int]$step,[int]$stop,[scriptblock]$ifOutOfRange)
+    hidden [object]calcvalue([int]$value,[int]$step,[int]$stop,[scriptblock]$ifOutOfRange)
     {
         if( $null -eq $value ){
             $this.wpvCurrent = $this.Start
@@ -134,6 +98,16 @@ class Interval : handjive.Collections.EnumerableBase, Collections.IEnumerator{
     }
 }
 
+<#
+#　場当たり的なEnumerator
+#
+#  [PluggableEnumerator]::new(Enumerationの主体となるオブジェクト)
+#　$penum.Substance         Enumerationの主体となるオブジェクト
+#  $penum.Workingset        Enumerationを実行するために必要なｱﾚｺﾚを格納するための領域(HashTable)
+#  $penum.OnCurrentBlock    Currentにアクセスされた時に実行されるScriptBlock(SubstanceとWorkingSetがパラメータとして渡される)
+#  $penum.OnMoveNextBlock   MoveNext()が実行要求された時に実行されるScriptBlock(SubstanceとWorkingSetがパラメータとして渡される)
+#  $penum.OnResetBlock      Reset()が実行要求された時に実行されるScriptBlock(SubstanceとWorkingSetがパラメータとして渡される)
+#>
 class PluggableEnumerator : handjive.Collections.EnumeratorBase {
     [object]$Substance
     [ScriptBlock]$OnCurrentBlock = {}
@@ -171,6 +145,9 @@ class PluggableEnumerator : handjive.Collections.EnumeratorBase {
 }
 
 
+<#
+#  重複を無視する(が、重複数は保持する)コレクション
+#>
 class BagElement{
     [object]$Value
     [int]$Occurrence
@@ -181,18 +158,6 @@ class BagElement{
     BagElement([object]$value,[int]$Occurrence){
         $this.Value = $value
         $this.Occurrence = $Occurrence
-    }
-}
-
-class IndexedBagElement{
-    [object]$Index
-    [AbstractBag]$Value
-
-    IndexedBagElement(){
-    }
-    IndexedBagElement([object]$index,[AbstractBag]$value){
-        $this.Index = $index
-        $this.Value = $value
     }
 }
 
@@ -277,13 +242,7 @@ class AbstractBag : handjive.Collections.EnumerableBase,handjive.IWrapper,handji
         $values.foreach{ $this.Add($_) }
     }
     
-    Set([BagElement]$element){
-        $this.Substance[$element.Value] = $element.Occurrence
-    }
-    SetAll([BagElement[]]$elements){
-        $elements.foreach{ $this.Set($_) }
-    }
-    
+  
     Remove([object]$aValue){
         if( $null -eq $this.Substance[$aValue] )
         {
@@ -300,6 +259,15 @@ class AbstractBag : handjive.Collections.EnumerableBase,handjive.IWrapper,handji
     RemoveAll([object[]]$values){
         $values.foreach{ $this.Remove($_) }
     }
+
+
+    Set([BagElement]$element){
+        $this.Substance[$element.Value] = $element.Occurrence
+    }
+    SetAll([BagElement[]]$elements){
+        $elements.foreach{ $this.Set($_) }
+    }
+
 
     Purge([object]$aValue){
         $this.Substance.Remove($aValue)
@@ -321,7 +289,58 @@ class SortedBag : AbstractBag{
     }
 }
 
+class IndexedBagElement {
+    [object]$Index
+    [AbstractBag]$Value
 
+    IndexedBagElement(){
+    }
+    IndexedBagElement([object]$index,[AbstractBag]$value){
+        $this.Index = $index
+        $this.Values = $value
+    }
+    [System.Collections.Generic.KeyValuePair[object,AbstractBag]]ToKeyValuePair(){
+        return([System.Collections.Generic.KeyValuePair[object,AbstractBag]]::new($this.Index,$this.Value))
+    }
+}
+
+class IndexedBag : handjive.IWrapper{
+    [ScriptBlock]$GetIndexBlock
+
+    hidden [object]$BagType
+    hidden [AbstractBag]$wpvSubstance
+
+    IndexedBag([object]$dictType,[object]$bagType){
+        $this.GetIndexBlock = { $args[0] }
+        $this.BagType = $bagType
+        $this.wpvSubstance = $dictType::new()
+    }
+
+    [object]get_Substance(){
+        return($this.wpvSubstance)
+    }
+    set_Substance([object]$substance){
+        $this.wpvSubstance = $substance
+    }
+
+    Add([object]$value){
+        $index = &$this.GetIndexBlock $value
+        if( $null -eq $this.Substance[$index] ){
+            $this.Substance[$index] = $this.BagType::new()
+        }
+        ($this.SUbstance[$index]).Add($value)
+    }
+
+    Remove([object]$value){
+        $index = &$this.GetIndexBlock $value
+        if( ($this.Substance[$index]).Count -eq 1 ){
+            $this.Substance.Remove($index)
+            return
+        }
+
+        ($this.Substance[$index]).Remove($value)
+    }
+}
 <#
 あ  →   あんぱん(3)
     　  あんぽんたん(1)
