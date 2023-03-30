@@ -1,5 +1,6 @@
 using module handjive.Collections
 
+
 switch($args){
     1{
         $mb = [MessageBuilder]::new()
@@ -206,13 +207,40 @@ switch($args){
     8 {
         $ab = [OrderedBag]::new()
         @(1..100).foreach{ $ab.Add(([String]::Format('Value{0}',$_))) }
+        [Interval]::new(1,100,2).foreach{ $ab.Add(([String]::Format('Value{0}',$_))) }
         $od = $ab.Substance
         $keyEnum = $od.Keys.GetEnumerator()
         $keyEnum.foreach{ Write-Host $_ }
         $ab.Values.foreach{ write-host $_ }
-        $ab.ValuesAndOccurrences.foreach{ Write-Host $_.Value $_.Occurrences }
+        $ab.ValuesAndOccurrences.foreach{ 
+            Write-Host $_.Value $_.Occurrences }
         $ab[18] | write-host
         $ab['Value18'] | Write-Host
         $ab.Value18 | Write-host
+
+        [Interval]::new(10,100,10).foreach{ $ab.Remove(([String]::Format('Value{0}',$_)))}
+        $ab.ValuesAndOccurrences.foreach{
+             Write-Host $_.Value $_.Occurrence }
+
+        #[Linq.Enumerable]::OrderBy([Linq.Enumerable]::Where($inputCollection, ...), ...)
+        #while( $ab.MoveNext() ){
+            #$ab.Current | write-host
+        #}
+        
+        $aCollection = $ab.ValuesAndOccurrences.ToArray()
+        #$aCollection = $ab.Substance.Keys
+        #$aCollection = 1..100
+        $sorted = [System.Linq.Enumerable]::OrderByDescending($ab, [Func[object,object]]{ $args[0].Occurrence })
+        $enum = $sorted.GetEnumerator()
+        while($enum.MoveNext()){
+            write-host $enum.Current.Value $enum.Current.Occurrence
+        }
+
+        StreamAdaptor -FindLast {$args[0].Occurrence -eq 1 } -Subject $ab | Select-Object -Property Value,Occurrence
+        $ab | StreamAdaptor -Find { $args[0].Occurrence -eq 2 } | Select-Object -Property Value,Occurrence
+        
+
+        $ab | StreamAdaptor -FindLast { $args[0].Occurrence -eq 3 } -ifAbsent { ([BagElement]::new('hoge',0)) } | Select-Object -Property Value,Occurrence
+        $ab | StreamAdaptor -Find { $args[0].Occurrence -eq 3 } -ifAbsent { ([BagElement]::new('hoge',0)) } | Select-Object -Property Value,Occurrence
     }
 }
