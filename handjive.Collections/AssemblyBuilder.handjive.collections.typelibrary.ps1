@@ -10,6 +10,15 @@ namespace handjive{
             object this[object key]{ get; set; }
             System.Collections.IEnumerator ValuesAndOccurrences{ get; }
         }
+        public interface IIndexedBag{
+            object GetIndexBlock{ get; set; }
+            System.Collections.IEnumerator Values{ get; }
+            int Count{ get; }
+            object[] this[int index]{ get; set; }
+            object[] this[object key]{ get; set; }
+            System.Collections.IEnumerator ValuesAndOccurrences{ get; }
+            System.Collections.IEnumerator IndexesAndValuesAndOccurrences{ get; }
+        }
 
         public interface IKeyedBag{
             object[] Indices{ get; }
@@ -17,10 +26,6 @@ namespace handjive{
             int Count{ get; }
             object[] IndicesAndValues{ get; }
             object[] IndicesAndValuesAndOccurrences{ get; }
-        }
-
-        public interface IGetKeyBlock{
-            object GetKeyBlock{ get; set; }
         }
 
         public class EnumerableBase : System.Collections.Generic.IEnumerable<object>{

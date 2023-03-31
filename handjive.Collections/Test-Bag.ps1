@@ -1,5 +1,13 @@
 using module handjive.Collections
 
+class Test1{
+    static [string] $THE_STRING = 'HOGEeeee!'
+}
+class Test2 : Test1 {
+    static [string] $THE_STRING = 'TARAaaaaa!'
+}
+
+
 
 switch($args){
     1{
@@ -242,5 +250,79 @@ switch($args){
 
         $ab | StreamAdaptor -FindLast { $args[0].Occurrence -eq 3 } -ifAbsent { ([BagElement]::new('hoge',0)) } | Select-Object -Property Value,Occurrence
         $ab | StreamAdaptor -Find { $args[0].Occurrence -eq 3 } -ifAbsent { ([BagElement]::new('hoge',0)) } | Select-Object -Property Value,Occurrence
+    }
+    9 {
+        $ixb  = [IndexedBag]::new([Collections.Generic.SortedDictionary[object,SortedBag]],[SortedBag])
+        $ixb  = [IndexedBag]::new()
+
+        $ixb.GetIndexBlock = { $args[0].Substring(0,1) }
+        $ixb.AddAll((Get-Content -path .\Authers.txt))
+        #$ixb.Values 
+        #$ixb.ValuesAndOccurrences.foreach{ Write-Host $_.Value $_.Occurrence }
+
+        $ixb.Count 
+        $ixb['野'].foreach{ write-host $_.Value $_.Occurrence }
+        $ixb[752].foreach{ write-host $_.Value $_.Occurrence }
+        $ixb.IndexesAndValuesAndOccurrences.foreach{ Write-Host $_.index $_.Value $_.Occurrence }
+        <#
+        $ixb.GetIndexBlock = { ($args[0])[0] }
+        $ixb.Add("あんぱん")
+        $ixb.Add("あんぽんたん")
+        $ixb.Add("あんぽんたん")
+        $ixb.Add("あんぽんたん")
+        $ixb.Add("あんかけ")
+        $ixb.Add("あんちょび")
+        $ixb.Add("あんちょび")
+        $ixb
+        野 野間与太郎 1
+野 野々村朔 1
+野 野崎まど 1
+野 野崎つばた 1
+野 野人 1
+野 野口芽衣 1
+野 野田彩子 1
+野 野営地 1
+野 野宮けい 1
+野 野上武志 1
+野 野山歩 1
+野 野良おばけ 1
+野 野呂俊介 1
+野 野村宗弘 1
+野 野口賢 1
+
+野 野々村朔 1
+野 野上武志 1
+野 野人 1
+野 野口芽衣 1
+野 野口賢 1
+野 野呂俊介 1
+野 野営地 1
+野 野宮けい 1
+野 野山歩 1
+野 野崎つばた 1
+野 野崎まど 1
+野 野村宗弘 1
+野 野田彩子 1
+野 野良おばけ 1
+野 野間与太郎 1
+
+野 野間与太郎 1
+野 野良おばけ 1
+野 野田彩子 1
+野 野村宗弘 1
+野 野崎まど 1
+野 野崎つばた 1
+野 野山歩 1
+野 野宮けい 1
+野 野営地 1
+野 野呂俊介 1
+野 野口賢 1
+野 野口芽衣 1
+野 野人 1
+野 野上武志 1
+野 野々村朔 1
+
+
+        #>
     }
 }
