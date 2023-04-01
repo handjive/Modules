@@ -6,6 +6,7 @@ namespace handjive{
         public interface IBag{
             System.Collections.IEnumerator Values{ get; }
             int Count{ get; }
+            object SortingComparer{ get; set; }
             object this[int index]{ get; set; }
             object this[object key]{ get; set; }
             System.Collections.IEnumerator ValuesAndOccurrences{ get; }

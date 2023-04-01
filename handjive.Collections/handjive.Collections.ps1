@@ -1,3 +1,5 @@
+using module handjive.ValueHolder
+
 <#
 # 一定範囲の整数値
 #
@@ -144,7 +146,21 @@ class PluggableEnumerator : handjive.Collections.EnumeratorBase {
     }
 }
 
+
+<# 
+# 場当たり的Comparer
+#>
 class PluggableComparer : Collections.Generic.IComparer[object] {
+    hidden static [ScriptBlock]$AscendingBlock  = { param($left,$right) if( $left -eq $right ){ return 0 } elseif( $left -lt $right ){ return -1 } else {return 1 } }
+    hidden static [ScriptBlock]$DescendingBlock = { param($left,$right) if( $left -eq $right ){ return 0 } elseif( $left -lt $right ){ return 1 } else {return -1 } }
+    
+    static [PluggableComparer]DefaultAscending(){
+        return([PluggableComparer]::new([PluggableComparer]::AscendingBlock))
+    }
+    static [PluggableComparer]DefaultDescending(){
+        return([PluggableComparer]::new([PluggableComparer]::DescendingBlock))
+    }
+
     [ScriptBlock]$CompareBlock
     
     PluggableComparer(){
@@ -174,25 +190,60 @@ class BagElement{
     }
 }
 
-class AbstractBag : handjive.Collections.EnumerableBase,handjive.IWrapper,handjive.Collections.IBag{
+#class AbstractBag : handjive.Collections.EnumerableBase,handjive.IWrapper,handjive.Collections.IBag{
+class Bag : handjive.Collections.EnumerableBase,handjive.IWrapper,handjive.Collections.IBag{
     static $ELEMENT_CLASS = [BagElement]
-    [Collections.IDictionary]$wpvSubstance
+    hidden [Collections.Specialized.OrderedDictionary]$wpvSubstance
+    hidden [Collections.Generic.SortedSet[object]]$wpvValueSet
+    hidden [ValueHolder]$wpvSortingComparerHolder
 
-    AbstractBag() : base(){
+    Bag() : base(){
+        $this.Initialize()
     }
-    AbstractBag([BagElement[]]$elements) : base(){
+    Bag([BagElement[]]$elements) : base(){
+        $this.Initialize()
         $this.SetAll($elements)
     }
 
-    [object]newElement(){
-        return(([AbstractBag]::ELEMENT_CLASS)::new())
+    hidden initialize(){
+        <#$beDirty={ param($arg1,$arg2)
+            $receiver = $arg2[0]
+            $receiver.isSearchStringDirty = $true }
+        #>
+        $this.wpvSubstance = [Collections.Specialized.OrderedDictionary]::new()
+        $this.wpvSortingComparerHolder = [ValueHolder]::new()
+        $this.wpvSortingComparerHolder.AddSubjectChangedLister(@($this),{ 
+            param($newValue,$additionalArgs) 
+
+        })
+    
+        $this.wpvSortingComparerHolder.Value([PluggableComparer]::DefaultAscending())
     }
+
+    buildValueSet([object]$aComparer){
+        $this.wpvValueSet = [Collections.Generic.SortedSet[object]]::new($aComparer)
+        if( $this.wpvSubstance.Count -gt 0){
+            $this.wpvSubstance.Keys.foreach{ $this.wpvValueSet.Add($_) }
+        }
+    }
+
+    [object]newElement(){
+        return(([Bag]::ELEMENT_CLASS)::new())
+    }
+
 
     [object]get_Substance(){
         return($this.wpvSubstance)
     }
     set_Substance([object]$aSubstance){
         $this.wpvSubstance = $aSubstance
+    }
+
+    [object]get_SortingComparer(){
+        return($this.wpvSortingComparerHolder.Value)
+    }
+    set_SortingComparer([object]$aComparer){
+        $this.wpvSortingComparerHolder.Value($aComparer)
     }
 
     [System.Collections.IEnumerator]get_Values(){
@@ -250,6 +301,7 @@ class AbstractBag : handjive.Collections.EnumerableBase,handjive.IWrapper,handji
             $this.Substance[$aValue] = 0
         }
         ($this.Substance[$aValue])++
+        $this.wpvValueSet.Add($aValue)
     }
     AddAll([object[]]$values){
         $values.foreach{ $this.Add($_) }
@@ -264,6 +316,7 @@ class AbstractBag : handjive.Collections.EnumerableBase,handjive.IWrapper,handji
 
         if( $this.Substance[$aValue] -eq 1 ){
             $this.Substance.Remove($aValue)
+            $this.wpvValueSet.Remove($aValue)
         }
         else{
             $this.Substance[$aValue]--
@@ -276,6 +329,7 @@ class AbstractBag : handjive.Collections.EnumerableBase,handjive.IWrapper,handji
 
     Set([BagElement]$element){
         $this.Substance[$element.Value] = $element.Occurrence
+        $this.wpvValueSet.Add($element.Value)
     }
     SetAll([BagElement[]]$elements){
         $elements.foreach{ $this.Set($_) }
@@ -284,12 +338,14 @@ class AbstractBag : handjive.Collections.EnumerableBase,handjive.IWrapper,handji
 
     Purge([object]$aValue){
         $this.Substance.Remove($aValue)
+        $this.wpvValueSet.Remove($aValue)
     }
     PurgeAll([object[]]$values){
         $values.foreach{ $this.Purge($_) }
     }
 }
 
+<#
 class OrderedBag : AbstractBag{
     OrderedBag(){
         $this.Substance = [System.Collections.Specialized.OrderedDictionary]::new()
@@ -301,6 +357,7 @@ class SortedBag : AbstractBag{
         $this.Substance = [System.Collections.Generic.SortedDictionary[object,object]]::new()
     }
 }
+#>
 
 class IndexedBagElement {
     [object]$Index
@@ -309,7 +366,7 @@ class IndexedBagElement {
 
     IndexedBagElement(){
     }
-    IndexedBagElement([object]$index,[AbstractBag]$value){
+    IndexedBagElement([object]$index,[Bag]$value){
         $this.Index = $index
         $this.Values = $value
     }
@@ -317,7 +374,7 @@ class IndexedBagElement {
 
 class IndexedBag : handjive.Collections.EnumerableBase,handjive.Collections.IIndexedBag,handjive.IWrapper{ 
     static $ELEMENT_CLASS = [IndexedBagElement]
-    static $DEFAULT_DICTIONARYCLASS = [Collections.Generic.SortedDictionary[object,SortedBag]]
+    static $DEFAULT_DICTIONARYCLASS = [Collections.Generic.SortedDictionary[object,Bag]]
     
     hidden [ScriptBlock]$wpvGetIndexBlock
     hidden [object]$BagType
@@ -330,7 +387,7 @@ class IndexedBag : handjive.Collections.EnumerableBase,handjive.Collections.IInd
     }
     IndexedBag(){
         $this.GetIndexBlock = { $args[0] }
-        $this.BagType = [SortedBag]
+        $this.BagType = [Bag]
         $this.wpvSubstance = [IndexedBag]::DEFAULT_DICTIONARYCLASS::new()
     }
 
@@ -368,10 +425,10 @@ class IndexedBag : handjive.Collections.EnumerableBase,handjive.Collections.IInd
     }
     set_Item([int]$index,[object[]]$aBag){
         $aKey = $this.Substance.Keys[$index]
-        $this.Substance[$aKey] = [AbstractBag]$aBag
+        $this.Substance[$aKey] = [Bag]$aBag
     }
     set_Item([object]$key,[object[]]$aBag){
-        $this.Substance[$key] = [AbstractBag]$aBag
+        $this.Substance[$key] = [Bag]$aBag
     }
 
     [System.Collections.IEnumerator]get_Values(){
