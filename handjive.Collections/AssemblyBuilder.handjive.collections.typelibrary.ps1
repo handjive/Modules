@@ -7,13 +7,12 @@ namespace handjive{
             System.Collections.IEnumerator Values{ get; }
             int Count{ get; }
             object SortingComparer{ get; set; }
-            object this[int index]{ get; set; }
-            object this[object key]{ get; set; }
+            int this[int index]{ get; }
+            int this[object key]{ get; }
             System.Collections.IEnumerator ValuesSorted{ get; }
             System.Collections.IEnumerator ValuesOrdered{ get; }
             System.Collections.IEnumerator ElementsSorted{ get; }
             System.Collections.IEnumerator ElementsOrdered{ get; }
-            //System.Collections.Generic.IEnumerator<object> ValuesAndOccurrences{ get; }
         }
         public interface IIndexedBag{
             object GetIndexBlock{ get; set; }

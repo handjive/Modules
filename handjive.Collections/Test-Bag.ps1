@@ -58,6 +58,7 @@ switch($args){
         $aBag1.ElementsSorted.foreach{ $_.Value,$_.Occurrence | InjectMessage $mb -OneLine -Flush }
 
         $aBag2 = [Bag]::new($aBag1)
+        $aBag3 = [Bag]::new([Interval]::new(1,100,9))
 
         '----- ValuesOrdered -----' | InjectMessage $mb -Flush
         $aBag2.ValuesOrdered | InjectMessage $mb -Flush -Oneline
@@ -70,6 +71,19 @@ switch($args){
         $aBag2.ValuesSorted | InjectMessage $mb -Flush -oneline
 
         
+    }
+    1.3 {
+        $mb = [MessageBuilder]::new()
+        $aBag = [Bag]::new([interval]::new(1,10,1))
+        $aBag.AddAll([interval]::new(1,10,2))
+        $aValue = $aBag[[int]3]
+        '$aBag[[int]{0}] is "{1}"' | InjectMessage $mb -FormatByStream 3 $aValue -Flush
+        @(1..10).foreach{
+            '$aBag[[object]{0}] is "{1}"' | InjectMessage $mb -FormatByStream $_ $aBag[[object]$_] -Flush
+        }
+        @(-5..15).foreach{
+            '$aBag.Includes({0}) => {1}' | InjectMessage $mb -FormatByStream $_ $aBag.Includes([object]$_) -Flush
+        }
     }
 
     2 {

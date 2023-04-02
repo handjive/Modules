@@ -175,9 +175,7 @@ class PluggableComparer : Collections.Generic.IComparer[object] {
     }
 }
 
-<#
-#  重複を無視する(が、重複数は保持する)コレクション
-#>
+
 class BagElement{
     [object]$Value
     [int]$Occurrence
@@ -191,7 +189,30 @@ class BagElement{
     }
 }
 
-#class AbstractBag : handjive.Collections.EnumerableBase,handjive.IWrapper,handjive.Collections.IBag{
+<#
+#  重複を無視する(が、重複数は保持する)コレクション
+#
+#   プロパティ
+#       SortingComparer         Collections.IComparer { get; set }  ValuesSorted,ElementsSortedのソート順を決定するためのIComparer
+#       ValuesOrdered           Collections.IEnumerator { get; }    追加順で値を返すEnumerator
+#       ValuesSorted            Collections.IEnumerator { get; }    SortingComparer順で値を返すEnumerator
+#       ElementsOrdered         Collections.IEnumerator { get; }    追加順で値と重複数([Bag]::ELEMENT_CLASSのインスタンス)を返すEnumerator
+#       ElementsSorted          Collections.IEnumerator { get; }    SortingComparer順で値と重複数([Bag]::ELEMENT_CLASSのインスタンス)を返すEnumerator
+#       Count                   int { get; }                        値の数
+#       item[]                  int item[[int]$index] { get; }      追加順で指定した値の重複数($aBag.OccurrencesOf(ValuesOrderd[$index])と等価)
+#       item[]                  int item[[object]$value]{ get }     指定した値の重複数($aBag.OccurrencesOf($value)と等価)
+#
+#   メソッド
+#       Add             [void] ([object]$aValue)      $aValueを追加する
+#       AddAll          [void] ([object[]]$values)    $valuesを追加する
+#       Remove          [void] ([object]$aValue)      $aValueの重複数を減算する。重複が無くなれば値そのものを削除する(3度追加された値は3度Removeされないと無くならない)。
+#       RemoveAll       [void] ([object[]$values)     $valuesそれぞれをRemoveする
+#       Purge           [void] ([object]$aValue)      $aValueを削除する。Removeと違い、一度の操作でその値と重複数を削除する。
+#       PurgeAll        [void] ([object[]]$values)    $valuesそれぞれをPurgeする
+#
+#       OccurrencesOf   [int] ([object]$aValue)       $aValueの重複数を得る
+#       Includes        [bool]([object]$aValue)       $aValueが含まれるかの真偽値を返す
+#>
 class Bag : handjive.Collections.EnumerableBase,handjive.IWrapper,handjive.Collections.IBag{
     static $ELEMENT_CLASS = [BagElement]
     hidden [Collections.Specialized.OrderedDictionary]$wpvSubstance
@@ -206,15 +227,25 @@ class Bag : handjive.Collections.EnumerableBase,handjive.IWrapper,handjive.Colle
         $this.Initialize()
         $this.SortingComparer = $comparer
     }
-    Bag([BagElement[]]$elements) : base(){
+    Bag([Bag]$aBag) : base(){
         $this.Initialize()
         $this.SortingComparer = [PluggableComparer]::DefaultAscending()
-        $this.SetAll($elements)
+        $this.SetAll($aBag)
     }
-    Bag([BagElement[]]$elements,[Collections.Generic.IComparer[object]]$comparer) : base(){
+    Bag([Bag]$aBag,[Collections.Generic.IComparer[object]]$comparer) : base(){
         $this.Initialize()
         $this.SortingComparer = $comparer
-        $this.SetAll($elements)
+        $this.SetAll($aBag)
+    }
+    Bag([object[]]$elements) : base(){
+        $this.Initialize()
+        $this.SortingComparer = [PluggableComparer]::DefaultAscending()
+        $this.AddAll($elements)
+    }
+    Bag([object[]]$elements,[Collections.Generic.IComparer[object]]$comparer) : base(){
+        $this.Initialize()
+        $this.SortingComparer = $comparer
+        $this.AddAll($elements)
     }
 
     hidden initialize(){
@@ -240,10 +271,10 @@ class Bag : handjive.Collections.EnumerableBase,handjive.IWrapper,handjive.Colle
     }
 
 
-    [object]get_Substance(){
+    hidden [object]get_Substance(){
         return($this.wpvSubstance)
     }
-    set_Substance([object]$aSubstance){
+    hidden set_Substance([object]$aSubstance){
         $this.wpvSubstance = $aSubstance
     }
 
@@ -267,20 +298,21 @@ class Bag : handjive.Collections.EnumerableBase,handjive.IWrapper,handjive.Colle
     [int]get_Count(){
         return($this.Substance.Count)
     }
-    [object]get_Item([int]$index){
-        return($this.Substance.keys[$index])
+
+    [int]get_Item([int]$index){
+        return($this.Substance[$index])
     }
-    set_Item([int]$index,[object]$value){
-        $this.Substance[$index] = $value
+    [int]get_Item([object]$key){
+        return($this.Substance[[object]$key])
     }
 
-    [object]get_Item([object]$key){
-        return($this.Substance[$key])
-    }
-    set_Item([object]$key,[object]$value){
-        $this.Substance[$key] = $value
+    [int]OccurrencesOf([object]$value){
+        return($this.Substance[[object]$value])
     }
 
+    [bool]Includes([object]$aValue){
+        return($this.wpvValueSet.Contains($aValue))
+    }
 
     hidden [Collections.IEnumerator]create_ElementsEnumerator(){        
         $enumerator = [PluggableEnumerator]::new($this)
@@ -316,7 +348,7 @@ class Bag : handjive.Collections.EnumerableBase,handjive.IWrapper,handjive.Colle
         return($enumerator)
     }
 
-    [Collections.Generic.IEnumerator[object]]PSGetEnumerator(){
+    hidden [Collections.Generic.IEnumerator[object]]PSGetEnumerator(){
         return($this.ElementsOrdered)
     }
     
@@ -352,11 +384,11 @@ class Bag : handjive.Collections.EnumerableBase,handjive.IWrapper,handjive.Colle
     }
 
 
-    Set([BagElement]$element){
+    hidden Set([BagElement]$element){
         $this.Substance[[object]$element.Value] = $element.Occurrence
         $this.wpvValueSet.Add($element.Value)
     }
-    SetAll([BagElement[]]$elements){
+    hidden SetAll([BagElement[]]$elements){
         $elements.foreach{ $this.Set($_) }
     }
 
