@@ -146,7 +146,7 @@ class Everything : IEverything {
         
         $this.PostBuildElementListeners = [DependencyHolder]::new()
 
-        $beDirty={ param($arg1,$arg2)
+        $beDirty={ param($arg1,$arg2,$workingset)
             $receiver = $arg2[0]
             $receiver.isSearchStringDirty = $true }
 
@@ -274,7 +274,7 @@ class Everything : IEverything {
             if( (&$filter $anElement))
             {
                 $anElement.OnInjectionComplete($anElement)
-                $this.PostBuildElementListeners.Perform($anElement)
+                $this.PostBuildElementListeners.Perform($anElement,@{})
                 $this.wpvResults += $anElement
             }
         }
