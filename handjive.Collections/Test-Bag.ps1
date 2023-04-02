@@ -1,35 +1,77 @@
 using module handjive.Collections
 
-class Test1{
-    static [string] $THE_STRING = 'HOGEeeee!'
-}
-class Test2 : Test1 {
-    static [string] $THE_STRING = 'TARAaaaaa!'
-}
-
-
-
 switch($args){
     1{
+        # Sort-order: Ascending
         $mb = [MessageBuilder]::new()
 
+        # デフォルト(ソート: Ascending)
         $aBag = [Bag]::new()
-        @(1,3,5,7,9).foreach{ $aBag.Add($_) }
-        $aBag.AddAll(@(3,7))
-        $aBag.Keys.foreach{
-            'Occuerrences of "{0}" is "{1}"' | InjectMessage $mb -FormatByStream $_ $aBag.OccurrencesOf($_) -Flush
+        [Interval]::new(9,1,2).ForEach{ 
+            $_ | InjectMessage $mb -format 'Adding {0}' -Flush
+            $aBag.Add($_) 
         }
-        @(1..10).foreach{
-            'Is includes {0}? => {1}' | InjectMessage $mb -FormatByStream $_ $aBag.Includes($_) -Flush
-        }
-        '----- keys -----' | InjectMessage $mb
-        $aBag.Keys | InjectMessage $mb -NewLine
-        $mb.Flush()
-        '----- Values -----' | InjectMessage $mb
-        $aBag.Values | InjectMessage $mb -NewLine
-        $mb.Flush()
+        '----- Ordered -----' | InjectMessage $mb -Flush
+        $aBag.ValuesOrdered | InjectMessage $mb -Flush -Oneline
+
+        '----- Sorted by Default(Ascending) -----' | InjectMessage $mb -Flush
+        $aBag.ValuesSorted | InjectMessage $mb -Flush -OneLine
+
+        '----- Changing Comparer to Desending -----' | InjectMessage $mb -Flush
+        $aBag.SortingComparer = [PluggableComparer]::DefaultDescending()
+        $aBag.ValuesSorted | InjectMessage $mb -Flush -oneline
 
     }
+    1.1{
+        # Sort-order: Ascending
+        $mb = [MessageBuilder]::new()
+
+        # 明示的ソート指定: Ascending
+        $aBag = [Bag]::new([PluggableComparer]::DefaultAscending())
+        [Interval]::new(9,1,2).ForEach{ 
+            $_ | InjectMessage $mb -format 'Adding {0}' -Flush
+            $aBag.Add($_) 
+        }
+        '----- Ordered -----' | InjectMessage $mb -Flush
+        $aBag.ValuesOrdered | InjectMessage $mb -Flush -Oneline
+
+        '----- Sorted by Default(Ascending) -----' | InjectMessage $mb -Flush
+        $aBag.ValuesSorted | InjectMessage $mb -Flush -OneLine
+
+        '----- Changing Comparer to Asending -----' | InjectMessage $mb -Flush
+        $aBag.SortingComparer = [PluggableComparer]::DefaultDescending()
+        $aBag.ValuesSorted | InjectMessage $mb -Flush -oneline
+    }
+    1.2 {
+        # a Bag from the Bag & デフォルトソート
+        $mb = [MessageBuilder]::new()
+
+        $aBag1 = [Bag]::new()
+        $aBag1.AddAll([Interval]::new(20,1,2))
+        $elementsOrdered = $aBag1.ElementsOrdered.ToArray()
+        $elementsSorted = $aBag1.ElementsSorted.ToArray()
+        '----- ElementsOrdered -----' | InjectMessage $mb -Flush
+        $aBag1.ElementsOrdered.foreach{ $_.Value,$_.Occurrence | InjectMessage $mb -OneLine -Flush }
+        '----- Enumerate Bag directory -----' | InjectMessage $mb -Flush
+        $aBag1.foreach{ $_.Value,$_.Occurrence | InjectMessage $mb -OneLine -Flush }
+        '----- ElementsSorted -----' | InjectMessage $mb -Flush
+        $aBag1.ElementsSorted.foreach{ $_.Value,$_.Occurrence | InjectMessage $mb -OneLine -Flush }
+
+        $aBag2 = [Bag]::new($aBag1)
+
+        '----- ValuesOrdered -----' | InjectMessage $mb -Flush
+        $aBag2.ValuesOrdered | InjectMessage $mb -Flush -Oneline
+
+        '----- ValuesSorted by Default(Ascending) -----' | InjectMessage $mb -Flush
+        $aBag2.ValuesSorted | InjectMessage $mb -Flush -OneLine
+
+        '----- Changing Comparer to Desending -----' | InjectMessage $mb -Flush
+        $aBag2.SortingComparer = [PluggableComparer]::DefaultDescending()
+        $aBag2.ValuesSorted | InjectMessage $mb -Flush -oneline
+
+        
+    }
+
     2 {
         $mb = [MessageBuilder]::new()
         $autherAndTitles = [Bag]::new() # key=auther, occurrence=number of title

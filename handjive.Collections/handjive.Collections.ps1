@@ -25,7 +25,7 @@ class Interval : handjive.Collections.EnumerableBase, Collections.IEnumerator{
         $this.initialize($start,$stop,1)
     }
 
-    hidden [object]calcvalue([int]$value,[int]$step,[int]$stop,[scriptblock]$ifOutOfRange)
+    hidden [object]calcvalue([nullable[int]]$value,[int]$step,[int]$stop,[scriptblock]$ifOutOfRange)
     {
         if( $null -eq $value ){
             $this.wpvCurrent = $this.Start
@@ -71,6 +71,7 @@ class Interval : handjive.Collections.EnumerableBase, Collections.IEnumerator{
     }
 
     [object]get_Current(){
+#        write-host 'Current is ' $this.wpvCurrent
         return($this.wpvCurrent)
     }
     [bool]MoveNext(){
@@ -139,8 +140,8 @@ class PluggableEnumerator : handjive.Collections.EnumeratorBase {
 
     [Array]ToArray(){
         $result = @()
-        while($this.MoveNext()){
-            $result += $this.Current
+        while($this.PSMoveNext()){
+            $result += $this.PSCurrent()
         }
         return($result)
     }
@@ -199,35 +200,42 @@ class Bag : handjive.Collections.EnumerableBase,handjive.IWrapper,handjive.Colle
 
     Bag() : base(){
         $this.Initialize()
+        $this.SortingComparer = [PluggableComparer]::DefaultAscending()
+    }
+    Bag([Collections.Generic.IComparer[object]]$comparer){
+        $this.Initialize()
+        $this.SortingComparer = $comparer
     }
     Bag([BagElement[]]$elements) : base(){
         $this.Initialize()
+        $this.SortingComparer = [PluggableComparer]::DefaultAscending()
+        $this.SetAll($elements)
+    }
+    Bag([BagElement[]]$elements,[Collections.Generic.IComparer[object]]$comparer) : base(){
+        $this.Initialize()
+        $this.SortingComparer = $comparer
         $this.SetAll($elements)
     }
 
     hidden initialize(){
-        <#$beDirty={ param($arg1,$arg2)
-            $receiver = $arg2[0]
-            $receiver.isSearchStringDirty = $true }
-        #>
-        $this.wpvSubstance = [Collections.Specialized.OrderedDictionary]::new()
+        $this.Substance = [Collections.Specialized.OrderedDictionary]::new()
         $this.wpvSortingComparerHolder = [ValueHolder]::new()
-        $this.wpvSortingComparerHolder.AddSubjectChangedLister(@($this),{ 
-            param($newValue,$additionalArgs) 
-
+        $this.wpvSortingComparerHolder.WorkingSet.Receiver = $this
+        $this.wpvSortingComparerHolder.AddSubjectChangedLister(@(),{ 
+            param($args1,$args2,$workingset) 
+            $receiver = $workingset.Receiver
+            $receiver.buildValueSet($args1[0])
         })
-    
-        $this.wpvSortingComparerHolder.Value([PluggableComparer]::DefaultAscending())
     }
 
-    buildValueSet([object]$aComparer){
+    hidden buildValueSet([object]$aComparer){
         $this.wpvValueSet = [Collections.Generic.SortedSet[object]]::new($aComparer)
         if( $this.wpvSubstance.Count -gt 0){
             $this.wpvSubstance.Keys.foreach{ $this.wpvValueSet.Add($_) }
         }
     }
 
-    [object]newElement(){
+    hidden [object]newElement(){
         return(([Bag]::ELEMENT_CLASS)::new())
     }
 
@@ -246,42 +254,19 @@ class Bag : handjive.Collections.EnumerableBase,handjive.IWrapper,handjive.Colle
         $this.wpvSortingComparerHolder.Value($aComparer)
     }
 
-    [System.Collections.IEnumerator]get_Values(){
+    [Collections.IEnumerator]get_ValuesSorted(){
+        return($this.wpvValueSet.GetEnumerator())
+    }
+    [Collections.IEnumerator]get_ValuesOrdered(){
         return($this.Substance.Keys.GetEnumerator())
+    }
+    [System.Collections.IEnumerator]get_Values(){
+        return($this.get_ValuesSorted())
     }
 
     [int]get_Count(){
         return($this.Substance.Count)
     }
-
-    [Collections.IEnumerator]get_ValuesAndOccurrences(){
-        $enumerator = [PluggableEnumerator]::new($this)
-        $enumerator.WorkingSet.keyEnumerator = $this.Substance.keys.GetEnumerator()
-        $enumerator.OnCurrentBlock = {
-            param($substance,$workingset)
-            $aKey = $workingset.keyEnumerator.Current
-            $aValue = $substance[$aKey]
-            $elem = $substance.newElement()
-            $elem.Value = $aKey
-            $elem.Occurrence = $aValue
-            return($elem)
-        }
-        $enumerator.OnMoveNextBlock = {
-            param($substance,$workingset)
-            return($workingset.keyEnumerator.MoveNext())
-        }
-        $enumerator.OnResetBlock = {
-            param($substance,$workingset)
-            $workingset.keyEnumerator.Reset()
-        }
-
-        return($enumerator)
-    }
-    
-    [Collections.Generic.IEnumerator[object]]PSGetEnumerator(){
-        return($this.ValuesAndOccurrences)
-    }
-    
     [object]get_Item([int]$index){
         return($this.Substance.keys[$index])
     }
@@ -296,11 +281,51 @@ class Bag : handjive.Collections.EnumerableBase,handjive.IWrapper,handjive.Colle
         $this.Substance[$key] = $value
     }
 
-    Add([object]$aValue){
-        if( $null -eq $this.Substance[$aValue] ){
-            $this.Substance[$aValue] = 0
+
+    hidden [Collections.IEnumerator]create_ElementsEnumerator(){        
+        $enumerator = [PluggableEnumerator]::new($this)
+        $enumerator.OnResetBlock = {
+            param($substance,$workingset)
+            $workingset.valueEnumerator.Reset()
         }
-        ($this.Substance[$aValue])++
+        $enumerator.OnMoveNextBlock = {
+            param($substance,$workingset)
+            return($workingset.valueEnumerator.MoveNext())
+       }
+       $enumerator.OnCurrentBlock = {
+            param($substance,$workingset)
+            $elem = $substance.newElement()
+            $elem.Value = $workingset.valueEnumerator.Current
+            $elem.Occurrence = $this.Substance[[object]$elem.Value]
+            return($elem)
+       }
+       return($enumerator)
+    }
+
+    [Collections.IEnumerator]get_ElementsSorted(){
+        $enumerator = $this.create_ElementsEnumerator()
+        $enumerator.WorkingSet.valueEnumerator = $this.wpvValueSet.GetEnumerator()
+        $enumerator.PSReset()
+        return($enumerator)
+    }
+
+    [Collections.IEnumerator]get_ElementsOrdered(){
+        $enumerator = $this.create_ElementsEnumerator()
+        $enumerator.WorkingSet.valueEnumerator = $this.Substance.Keys.GetEnumerator()
+        $enumerator.PSReset()
+        return($enumerator)
+    }
+
+    [Collections.Generic.IEnumerator[object]]PSGetEnumerator(){
+        return($this.ElementsOrdered)
+    }
+    
+
+    Add([object]$aValue){
+        if( $null -eq $this.Substance[[object]$aValue] ){
+            $this.Substance.Add([object]$aValue,0)
+        }
+        ($this.Substance[[object]$aValue])++
         $this.wpvValueSet.Add($aValue)
     }
     AddAll([object[]]$values){
@@ -314,12 +339,12 @@ class Bag : handjive.Collections.EnumerableBase,handjive.IWrapper,handjive.Colle
             return
         }
 
-        if( $this.Substance[$aValue] -eq 1 ){
+        if( $this.Substance[[object]$aValue] -eq 1 ){
             $this.Substance.Remove($aValue)
             $this.wpvValueSet.Remove($aValue)
         }
         else{
-            $this.Substance[$aValue]--
+            $this.Substance[[object]$aValue]--
         }
     }
     RemoveAll([object[]]$values){
@@ -328,7 +353,7 @@ class Bag : handjive.Collections.EnumerableBase,handjive.IWrapper,handjive.Colle
 
 
     Set([BagElement]$element){
-        $this.Substance[$element.Value] = $element.Occurrence
+        $this.Substance[[object]$element.Value] = $element.Occurrence
         $this.wpvValueSet.Add($element.Value)
     }
     SetAll([BagElement[]]$elements){
@@ -345,19 +370,6 @@ class Bag : handjive.Collections.EnumerableBase,handjive.IWrapper,handjive.Colle
     }
 }
 
-<#
-class OrderedBag : AbstractBag{
-    OrderedBag(){
-        $this.Substance = [System.Collections.Specialized.OrderedDictionary]::new()
-    }
-}
-
-class SortedBag : AbstractBag{
-    SortedBag(){
-        $this.Substance = [System.Collections.Generic.SortedDictionary[object,object]]::new()
-    }
-}
-#>
 
 class IndexedBagElement {
     [object]$Index
