@@ -13,8 +13,8 @@ class DependencyListenerEntry{
         $this.Arguments = $AdditionalArguments
     }
 
-    [object]Perform([object]$arguments){
-        return (&$this.ScriptBlock $arguments $this.AdditionalArguments)
+    [object]Perform([object]$arguments,[hashtable]$workingset){
+        return (&$this.ScriptBlock $arguments $this.AdditionalArguments $workingset )
     }
 }
 class DependencyHolder{
@@ -44,20 +44,20 @@ class DependencyHolder{
         $this.clients.Add($elem)
     }
 
-    [object]Perform([object]$argArray,[scriptBlock]$ifEmpty){
+    [object]Perform([object]$argArray,[hashtable]$workingset,[scriptBlock]$ifEmpty){
         $lastResult = $null
         if( $this.Count() -eq 0 ){
             return &$ifEmpty
         }
         $this.clients.foreach{
-            $lastResult = $_.Perform($argArray)
+            $lastResult = $_.Perform($argArray,$workingset)
         }
 
         return($lastResult)
     }
 
-    [object]Perform([object]$argArray){
-        return($this.Perform($argArray,{}))
+    [object]Perform([object]$argArray,[hashtable]$workingset){
+        return($this.Perform($argArray,$workingset,{}))
     }
 
     [int]Count()
@@ -70,6 +70,7 @@ class ValueHolder{
     [object]$wpvSubject
     [DependencyHolder]$SubjectChangeValidator
     [DependencyHolder]$SubjectChangeListeners
+    [HashTable]$WorkingSet
         
     ValueHolder(){
         $this.Initialize()
@@ -82,6 +83,7 @@ class ValueHolder{
     initialize()
     {
         $this.Subject($null)
+        $this.WorkingSet = @{}
         $this.SubjectChangeValidator = [DependencyHolder]::new(1)
         $this.SubjectChangeListeners = [DependencyHolder]::new()
     }
@@ -102,10 +104,10 @@ class ValueHolder{
     }
 
     [bool]SubjectChanging($current,$new){
-        return ($this.SubjectChangeValidator.Perform(@($current,$new),{$true}))
+        return ($this.SubjectChangeValidator.Perform(@($current,$new),$this.WorkingSet,{$true}))
     }
     [object]SubjectChanged($newSubject){
-        $this.SubjectChangeListeners.Perform(@( $newSubject ),{})
+        $this.SubjectChangeListeners.Perform(@( $newSubject ),$this.WorkingSet,{})
         return($newSubject)
     }
     [object]Value()
