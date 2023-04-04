@@ -71,7 +71,7 @@ class ChainScript{
             }
         }
         until( $loopCount++ -ge (&$this.Givingup) )
-
+        throw 'Terminate because Too many loops. If you realy want, Set "Givingup" you need.'
         return($false)
     }
 }
