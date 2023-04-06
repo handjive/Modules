@@ -48,8 +48,8 @@ class ChainScript{
     Reset(){
         &$this.ResetBlock $this
     }
-    GetValue(){
-        &$this.GetValueBlock $this
+    [object]GetValue(){
+        return (&$this.GetValueBlock $this $this.workingset)
     }
 
     [bool]Perform(){
