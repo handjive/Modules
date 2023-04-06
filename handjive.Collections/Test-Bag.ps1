@@ -1,4 +1,5 @@
 using module handjive.Collections
+using module handjive.ChainScript
 
 switch($args){
     1{
@@ -308,7 +309,6 @@ switch($args){
         $ab | StreamAdaptor -Find { $args[0].Occurrence -eq 3 } -ifAbsent { ([BagElement]::new('hoge',0)) } | Select-Object -Property Value,Occurrence
     }
     9 {
-        $ixb  = [IndexedBag]::new([Collections.Generic.SortedDictionary[object,SortedBag]],[SortedBag])
         $ixb  = [IndexedBag]::new()
 
         $ixb.GetIndexBlock = { $args[0].Substring(0,1) }
@@ -317,7 +317,6 @@ switch($args){
         #$ixb.ValuesAndOccurrences.foreach{ Write-Host $_.Value $_.Occurrence }
 
         $ixb.Count 
-        $ixb['野'].foreach{ write-host $_.Value $_.Occurrence }
         $ixb[752].foreach{ write-host $_.Value $_.Occurrence }
         $ixb.IndexesAndValuesAndOccurrences.foreach{ Write-Host $_.index $_.Value $_.Occurrence }
         <#
@@ -380,5 +379,62 @@ switch($args){
 
 
         #>
+    }
+    10 {
+        $mb = [MessageBuilder]::new()
+        $testdata = @( '花沢健吾','花沢健吾','花沢健吾','若木民喜','荒井春太郎','荒井春太郎','莉ジャンヒュン','菅原キク','萩埜まこと','萩尾望都','藤間麗','西義之','ナイーブタ','西餅' )
+        $ixb = [IndexedBag]::new()
+        $ixb.GetIndexBlock = { [string]($args[0][0]) }  # 先頭一文字でインデックス
+        $testdata.foreach{ $ixb.Add($_) }
+
+        $ixb.Count | InjectMessage $mb -Format 'Bag.Count = {0}' -Flush
+
+        '----- Values Ordered -----' | InjectMessage $mb -Flush
+        $ixb.ValuesOrdered | InjectMessage $mb -Flush
+        '----- Values Sorted -----' | InjectMessage $mb -Flush
+        $ixb.ValuesSorted | InjectMessage $mb -Flush
+
+        '----- Indexes -----' | InjectMessage $mb -Flush
+        $ixb.Indexes | InjectMessage $mb -Flush
+
+        $sorted = $ixb.ElementsSorted
+        while($sorted.MoveNext()){
+            $elem = $sorted.Current
+            'Index={0}, Value={1}, Occurrence={2}' | InjectMessage $mb -FormatByStream $elem.Index $elem.Value $elem.Occurrence -Flush
+        }
+        $ordered = $ixb.ElementsOrdered
+        while($ordered.MoveNext()){
+            $elem = $ordered.Current
+            'Index={0}, Value={1}, Occurrence={2}' | InjectMessage $mb -FormatByStream $elem.Index $elem.Value $elem.Occurrence -Flush
+        }
+
+        for($i=0; $i -lt $ixb.Count; $i++){
+            '$ixb[{0}] => "{1}"' | InjectMessage $mb -FormatByStream $i $ixb[$i] -Flush
+        }
+
+        (1..5).foreach{ 
+            $ixb.OccurrencesOf('花沢健吾') | InjectMessage $mb -Flush
+            $ixb.Remove('花沢健吾')
+        }
+        $testdata.foreach{
+             '$ixb.Includes({0}) => {1}' | InjectMessage $mb -FormatByStream $_ $ixb.Includes($_) -Flush
+        }
+        for($i=0; $i -lt $ixb.Count; $i++){
+            '$ixb[{0}] => "{1}"' | InjectMessage $mb -FormatByStream $i $ixb[$i] -Flush
+        }
+
+        '----- Indexes Ordered -----' | InjectMessage $mb -Flush
+        $ixb.IndexesOrdered | InjectMessage $mb -Flush
+        '----- Indexes Sorted -----' | InjectMessage $mb -Flush
+        $ixb.IndexesSorted | InjectMessage $mb -Flush
+
+        $aBag = $ixb['西']
+        $ixb.Purge('西義之')
+        $ixb.Purge('西餅')
+        $ixb.PurgeIndex('荒')
+        $od = $ixb.Substance
+        $od
+
+        # Comparer差し替えでインデックスが正しく再構成されるか?
     }
 }
