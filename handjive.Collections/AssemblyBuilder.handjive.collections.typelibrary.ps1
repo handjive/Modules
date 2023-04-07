@@ -4,28 +4,27 @@ $cscode = @"
 namespace handjive{
     namespace Collections{
         public interface IBag{
-            System.Collections.IEnumerator Values{ get; }
+            System.Collections.Generic.IEnumerator<object> Values{ get; }
             int Count{ get; }
-            object this[int index]{ get; set; }
-            object this[object key]{ get; set; }
-            System.Collections.IEnumerator ValuesAndOccurrences{ get; }
-        }
-        public interface IIndexedBag{
-            object GetIndexBlock{ get; set; }
-            System.Collections.IEnumerator Values{ get; }
-            int Count{ get; }
-            object[] this[int index]{ get; set; }
-            object[] this[object key]{ get; set; }
-            System.Collections.IEnumerator ValuesAndOccurrences{ get; }
-            System.Collections.IEnumerator IndexesAndValuesAndOccurrences{ get; }
+            object SortingComparer{ get; set; }
+            object this[int index]{ get; }
+            //int this[object key]{ get; }
+            System.Collections.Generic.IEnumerator<object> ValuesSorted{ get; }
+            System.Collections.Generic.IEnumerator<object> ValuesOrdered{ get; }
+            System.Collections.Generic.IEnumerator<object> ElementsSorted{ get; }
+            System.Collections.Generic.IEnumerator<object> ElementsOrdered{ get; }
         }
 
-        public interface IKeyedBag{
-            object[] Indices{ get; }
-            object[] Values{ get; }
-            int Count{ get; }
-            object[] IndicesAndValues{ get; }
-            object[] IndicesAndValuesAndOccurrences{ get; }
+        public interface IIndexedBag{
+            object GetIndexBlock{ get; set; }
+            System.Collections.Generic.IEnumerator<object> Indexes{ get; }
+            //System.Collections.IEnumerator IndexesOrdered{ get; }
+            //System.Collections.IEnumerator Values{ get; }
+            //int Count{ get; }
+            //object[] this[int index]{ get; }
+            object this[object index]{ get; }
+            //System.Collections.IEnumerator ValuesAndOccurrences{ get; }
+            //System.Collections.IEnumerator IndexesAndValuesAndOccurrences{ get; }
         }
 
         public class EnumerableBase : System.Collections.Generic.IEnumerable<object>{

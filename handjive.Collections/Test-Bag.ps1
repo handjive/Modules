@@ -1,35 +1,92 @@
 using module handjive.Collections
-
-class Test1{
-    static [string] $THE_STRING = 'HOGEeeee!'
-}
-class Test2 : Test1 {
-    static [string] $THE_STRING = 'TARAaaaaa!'
-}
-
-
+using module handjive.ChainScript
 
 switch($args){
     1{
+        # Sort-order: Ascending
         $mb = [MessageBuilder]::new()
 
+        # デフォルト(ソート: Ascending)
         $aBag = [Bag]::new()
-        @(1,3,5,7,9).foreach{ $aBag.Add($_) }
-        $aBag.AddAll(@(3,7))
-        $aBag.Keys.foreach{
-            'Occuerrences of "{0}" is "{1}"' | InjectMessage $mb -FormatByStream $_ $aBag.OccurrencesOf($_) -Flush
+        [Interval]::new(9,1,2).ForEach{ 
+            $_ | InjectMessage $mb -format 'Adding {0}' -Flush
+            $aBag.Add($_) 
         }
-        @(1..10).foreach{
-            'Is includes {0}? => {1}' | InjectMessage $mb -FormatByStream $_ $aBag.Includes($_) -Flush
-        }
-        '----- keys -----' | InjectMessage $mb
-        $aBag.Keys | InjectMessage $mb -NewLine
-        $mb.Flush()
-        '----- Values -----' | InjectMessage $mb
-        $aBag.Values | InjectMessage $mb -NewLine
-        $mb.Flush()
+        '----- Ordered -----' | InjectMessage $mb -Flush
+        $aBag.ValuesOrdered | InjectMessage $mb -Flush -Oneline
+
+        '----- Sorted by Default(Ascending) -----' | InjectMessage $mb -Flush
+        $aBag.ValuesSorted | InjectMessage $mb -Flush -OneLine
+
+        '----- Changing Comparer to Desending -----' | InjectMessage $mb -Flush
+        $aBag.SortingComparer = [PluggableComparer]::DefaultDescending()
+        $aBag.ValuesSorted | InjectMessage $mb -Flush -oneline
 
     }
+    1.1{
+        # Sort-order: Ascending
+        $mb = [MessageBuilder]::new()
+
+        # 明示的ソート指定: Ascending
+        $aBag = [Bag]::new([PluggableComparer]::DefaultAscending())
+        [Interval]::new(9,1,2).ForEach{ 
+            $_ | InjectMessage $mb -format 'Adding {0}' -Flush
+            $aBag.Add($_) 
+        }
+        '----- Ordered -----' | InjectMessage $mb -Flush
+        $aBag.ValuesOrdered | InjectMessage $mb -Flush -Oneline
+
+        '----- Sorted by Default(Ascending) -----' | InjectMessage $mb -Flush
+        $aBag.ValuesSorted | InjectMessage $mb -Flush -OneLine
+
+        '----- Changing Comparer to Asending -----' | InjectMessage $mb -Flush
+        $aBag.SortingComparer = [PluggableComparer]::DefaultDescending()
+        $aBag.ValuesSorted | InjectMessage $mb -Flush -oneline
+    }
+    1.2 {
+        # a Bag from the Bag & デフォルトソート
+        $mb = [MessageBuilder]::new()
+
+        $aBag1 = [Bag]::new()
+        $aBag1.AddAll([Interval]::new(20,1,2))
+        $elementsOrdered = $aBag1.ElementsOrdered.ToArray()
+        $elementsSorted = $aBag1.ElementsSorted.ToArray()
+        '----- ElementsOrdered -----' | InjectMessage $mb -Flush
+        $aBag1.ElementsOrdered.foreach{ $_.Value,$_.Occurrence | InjectMessage $mb -OneLine -Flush }
+        '----- Enumerate Bag directory -----' | InjectMessage $mb -Flush
+        $aBag1.foreach{ $_.Value,$_.Occurrence | InjectMessage $mb -OneLine -Flush }
+        '----- ElementsSorted -----' | InjectMessage $mb -Flush
+        $aBag1.ElementsSorted.foreach{ $_.Value,$_.Occurrence | InjectMessage $mb -OneLine -Flush }
+
+        $aBag2 = [Bag]::new($aBag1)
+        $aBag3 = [Bag]::new([Interval]::new(1,100,9))
+
+        '----- ValuesOrdered -----' | InjectMessage $mb -Flush
+        $aBag2.ValuesOrdered | InjectMessage $mb -Flush -Oneline
+
+        '----- ValuesSorted by Default(Ascending) -----' | InjectMessage $mb -Flush
+        $aBag2.ValuesSorted | InjectMessage $mb -Flush -OneLine
+
+        '----- Changing Comparer to Desending -----' | InjectMessage $mb -Flush
+        $aBag2.SortingComparer = [PluggableComparer]::DefaultDescending()
+        $aBag2.ValuesSorted | InjectMessage $mb -Flush -oneline
+
+        
+    }
+    1.3 {
+        $mb = [MessageBuilder]::new()
+        $aBag = [Bag]::new([interval]::new(1,10,1))
+        $aBag.AddAll([interval]::new(1,10,2))
+        $aValue = $aBag[[int]3]
+        '$aBag[[int]{0}] is "{1}"' | InjectMessage $mb -FormatByStream 3 $aValue -Flush
+        @(1..10).foreach{
+            '$aBag[[object]{0}] is "{1}"' | InjectMessage $mb -FormatByStream $_ $aBag[[object]$_] -Flush
+        }
+        @(-5..15).foreach{
+            '$aBag.Includes({0}) => {1}' | InjectMessage $mb -FormatByStream $_ $aBag.Includes([object]$_) -Flush
+        }
+    }
+
     2 {
         $mb = [MessageBuilder]::new()
         $autherAndTitles = [Bag]::new() # key=auther, occurrence=number of title
@@ -252,7 +309,6 @@ switch($args){
         $ab | StreamAdaptor -Find { $args[0].Occurrence -eq 3 } -ifAbsent { ([BagElement]::new('hoge',0)) } | Select-Object -Property Value,Occurrence
     }
     9 {
-        $ixb  = [IndexedBag]::new([Collections.Generic.SortedDictionary[object,SortedBag]],[SortedBag])
         $ixb  = [IndexedBag]::new()
 
         $ixb.GetIndexBlock = { $args[0].Substring(0,1) }
@@ -261,7 +317,6 @@ switch($args){
         #$ixb.ValuesAndOccurrences.foreach{ Write-Host $_.Value $_.Occurrence }
 
         $ixb.Count 
-        $ixb['野'].foreach{ write-host $_.Value $_.Occurrence }
         $ixb[752].foreach{ write-host $_.Value $_.Occurrence }
         $ixb.IndexesAndValuesAndOccurrences.foreach{ Write-Host $_.index $_.Value $_.Occurrence }
         <#
@@ -324,5 +379,62 @@ switch($args){
 
 
         #>
+    }
+    10 {
+        $mb = [MessageBuilder]::new()
+        $testdata = @( '花沢健吾','花沢健吾','花沢健吾','若木民喜','荒井春太郎','荒井春太郎','莉ジャンヒュン','菅原キク','萩埜まこと','萩尾望都','藤間麗','西義之','ナイーブタ','西餅' )
+        $ixb = [IndexedBag]::new()
+        $ixb.GetIndexBlock = { [string]($args[0][0]) }  # 先頭一文字でインデックス
+        $testdata.foreach{ $ixb.Add($_) }
+
+        $ixb.Count | InjectMessage $mb -Format 'Bag.Count = {0}' -Flush
+
+        '----- Values Ordered -----' | InjectMessage $mb -Flush
+        $ixb.ValuesOrdered | InjectMessage $mb -Flush
+        '----- Values Sorted -----' | InjectMessage $mb -Flush
+        $ixb.ValuesSorted | InjectMessage $mb -Flush
+
+        '----- Indexes -----' | InjectMessage $mb -Flush
+        $ixb.Indexes | InjectMessage $mb -Flush
+
+        $sorted = $ixb.ElementsSorted
+        while($sorted.MoveNext()){
+            $elem = $sorted.Current
+            'Index={0}, Value={1}, Occurrence={2}' | InjectMessage $mb -FormatByStream $elem.Index $elem.Value $elem.Occurrence -Flush
+        }
+        $ordered = $ixb.ElementsOrdered
+        while($ordered.MoveNext()){
+            $elem = $ordered.Current
+            'Index={0}, Value={1}, Occurrence={2}' | InjectMessage $mb -FormatByStream $elem.Index $elem.Value $elem.Occurrence -Flush
+        }
+
+        for($i=0; $i -lt $ixb.Count; $i++){
+            '$ixb[{0}] => "{1}"' | InjectMessage $mb -FormatByStream $i $ixb[$i] -Flush
+        }
+
+        (1..5).foreach{ 
+            $ixb.OccurrencesOf('花沢健吾') | InjectMessage $mb -Flush
+            $ixb.Remove('花沢健吾')
+        }
+        $testdata.foreach{
+             '$ixb.Includes({0}) => {1}' | InjectMessage $mb -FormatByStream $_ $ixb.Includes($_) -Flush
+        }
+        for($i=0; $i -lt $ixb.Count; $i++){
+            '$ixb[{0}] => "{1}"' | InjectMessage $mb -FormatByStream $i $ixb[$i] -Flush
+        }
+
+        '----- Indexes Ordered -----' | InjectMessage $mb -Flush
+        $ixb.IndexesOrdered | InjectMessage $mb -Flush
+        '----- Indexes Sorted -----' | InjectMessage $mb -Flush
+        $ixb.IndexesSorted | InjectMessage $mb -Flush
+
+        $aBag = $ixb['西']
+        $ixb.Purge('西義之')
+        $ixb.Purge('西餅')
+        $ixb.PurgeIndex('荒')
+        $od = $ixb.Substance
+        $od
+
+        # Comparer差し替えでインデックスが正しく再構成されるか?
     }
 }
