@@ -402,16 +402,14 @@ class Bag : handjive.Collections.EnumerableBase,handjive.IWrapper,handjive.Colle
 }
 
 
-class IndexedBagElement {
+class IndexedBagElement : BagElement{
     [object]$Index
-    [object]$Value
-    [object]$Occurrence
 
     IndexedBagElement(){
     }
-    IndexedBagElement([object]$index,[Bag]$value){
-        $this.Index = $index
-        $this.Values = $value
+    IndexedBagElement([BagElement]$anElement){
+        $this.Value = $anElement.Value
+        $this.Occurrence = $anElement.Occurrence
     }
 }
 
@@ -557,28 +555,44 @@ class IndexedBag : Bag,handjive.Collections.IIndexedBag{
         }
         return($enumerator)
     }
-    <#[Collections.Generic.IEnumerator[object]]get_ElementsOrdered(){
+    [Collections.Generic.IEnumerator[object]]get_ElementsOrdered(){
+        $enumerator = $this.create_ElementsEnumerator()
+        $enumerator.WorkingSet.valueEnumerator = $this.Substance.Keys.GetEnumerator()
+        $enumerator.OnCurrentBlock = {
+            param($substance,$workingset)
+            $elem = $substance.newElement()
+            $elem.Index = $substance.GetIndexOf($workingset.valueEnumerator.Current)
+            $elem.Value = $workingset.valueEnumerator.Current
+            $elem.Occurrence = $substance.Substance[[object]$elem.Value]
+            return($elem)
+        }
+        $enumerator.PSReset()
+        return($enumerator)
+        <#$indexEnum = $this.Indexes
+        $bagsEnum = $this.Substance.Values.GetEnumerator()
+        $scriptChain = $this.elementsEnumeratorBody($indexEnum,$bagsEnum)
         $enumerator = [PluggableEnumerator]::new($this)
-        $enumerator.workingset.elementsEnumerator = ([Bag]$this).ElementsOrdered
+        $enumerator.workingset.ScriptChain = $scriptChain
         $enumerator.OnMoveNextBlock = {
             param($substance,$workingset)
-            return($workingset.elementsEnumerator.MoveNext())
+            $nextable = $workingset.ScriptChain.Perform()
+            return($nextable)
         }
         $enumerator.OnCurrentBlock = {
             param($substance,$workingset)
             $elem = $substance.newElement()
-            $elem.Value = $workingset.elementsEnumerator.Current.Value
-            $elem.Occurrence = $workingset.elementsEnumerator.Current.Occurrence
-            $elem.Index = $substance.GetIndexOf($elem.Value)
+            $result = $workingset.ScriptChain.GetValue()
+            $elem.Index = $result[0]
+            $elem.Value = $result[1]
+            $elem.Occurrence = $result[2]
             return($elem)
         }
         $enumerator.OnResetBlock = {
             param($substance,$workingset)
-            $workingset.elementsEnumerator.Reset()
-        }
-        return($enumerator)
-            
-    }#>
+            $workingset.ScriptChain.Reset()
+        }#>
+
+    }
 
     Add([object]$value){
         ([Bag]$this).Add($value)
