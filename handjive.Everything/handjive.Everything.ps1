@@ -261,7 +261,7 @@ class Everything : IEverything {
         }
     }
 
-    [EverythingSearchResultElement[]]BuildResultSet([scriptblock]$filter){
+    BuildResultSet([scriptblock]$filter){
         $this.wpvResults = @()
         for($i =0;$i -lt $this.esapi::Everything_GetNumResults();$i++)
         {
@@ -278,47 +278,37 @@ class Everything : IEverything {
                 $this.wpvResults += $anElement
             }
         }
-        return ($this.results)
     }
 
-    [EverythingSearchResultElement[]]PerformQuery([scriptBlock]$filter)
+    PerformQuery([scriptBlock]$filter)
     {
         $this.BuildSearchString()
         $this.esapi::Everything_QueryW($true)
-        return ($this.BuildResultSet($filter))
+        $this.BuildResultSet($filter)
     }
 
-    [EverythingSearchResultElement[]]PerformQuery()
+    PerformQuery()
     {
-        return ($this.PerformQuery({$true}))
+        $this.PerformQuery({$true})
     }
 
-    [EverythingSearchResultElement[]]PerformQuery([string]$pattern)
-    {
-        $this.SearchStringHolder.Value($pattern)
-        return($this.PerformQuery())
-    }
-
-    [EverythingSearchResultElement[]]PerformQuery([string]$pattern,[scriptBlock]$filter)
+    PerformQuery([string]$pattern)
     {
         $this.SearchStringHolder.Value($pattern)
-        return($this.PerformQuery($filter))
+        $this.PerformQuery()
     }
 
-    [EverythingSearchResultElement[]]PerformQuery([string]$queryBase,[string]$pattern,[scriptBlock]$filter)
+    PerformQuery([string]$pattern,[scriptBlock]$filter)
+    {
+        $this.SearchStringHolder.Value($pattern)
+        $this.PerformQuery($filter)
+    }
+
+    PerformQuery([string]$queryBase,[string]$pattern,[scriptBlock]$filter)
     {
         $this.QueryBaseHolder.Value($queryBase)
         $this.SearchStringHolder.Value($pattern)
-        return($this.PerformQuery($filter))
-    }
-
-    [object[]]LastResults()
-    {
-        return ($this.results)
-    }
-    [object[]]ResultAt($index)
-    {
-        return ($this.results[$index])
+        $this.PerformQuery($filter)
     }
 
     [object[]]SelectResult([scriptblock]$aScriptBlock)
