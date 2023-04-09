@@ -6,7 +6,7 @@ namespace handjive{
         public interface IBag{
             System.Collections.Generic.IEnumerator<object> Values{ get; }
             int Count{ get; }
-            object SortingComparer{ get; set; }
+            System.Collections.Generic.IComparer<object> SortingComparer{ get; set; }
             object this[int index]{ get; }
             //int this[object key]{ get; }
             System.Collections.Generic.IEnumerator<object> ValuesSorted{ get; }

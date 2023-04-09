@@ -423,10 +423,8 @@ switch($args){
             '$ixb[{0}] => "{1}"' | InjectMessage $mb -FormatByStream $i $ixb[$i] -Flush
         }
 
-        '----- Indexes Ordered -----' | InjectMessage $mb -Flush
-        $ixb.IndexesOrdered | InjectMessage $mb -Flush
-        '----- Indexes Sorted -----' | InjectMessage $mb -Flush
-        $ixb.IndexesSorted | InjectMessage $mb -Flush
+        '----- Indexes -----' | InjectMessage $mb -Flush
+        $ixb.Indexes | InjectMessage $mb -Flush
 
         $aBag = $ixb['西']
         $ixb.Purge('西義之')
@@ -436,5 +434,20 @@ switch($args){
         $od
 
         # Comparer差し替えでインデックスが正しく再構成されるか?
+    }
+    11 {
+        $mb = [MessageBuilder]::new()
+        $testdata = @( '花沢健吾','花沢健吾','花沢健吾','若木民喜','荒井春太郎','荒井春太郎','莉ジャンヒュン','菅原キク','萩埜まこと','萩尾望都','藤間麗','西義之','ナイーブタ','西餅' )
+        $aBag = [Bag]::new()
+        $testdata.foreach{ $aBag.Add($_) }
+        '----- ValuesSorted -----' | InjectMessage $mb -Flush
+        $aBag.ValuesSorted.foreach{
+            $_
+        }
+        '----- ValuesOrdered -----' | InjectMessage $mb -Flush
+        $aBag.ValuesOrdered.foreach{
+            $_
+        }
+        $aBag
     }
 }
