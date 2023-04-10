@@ -191,12 +191,17 @@ class BagElement{
 }
 
 <#
+# TODO: SortingComparerが機能してない? 
+#
 #  重複を無視する(が、重複数は保持する)コレクション
+#　(格納対象オブジェクトはICompareable.CompareTo()に答える必要あり)
 #
 #   プロパティ
 #       SortingComparer         Collections.IComparer { get; set }  ValuesSorted,ElementsSortedのソート順を決定するためのIComparer
 #       ValuesOrdered           Collections.IEnumerator { get; }    追加順で値を返すEnumerator
-#       ValuesSorted            Collections.IEnumerator { get; }    SortingComparer順で値を返すEnumerator
+#       ValuesSorted            Collections.IEnumerator { get; }    SortingComparer順で値を返すEnumerator。
+#                                                                   比較の結果同じ(-eq)と判定されたオブジェクトは集約されてしまう。ValueOrderdの結果と食い違う事になるので注意。
+#                                                                   (ValuesOrderdで返されるオブジェクトがValuesSortedには含まれない、という状況が起きる)
 #       ElementsOrdered         Collections.IEnumerator { get; }    追加順で値と重複数([Bag]::ELEMENT_CLASSのインスタンス)を返すEnumerator
 #       ElementsSorted          Collections.IEnumerator { get; }    SortingComparer順で値と重複数([Bag]::ELEMENT_CLASSのインスタンス)を返すEnumerator
 #       Count                   int { get; }                        値の数
@@ -213,7 +218,7 @@ class BagElement{
 #       OccurrencesOf   [int] ([object]$aValue)       $aValueの重複数を得る
 #       Includes        [bool]([object]$aValue)       $aValueが含まれるかの真偽値を返す
 #>
-class Bag : handjive.Collections.EnumerableBase,handjive.IWrapper,handjive.Collections.IBag{
+class Bag : handjive.IWrapper,handjive.Collections.IBag{
     static $ELEMENT_CLASS = [BagElement]
     hidden [Collections.Specialized.OrderedDictionary]$wpvSubstance
     hidden [Collections.Generic.SortedSet[object]]$wpvValueSet
@@ -279,16 +284,30 @@ class Bag : handjive.Collections.EnumerableBase,handjive.IWrapper,handjive.Colle
     }
 
     [Collections.Generic.IComparer[object]]get_SortingComparer(){
-        return($this.wpvSortingComparerHolder.Value)
+        return([Collections.Generic.IComparer[object]]$this.wpvSortingComparerHolder.Value())
     }
     set_SortingComparer([Collections.Generic.IComparer[object]]$aComparer){
         $this.wpvSortingComparerHolder.Value($aComparer)
     }
 
     [Collections.Generic.IEnumerator[object]]get_ValuesSorted(){
-        $enumerator = $this.wpvValueSet.GetEnumerator()
+        $enumerator = [PluggableEnumerator]::new($this)
+        $enumerator.workingset.valueEnumerator = $this.wpvValueSet.GetEnumerator()
+        $enumerator.OnMoveNextBlock = {
+            param($substance,$workingset)
+            return($workingset.valueEnumerator.MoveNext())
+        }
+        $enumerator.OnCurrentBlock = {
+            param($substance,$workingset)
+            return($workingset.valueEnumerator.Current)
+        }
+        $enumerator.OnResetBlock = {
+            param($substance,$workingset)
+            $workingset.valueEnumerator.Reset()
+        }
         return($enumerator)
     }
+
     [Collections.Generic.IEnumerator[object]]get_ValuesOrdered(){
         $enumerator = [PluggableEnumerator]::new($this)
         $enumerator.workingset.valueEnumerator = $this.Substance.Keys.GetEnumerator()
@@ -357,7 +376,7 @@ class Bag : handjive.Collections.EnumerableBase,handjive.IWrapper,handjive.Colle
 
     [Collections.Generic.IEnumerator[object]]get_ElementsOrdered(){
         $enumerator = $this.create_ElementsEnumerator()
-        $enumerator.WorkingSet.valueEnumerator = $this.get_ValuesOrderd()
+        $enumerator.WorkingSet.valueEnumerator = $this.get_ValuesOrdered()
         $enumerator.PSReset()
         return($enumerator)
     }
@@ -437,9 +456,9 @@ class IndexedBag : Bag,handjive.Collections.IIndexedBag{
     hidden [ValueHolder]$wpvIndexComparerHolder
     hidden [Collections.Generic.SortedDictionary[object,object]]$wpvIndexDictionary
 
-    hidden [Collections.Generic.SortedDictionary[object,object]]buildIndexDictionary([IndexedBag]$anIndexedBag)
+    hidden [Collections.Generic.SortedDictionary[object,object]]buildIndexDictionary([IndexedBag]$anIndexedBag,[Collections.Generic.IComparer[object]]$indexComparer)
     {
-        $newDict = [Collections.Generic.SortedDictionary[object,object]]::new()
+        $newDict = [Collections.Generic.SortedDictionary[object,object]]::new($indexComparer)
         $anIndexedBag.Substance.keys.foreach{
             $aValue = $anIndexedBag.Substance[[object]$key]
             $index = $anIndexedBag.GetIndexOf($aValue)
@@ -452,21 +471,23 @@ class IndexedBag : Bag,handjive.Collections.IIndexedBag{
         <#
         # GetKeyBlockかIndexComparerが変更されたらIndexDictionaryを再構成
         #>
-        $this.wpvIndexDictionary = [Collections.Generic.SortedDictionary[object,object]]::new()
+        $this.wpvIndexDictionary = [Collections.Generic.SortedDictionary[object,object]]::new($indexComparer)
 
         $this.wpvGetIndexBlockHolder = [ValueHolder]::new($getkeyBlock)
         $this.wpvGetIndexBlockHolder.WorkingSet.Receiver = $this
+        $this.wpvGetIndexBlockHolder.WorkingSet.IndexComparer = $indexComparer
         $this.wpvGetIndexBlockHolder.AddSubjectChangedLister(@(),{
             param($args1,$args2,$workingset)
             $receiver = $workingset.Receiver
-            $receiver.wpvIndexDictionary = $receiver.buildIndexDictionary($receiver)
+            $receiver.wpvIndexDictionary = $receiver.buildIndexDictionary($receiver,$workingset.indexComparer)
         })
         $this.wpvIndexComparerHolder = [ValueHolder]::new($indexComparer)
         $this.wpvIndexComparerHolder.WorkingSet.Receiver = $this
+        $this.wpvIndexComparerHolder.WorkingSet.IndexComparer = $indexComparer
         $this.wpvIndexComparerHolder.AddSubjectChangedLister(@(),{ 
             param($args1,$args2,$workingset) 
             $receiver = $workingset.Receiver
-            $receiver.wpvIndexDictionary = $receiver.buildIndexDictionary($receiver)
+            $receiver.wpvIndexDictionary = $receiver.buildIndexDictionary($receiver,$workingset.indexComparer)
         })
     }
 
