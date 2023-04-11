@@ -61,20 +61,41 @@ enum ESAPI_SORT{
 }
 
 
-class EverythingSearchResultElement : ISearchResultElement {
+class EverythingSearchResultElement : ISearchResultElement,IComparable {
+    static [ScriptBlock]$COMPARETO_BLOCK_NAME_ASCENDING = {
+        param($left)
+        if( $left -is [EverythingSearchResultElement] ){
+            if( $this.Name -eq $left.Name ){ return 0 }
+            if( $this.Name -lt $left.Name ){ return -1 }
+            if( $this.Name -gt $left.Name ){ return 1 }
+        }
+        else{
+            return $this.Name.CompareTo($left)
+        }
+    }
+    static [ScriptBlock]$DEFAULT_COMPARETO_BLOCK = [EverythingSearchResultElement]::COMPARETO_BLOCK_NAME_ASCENDING
+
     [string]$wpvQueryBase
     [int]$wpvNumber
     [string]$wpvName
     [string]$wpvContainerPath
+    [ScriptBlock]$CompareToBlock = { return -1 }
 
     EverythingSearchResultElement([int]$anIndex,[string]$aName,[string]$aContainer)
     {
         $this.Number = $anIndex
         $this.Name = $aName
         $this.ContainerPath = $aContainer
+        $this.CompareToBlock = [EverythingSearchResultElement]::DEFAULT_COMPARETO_BLOCK
     }
     EverythingSearchResultElement()
     {
+        $this.CompareToBlock = [EverythingSearchResultElement]::DEFAULT_COMPARETO_BLOCK
+    }
+
+    <# Reponsibility for IComparable #>
+    [int] CompareTo([object]$left){
+        return (&$this.CompareToBlock $left)
     }
 
     [string]get_QueryBase(){
@@ -315,7 +336,7 @@ class Everything : IEverything {
     {
         [object[]]$selection = @()
 
-        $this.LastResults().foreach{
+        $this.Results.foreach{
             if( Invoke-Command -ScriptBlock $aScriptBlock -ArgumentList $_ ){
                 $selection += $_
             }

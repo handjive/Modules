@@ -29,7 +29,6 @@ switch($args){
         $es.QueryBase = 'C:\Users\handjive\Documents\書架\BooksArchive'
         $es.PerformQuery('folder: "[炬とうや×藤森フクロウ] 転生したら悪役令嬢だったので引きニートになります"')
         $es.Results[0]|Write-Host
-        $es.ResultAt(0)|Write-Host
         $result = $es.SelectResult($block)
 
         $result[0].Name
@@ -43,12 +42,23 @@ switch($args){
         
         $es2.QueryBase = 'C:\Users\handjive\Documents\書架\BooksArchive'
         $es2.SearchString = 'folder: "げんしけん"'
-        $results = $es2.PerformQuery()
+        $es2.PerformQuery()
         $es2.LastError
         $es2.Results.Count
+        $results = $es2.Results
         #$es2.Results.foreach{ write-host $_.Name }
 
         $es2.SearchString = 'folder: "みんなあげ"'
         $es2.PerformQuery()
+
+        if( $results[0] -ge $es2.Results[0] ){
+            write-host 'HOGE!'
+        }
+        else{
+            write-host 'TARA...'
+        }
+    }
+    3 {
+        $es2 = [Everything]::new()
     }
 }
