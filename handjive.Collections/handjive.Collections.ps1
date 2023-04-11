@@ -517,7 +517,21 @@ class IndexedBag : Bag,handjive.Collections.IIndexedBag{
     }
 
     [Collections.Generic.IEnumerator[object]]get_Indexes(){
-        return $this.wpvIndexDictionary.keys.getEnumerator()
+        $enumr = [PluggableEnumerator]::new($this)
+        $enumr.workingset.keyEnumerator = $this.wpvIndexDictionary.keys.getEnumerator()
+        $enumr.OnMoveNextBlock = {
+            param($substance,$workingset)
+            return $workingset.keyEnumerator.MoveNext()
+        }
+        $enumr.OnCurrentBlock = {
+            param($substance,$workingset)
+            return $workingset.keyEnumerator.Current
+        }
+        $enumr.OnResetBlock = {
+            param($substance,$workingset)
+            $workingset.keyEnumerator.Reset()
+        }
+        return $enumr
     }
 
     <#
