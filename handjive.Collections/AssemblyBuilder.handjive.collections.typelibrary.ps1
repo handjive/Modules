@@ -3,6 +3,13 @@ import-module handjive.AssemblyBuilder -force
 $cscode = @"
 namespace handjive{
     namespace Collections{
+        public interface IPluggableEnumerator {
+            object Substance{ get; set; }
+            object OnCurrentBlock{ get; set; }
+            object OnMoveNextBlock{ get; set; }
+            object OnResetBlock{ get; set; }
+            object WorkingSet{ get; }
+        }        
         public interface IBag{
             System.Collections.Generic.IEnumerator<object> Values{ get; }
             int Count{ get; }

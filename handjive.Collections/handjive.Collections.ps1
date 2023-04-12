@@ -112,18 +112,55 @@ class Interval : handjive.Collections.EnumerableBase, Collections.IEnumerator{
 #  $penum.OnMoveNextBlock   MoveNext()が実行要求された時に実行されるScriptBlock(SubstanceとWorkingSetがパラメータとして渡される)
 #  $penum.OnResetBlock      Reset()が実行要求された時に実行されるScriptBlock(SubstanceとWorkingSetがパラメータとして渡される)
 #>
-class PluggableEnumerator : handjive.Collections.EnumeratorBase {
-    [object]$Substance
-    [ScriptBlock]$OnCurrentBlock = {}
-    [ScriptBlock]$OnMoveNextBlock = { $false }
-    [ScriptBlock]$OnResetBlock = {}
-    [HashTable]$WorkingSet
+class PluggableEnumerator : handjive.Collections.EnumeratorBase,handjive.Collections.IPluggableEnumerator {
+    hidden [object]$wpvSubstance
+    hidden [ScriptBlock]$wpvOnCurrentBlock = {}
+    hidden [ScriptBlock]$wpvOnMoveNextBlock = { $false }
+    hidden [ScriptBlock]$wpvOnResetBlock = {}
+    hidden [HashTable]$wpvWorkingSet
 
     PluggableEnumerator([object]$substance) : base(){
-        $this.Substance = $Substance
-        $this.WorkingSet = @{}
+        $this.wpvSubstance = $Substance
+        $this.wpvWorkingSet = @{}
     }
 
+    <# Property Accessors #>
+    [object]get_Substance(){
+        return $this.wpvSubstance
+    }
+    set_Substance([object]$substance){
+        $this.wpvSubstance = $substance
+    }
+
+    [object]get_OnMoveNextBlock(){
+        return ($this.wpvOnMoveNextBlock)
+    }
+    set_OnMoveNextBlock([object]$aBlock){
+        $this.wpvOnMoveNextBlock = $aBlock
+    }
+
+    [object]get_OnCurrentBlock(){
+        return $this.wpvOnCurrentBlock
+    }
+    set_OnCurrentBlock([object]$aBlock){
+        $this.wpvOnCurrentBlock = $aBlock
+    }
+
+    [object]get_OnResetBlock(){
+        return($this.wpvOnResetBlock)
+    }
+    set_OnResetBlock([object]$aBlock){
+        $this.wpvOnResetBlock = $aBlock
+    }
+
+    [object]get_WorkingSet(){
+        if( $null -eq $this.wpvWorkingSet ){
+            $this.wpvWorkingSet = @{}
+        }
+        return($this.wpvWorkingSet)
+    }
+
+    <# EnumeratorBase Members #>
     PSDispose([bool]$disposing){
     }
 
@@ -146,6 +183,37 @@ class PluggableEnumerator : handjive.Collections.EnumeratorBase {
         }
         return($result)
     }
+}
+
+class EmptyEnumerator : PluggableEnumerator {
+    EmptyEnumerator() : base(){
+    }
+
+    <# Property Accessors #>
+    [object]get_Substance(){
+        return $null
+    }
+    set_Substance([object]$aSubstance){
+    }
+
+    [object]get_OnMoveNextBlock(){
+        return({ return $false })
+    }
+    set_OnMoveNextBlock([object]$aBlock){
+    }
+
+    [object]get_OnCurrentBlock(){
+        return({ return $null })
+    }
+    set_OnCurrentBlock([object]$aBlock){
+    }
+
+    [object]get_OnResetBlock(){
+        return ({})
+    }
+    set_OnResetBlock([ScriptBlock]$aBlock){
+    }
+
 }
 
 
@@ -173,6 +241,83 @@ class PluggableComparer : Collections.Generic.IComparer[object] {
 
     [int]Compare([object]$v1,[object]$v2){
         return((&$this.CompareBlock $v1 $v2))
+    }
+}
+
+class AspectComparer : PluggableComparer{
+    static [AspectComparer]DefaultAscending([string]$aspect){
+        return([AspectComparer]::new([AspectComparer]::AscendingBlock,$aspect))
+    }
+    static [AspectComparer]DefaultDescending([string]$aspect){
+        return([AspectComparer]::new([AspectComparer]::DescendingBlock,$aspect))
+    }
+
+    [string]$Aspect
+
+    hidden [object]GetAspect([object]$anObject){
+        $aValue = $anObject.($this.Aspect)
+        if( $null -eq $aValue ){
+            throw [String]::format('Invalid Aspect "{0}" for "{1}"',$this.Aspect,$anObject.Gettype())
+        }
+
+        return($aValue)
+    }
+
+    AspectComparer([ScriptBlock]$comparerBlock,[string]$aspect) : base($comparerBlock){
+        $this.Aspect = $aspect
+    }
+    AspectComparer([string]$aspect) : base([AspectComparer]::AscendingBlock){
+        $this.Aspect = $aspect
+    }
+    
+    [int]Compare([object]$left,[object]$right){
+        return (&$this.CompareBlock $this.GetAspect($left) $this.GetAspect($right))
+    }
+}
+
+<#
+ 場当たり的なEqualityComparer
+#>
+class PluggableEqualityComparer : Collections.Generic.IEqualityComparer[object]{
+    static [ScriptBlock]$DefaultEqualityComparer = { param($left,$right) return($left -eq $right) }
+    [ScriptBlock]$EqualityComparer = { return $false }
+    [ScriptBlock]$GetHashCodeBlock = { return $args[0].GetHashCode() }
+    
+    PluggableEqualityComparer([object]$substance){
+        $this.EqualityComparer = [PluggableComparer]::DefaultEqualityComparer
+    }
+
+    [bool]Equals([object]$left,[object]$right){
+        return &$this.EqualityComparerBlock $left $right
+    }
+
+   [int]GetHashCode([object]$anObject){
+        return &$this.GetHashCodeBlock $anObject
+   }
+}
+
+class AspectEqualityComparer : Collections.Generic.IEqualityComparer[object] {
+    [string]$Aspect
+
+    hidden [object]GetAspect([object]$anObject){
+        $aValue = $anObject.($this.Aspect)
+        if( $null -eq $aValue ){
+            throw [String]::format('Invalid Aspect "{0}" for "{1}"',$this.Aspect,$anObject.Gettype())
+        }
+
+        return($aValue)
+    }
+
+    AspectEqualityComparer([string]$aspect){
+        $this.Aspect = $aspect
+    }
+
+    [bool]Equals([object]$left,[object]$right){
+        return($this.GetAspect($left) -eq $this.GetAspect($right))
+    }
+
+    [int]GetHashCode([object]$anObject){
+        return ($this.GetAspect($anObject)).GetHashCode()
     }
 }
 
@@ -396,6 +541,11 @@ class Bag : handjive.IWrapper,handjive.Collections.IBag{
     }
     AddAll([object[]]$values){
         $values.foreach{ $this.Add($_) }
+    }
+    AddAll([Collections.Generic.IEnumerator[object]]$enumr){
+        $enumr.foreach{
+            $this.Add($_)
+        }
     }
     
   
