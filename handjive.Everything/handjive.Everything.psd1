@@ -51,10 +51,10 @@ Copyright = '(c) handjive. All rights reserved.'
 # ProcessorArchitecture = ''
 
 # Modules that must be imported into the global environment prior to importing this module
-RequiredModules = @('handjive.EverythingAPI','handjive.ValueHolder')
+RequiredModules = @('handjive.EverythingAPI','handjive.ValueHolder','handjive.Collections')
 
 # Assemblies that must be loaded prior to importing this module
-RequiredAssemblies = @('handjive.EverythingIF.dll')
+RequiredAssemblies = @('handjive.Everything.typelibrary.dll')
 
 # Script files (.ps1) that are run in the caller's environment prior to importing this module.
 # ScriptsToProcess = @()

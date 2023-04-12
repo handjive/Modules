@@ -62,40 +62,28 @@ enum ESAPI_SORT{
 
 
 class EverythingSearchResultElement : ISearchResultElement,IComparable {
-    static [ScriptBlock]$COMPARETO_BLOCK_NAME_ASCENDING = {
-        param($left)
-        if( $left -is [EverythingSearchResultElement] ){
-            if( $this.Name -eq $left.Name ){ return 0 }
-            if( $this.Name -lt $left.Name ){ return -1 }
-            if( $this.Name -gt $left.Name ){ return 1 }
-        }
-        else{
-            return $this.Name.CompareTo($left)
-        }
-    }
-    static [ScriptBlock]$DEFAULT_COMPARETO_BLOCK = [EverythingSearchResultElement]::COMPARETO_BLOCK_NAME_ASCENDING
-
+    static [object]$DefaultComparer = [AspectComparer]::DefaultAscending('Name')
     [string]$wpvQueryBase
     [int]$wpvNumber
     [string]$wpvName
     [string]$wpvContainerPath
-    [ScriptBlock]$CompareToBlock = { return -1 }
+    [object]$Comparer
 
     EverythingSearchResultElement([int]$anIndex,[string]$aName,[string]$aContainer)
     {
         $this.Number = $anIndex
         $this.Name = $aName
         $this.ContainerPath = $aContainer
-        $this.CompareToBlock = [EverythingSearchResultElement]::DEFAULT_COMPARETO_BLOCK
+        $this.Comparer = [EverythingSearchResultElement]::DefaultComparer
     }
     EverythingSearchResultElement()
     {
-        $this.CompareToBlock = [EverythingSearchResultElement]::DEFAULT_COMPARETO_BLOCK
+        $this.Comparer = [EverythingSearchResultElement]::DefaultComparer
     }
 
     <# Reponsibility for IComparable #>
     [int] CompareTo([object]$left){
-        return (&$this.CompareToBlock $left)
+        return ($this.Comparer.Compare($this,$left))
     }
 
     [string]get_QueryBase(){
@@ -135,6 +123,10 @@ class EverythingSearchResultElement : ISearchResultElement,IComparable {
         return Get-Item -literalPath $this.AsFullPath()
     }
 
+    [string]get_FullName(){
+        return $this.AsFullPath()
+    }
+    
     OnInjectionComplete([object]$elem)
     {
     }
@@ -197,13 +189,6 @@ class Everything : IEverything {
         return($this.ElementClass::new())
     }
   
-    [object[]]get_Results(){
-        return($this.wpvResults)
-    }
-    set_Results([object[]]$var){
-        $this.wpvResults = $var
-    }
-
     [string]get_QueryBase(){
         return $this.QueryBaseHolder.Value()
     }
@@ -282,8 +267,50 @@ class Everything : IEverything {
         }
     }
 
-    BuildResultSet([scriptblock]$filter){
+    [object[]]get_Results(){
+        if( $null -eq $this.wpvResults ){
+            $this.BuildResultSet()
+        }
+        return($this.wpvResults)
+    }
+    set_Results([object[]]$var){
+        $this.wpvResults = $var
+    }
+
+    [Collections.Generic.IEnumerator[object]]GetEnumerator(){
+        $enumr = [PluggableEnumerator]::new($this)
+        $enumr.OnMoveNextBlock = {
+            param($substance,$workingset)
+            return($workingset.Locator -lt $workingset.NumResults)
+        }
+        $enumr.OnCurrentBlock = {
+            param($substance,$workingset)
+            $elem = $substance.NewElement()
+            $elem.Number = ($substance.NumberingOffset+$workingset.Locator)
+            $elem.Name = $substance.ResultFileNameAt($workingset.Locator)
+            $elem.ContainerPath = $substance.ResultPathAt($workingset.Locator)
+            $elem.QueryBase = $substance.QueryBase
+            $elem.OnInjectionComplete($elem) | out-null
+            $substance.PostBuildElementListeners.Perform($elem,@{}) | out-null
+            $workingset.Locator++
+            return $elem
+        }
+        $enumr.OnResetBlock = {
+            param($substance,$workingset)
+            $enumr.Workingset.Locator = 0
+            $enumr.Workingset.NumResults = $substance.esapi::Everything_GetNumResults()
+        }
+        
+        $enumr.PSReset()
+        return($enumr)
+    }
+
+    BuildResultSet(){
         $this.wpvResults = @()
+        $this.GetEnumerator().foreach{
+            $this.wpvResults += $_
+        }
+        <#
         for($i =0;$i -lt $this.esapi::Everything_GetNumResults();$i++)
         {
             $anElement = $this.NewElement()
@@ -292,25 +319,20 @@ class Everything : IEverything {
             $anElement.ContainerPath = $this.ResultPathAt($i)
             $anElement.QueryBase = $this.QueryBase
     
-            if( (&$filter $anElement))
-            {
-                $anElement.OnInjectionComplete($anElement)
-                $this.PostBuildElementListeners.Perform($anElement,@{})
-                $this.wpvResults += $anElement
-            }
+            $anElement.OnInjectionComplete($anElement)
+            $this.PostBuildElementListeners.Perform($anElement,@{})
+            $this.wpvResults += $anElement
         }
+        #>
     }
 
-    PerformQuery([scriptBlock]$filter)
-    {
-        $this.BuildSearchString()
-        $this.esapi::Everything_QueryW($true)
-        $this.BuildResultSet($filter)
-    }
 
     PerformQuery()
     {
-        $this.PerformQuery({$true})
+        $this.wpvResults = $null
+        $this.BuildSearchString()
+        $this.esapi::Everything_QueryW($true)
+        #$this.BuildResultSet($filter)
     }
 
     PerformQuery([string]$pattern)
@@ -319,17 +341,11 @@ class Everything : IEverything {
         $this.PerformQuery()
     }
 
-    PerformQuery([string]$pattern,[scriptBlock]$filter)
-    {
-        $this.SearchStringHolder.Value($pattern)
-        $this.PerformQuery($filter)
-    }
-
-    PerformQuery([string]$queryBase,[string]$pattern,[scriptBlock]$filter)
+    PerformQuery([string]$queryBase,[string]$pattern)
     {
         $this.QueryBaseHolder.Value($queryBase)
         $this.SearchStringHolder.Value($pattern)
-        $this.PerformQuery($filter)
+        $this.PerformQuery()
     }
 
     [object[]]SelectResult([scriptblock]$aScriptBlock)

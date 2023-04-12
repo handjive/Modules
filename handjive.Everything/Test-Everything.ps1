@@ -1,5 +1,6 @@
 using module handjive.Everything
 
+import-module handjive.Everything
 function hoge
 {
     Write-Host 'HOGEeeee!!'
@@ -59,6 +60,40 @@ switch($args){
         }
     }
     3 {
+        <#
+         GetEnumerator()を追加したことによる変更のテスト 
+        #>
+
+        $mb = [MessageBuilder]::new()
+        # Enumeratorのテスト
+        # Resultsとの整合性について重視
         $es2 = [Everything]::new()
+        $es2.QueryBase = 'C:\Users\handjive\Documents\書架\BooksArchive'
+        $es2.SearchString = 'folder: "げんしけん"'
+        $es2.PostBuildElementListeners.Add(@(),{
+            param($elem)
+            '>>',$elem.Name | InjectMessage $mb -Oneline -Flush -Italic
+        })
+
+        $es2.PerformQuery()
+
+        'From enumerator(1: movenext()->Current)' | InjectMessage $mb -Flush -ForegroundColor Green -Bold
+        $results = $es2.GetEnumerator()
+        while($results.MoveNext()){
+            $results.Current.Name | InjectMessage $mb -Flush
+        }
+        
+        'From enumerator(2: foreach)' | InjectMessage $mb -Flush -ForegroundColor Green -Bold
+        $es2.GetEnumerator().foreach{
+            
+            $_.Name | InjectMessage $mb -Flush
+        }
+        
+        'After GetEnumerator(), internal result collection is null? => {0}' | InjectMessage $mb -FormatByStream ($null -eq $es2.wpvResults) -Flush
+
+        'From Everything.Results[]' | InjectMessage $mb -Flush -ForegroundColor Green -Bold
+        $es2.Results.foreach{
+            $_.Name | InjectMessage $mb -Flush
+        }
     }
 }
