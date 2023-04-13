@@ -63,10 +63,10 @@ enum ESAPI_SORT{
 
 class EverythingSearchResultElement : ISearchResultElement,IComparable {
     static [object]$DefaultComparer = [AspectComparer]::DefaultAscending('Name')
-    [string]$wpvQueryBase
-    [int]$wpvNumber
-    [string]$wpvName
-    [string]$wpvContainerPath
+    hidden [string]$wpvQueryBase
+    hidden [int]$wpvNumber
+    hidden [string]$wpvName
+    hidden [string]$wpvContainerPath
     [object]$Comparer
 
     EverythingSearchResultElement([int]$anIndex,[string]$aName,[string]$aContainer)
@@ -132,16 +132,38 @@ class EverythingSearchResultElement : ISearchResultElement,IComparable {
     }
 }
 
+<#
+wpvQueryBase     : C:\users\handjive\Documents\書架\BooksArchive
+wpvNumber        : 232
+wpvName          : ss [めぐお×悠戯] 迷宮レストラン ダンジョン最深部でお待ちしております
+wpvContainerPath : C:\Users\handjive\Documents\書架\BooksArchive\2023-01
+Comparer         : AspectComparer
+QueryBase        : C:\users\handjive\Documents\書架\BooksArchive
+Number           : 232
+Name             : ss [めぐお×悠戯] 迷宮レストラン ダンジョン最深部でお待ちしております
+ContainerPath    : C:\Users\handjive\Documents\書架\BooksArchive\2023-01
+FullName         : C:\Users\handjive\Documents\書架\BooksArchive\2023-01\ss [めぐお×悠戯] 迷宮レストラン ダンジョン最深部でお待ちしております
+#>
 class Everything : IEverything {
-    [object]static $DefaultElementClass = [EverythingSearchResultElement]
+    static [object]$DefaultElementClass = [EverythingSearchResultElement]
+
+    static [object[]]Search([string]$queryString){
+        return ([Everything]::Search('',$queryString))
+    }
+    static [object[]]Search([string]$queryBase,[string]$queryString){
+        $es = [Everything]::new()
+        $es.QueryBase = $queryBase
+        $es.PerformQuery($queryString)
+        return $es.Results
+    }
 
     [object]$ElementClass
     [object]$esapi
-    [object[]]$wpvResults = @()
-    [ValueHolder]$SearchStringHolder
-    [ValueHolder]$QueryBaseHolder
-    [bool]$isSearchStringDirty
-    [DependencyHolder]$PostBuildElementListeners
+    hidden [object[]]$wpvResults = @()
+    hidden [ValueHolder]$SearchStringHolder
+    hidden [ValueHolder]$QueryBaseHolder
+    hidden [bool]$isSearchStringDirty
+    hidden [DependencyHolder]$PostBuildElementListeners
     [int]$NumberingOffset = 1
 
     Everything()
