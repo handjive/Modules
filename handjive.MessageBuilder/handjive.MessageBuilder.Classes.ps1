@@ -163,7 +163,7 @@ class MessageBuilder {
         $this.IndentStack = [Collections.Stack]::new()
         $this.Indent = [MessageBuilder]::DefaultIndent
         $this.Active = $true
-        $this.ResetOnFlush = $true
+        $this.ClearOnFlush = $true
     }
     MessageBuilder(){
         $this.InitializeInstance()
@@ -177,6 +177,10 @@ class MessageBuilder {
 
     Reset(){
         $this.wpvIndentLevel = 0
+        $this.Substance.Clear()
+    }
+
+    Clear(){
         $this.Substance.Clear()
     }
 
@@ -318,8 +322,8 @@ class MessageBuilder {
         if( $this.Active ){
             $this.ToString() | Write-Host -NoNewline
         }
-        if( $this.ResetOnFlush ){
-            $this.Reset()
+        if( $this.ClearOnFlush ){
+            $this.Clear()
         }
     }
 
@@ -331,8 +335,8 @@ class MessageBuilder {
     basicFlush([string]$value,[StreamName]$streamName,[bool]$NewLine){
 
         if(! $this.Active ){
-            if( $this.ResetOnFlush ){
-                $this.Reset()
+            if( $this.ClearOnFlush ){
+                $this.Clear()
             }
             return
         }
@@ -359,8 +363,8 @@ class MessageBuilder {
                 Write-Verbose $value 
             }
         }
-        if( $this.ResetOnFlush ){
-            $this.Reset()
+        if( $this.ClearOnFlush ){
+            $this.Clear()
         }
     }
 }
