@@ -149,7 +149,7 @@ class MessageBuilder {
     [MessageHelper]$Helper
     [VT100CharacterModifier]$modifier
 
-    [bool]$ResetOnFlush
+    [bool]$ClearOnFlush
     [bool]$Active
     [int]$Indent
     [int]$wpvIndentLevel
