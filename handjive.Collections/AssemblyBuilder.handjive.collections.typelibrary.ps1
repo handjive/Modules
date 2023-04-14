@@ -1,8 +1,12 @@
+param([switch]$Build,[switch]$Load)
 import-module handjive.AssemblyBuilder -force
 
 $cscode = @"
 namespace handjive{
     namespace Collections{
+        public interface ICollectionAdaptor{
+            System.Collections.Generic.IEnumerator<object> Values{ get; }
+        }
         public interface IPluggableEnumerator {
             object Substance{ get; set; }
             object OnCurrentBlock{ get; set; }
@@ -94,4 +98,10 @@ namespace handjive{
                 set{ this._GetKeyBlock = value; }
             }
 #>
-AssemblyBuilder -typeDefinition -Source $cscode -AssemblyName 'handjive.collections.typelibrary.dll' -Destination $PSScriptRoot
+$DLLNAME = 'handjive.collections.typelibrary.dll'
+if( $Build ){
+    AssemblyBuilder -typeDefinition -Source $cscode -AssemblyName $DLLNAME -Destination $PSScriptRoot
+}
+if( $Load ){
+    [reflection.Assembly]::LoadFrom("$PSScriptRoot\$DLLNAME")
+}

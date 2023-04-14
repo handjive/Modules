@@ -160,6 +160,9 @@ class PluggableEnumerator : handjive.Collections.EnumeratorBase,handjive.Collect
         return($this.wpvWorkingSet)
     }
 
+    [Collections.Generic.IEnumerator[object]]GetEnumerator(){
+        return $this
+    }
     <# EnumeratorBase Members #>
     PSDispose([bool]$disposing){
     }
@@ -180,6 +183,13 @@ class PluggableEnumerator : handjive.Collections.EnumeratorBase,handjive.Collect
         $result = @()
         while($this.PSMoveNext()){
             $result += $this.PSCurrent()
+        }
+        return($result)
+    }
+    [Collections.ArrayList]ToArrayList(){
+        $result = [Collections.ArrayList]::new()
+        while($this.PSMoveNext()){
+            $result.Add($this.PSCurrent())
         }
         return($result)
     }
@@ -225,22 +235,35 @@ class PluggableComparer : Collections.Generic.IComparer[object] {
     hidden static [ScriptBlock]$DescendingBlock = { param($left,$right) if( $left -eq $right ){ return 0 } elseif( $left -lt $right ){ return 1 } else {return -1 } }
     
     static [PluggableComparer]DefaultAscending(){
-        return([PluggableComparer]::new([PluggableComparer]::AscendingBlock))
+        return([PluggableComparer]::new([PluggableComparer]::AscendingBlock,{ return $args[0] }))
     }
     static [PluggableComparer]DefaultDescending(){
-        return([PluggableComparer]::new([PluggableComparer]::DescendingBlock))
+        return([PluggableComparer]::new([PluggableComparer]::DescendingBlock,{ return $args[0] }))
     }
 
     [ScriptBlock]$CompareBlock
-    
-    PluggableComparer(){
+    [ScriptBlock]$GetCompareValueBlock = { 
+        return $args[0] 
     }
-    PluggableComparer([ScriptBlock]$comparerBlock){
+    
+    PluggableComparer([ScriptBlock]$getCompareValueBlock){
+        $this.CompareBlock = [PluggableComparer]::AscendingBlock
+        $this.GetCompareValueBlock = $getCompareValueBlock
+    }
+
+    PluggableComparer([ScriptBlock]$comparerBlock,[ScriptBlock]$getCompareValueBlock){
         $this.CompareBlock = $comparerBlock
+        $this.GetCompareValueBlock = $getCompareValueBlock
+    }
+
+    hidden [object]GetCompareValue([object]$anObject){
+        return &$this.GetCompareValueBlock $anObject
     }
 
     [int]Compare([object]$v1,[object]$v2){
-        return((&$this.CompareBlock $v1 $v2))
+        $v1Value = $this.GetCompareValue($v1)
+        $v2Value = $this.GetCompareValue($v2)
+        return((&$this.CompareBlock $v1Value $v2Value))
     }
 }
 
@@ -263,15 +286,30 @@ class AspectComparer : PluggableComparer{
         return($aValue)
     }
 
-    AspectComparer([ScriptBlock]$comparerBlock,[string]$aspect) : base($comparerBlock){
+    AspectComparer([ScriptBlock]$comparerBlock,[string]$aspect) : base($comparerBlock,{ return $args[0] }){
         $this.Aspect = $aspect
     }
-    AspectComparer([string]$aspect) : base([AspectComparer]::AscendingBlock){
+    AspectComparer([string]$aspect) : base([AspectComparer]::AscendingBlock,{ return $args[0]} ){
         $this.Aspect = $aspect
     }
     
     [int]Compare([object]$left,[object]$right){
         return (&$this.CompareBlock $this.GetAspect($left) $this.GetAspect($right))
+    }
+
+    [string]ToString(){
+        $type = switch( $this.CompareBlock.gethashcode() ){
+            ([AspectComparer]::AscendingBlock.GetHashCode()){
+                'Default-Ascending'
+            }
+            ([AspectComparer]::DescendingBlock.GetHashCode()){
+                'Default-Descending'
+            }
+            default{
+                'Custom'
+            }
+        }
+        return([String]::Format('{0}({1}:"{2}")',$this.gettype().Name,$type,$this.Aspect))
     }
 }
 
@@ -318,6 +356,74 @@ class AspectEqualityComparer : Collections.Generic.IEqualityComparer[object] {
 
     [int]GetHashCode([object]$anObject){
         return ($this.GetAspect($anObject)).GetHashCode()
+    }
+}
+
+class PluggableCollectionAdaptor : handjive.Collections.ICollectionAdaptor{
+    [object]$Subject
+    [ScriptBlock]$GetValueBlock = { $args[0] }
+
+    PluggableCollectionAdaptor([object]$Subject,[ScriptBlock]$getValueBlock){
+        $this.Subject = $Subject
+        $this.GetValueBlock = $getValueBlock
+    }
+
+    [Collections.Generic.IEnumerator[object]]get_Values(){
+        $enumr = [PluggableEnumerator]::new($this)
+        $enumr.workingset.valueEnumerator = $this.Subject.GetEnumerator()
+        $enumr.OnMoveNextBlock = {
+            param($subject,$workingset)
+            return($workingset.valueEnumerator.MoveNext())
+        }
+        $enumr.OnCurrentBlock = {
+            param($subject,$workingset)
+            return (&$subject.GetValueBlock $workingset.valueEnumerator.Current)
+        }
+        $enumr.OnResetBlock = {
+            param($subject,$workingset)
+            $workingset.valueEnumerator.Reset()
+        }
+
+        return $enumr
+    }
+}
+<# 
+　コレクションから特定メンバを取り出すアダプタ
+#>
+class CollectionAspectAdaptor : handjive.Collections.ICollectionAdaptor{
+    [object]$Subject
+    [string]$Aspect
+
+    CollectionAspectAdaptor([object]$subject,[string]$aspect){
+        $this.Subject = $subject
+        $this.Aspect = $aspect
+    }
+
+    hidden [object]GetAspectValue([object]$anObj){
+        $value = $anObj.($this.Aspect)
+        if( $null -eq $value ){
+            throw [String]::format('Invalid Aspect "{0}" for "{1}"',$this.Aspect,$anObj.Gettype())
+        }
+        return $value
+    }
+
+    [Collections.Generic.IEnumerator[object]]get_Values(){
+        $enumr = [PluggableEnumerator]::new($this)
+        $enumr.workingset.valueEnumerator = $this.Subject.GetEnumerator()
+        $enumr.OnMoveNextBlock = {
+            param($subject,$workingset)
+            return($workingset.valueEnumerator.MoveNext())
+        }
+        $enumr.OnCurrentBlock = {
+            param($subject,$workingset)
+            $elem = $workingset.valueEnumerator.Current
+            return $subject.GetAspectValue($elem)
+        }
+        $enumr.OnResetBlock = {
+            param($subject,$workingset)
+            $workingset.valueEnumerator.Reset()
+        }
+        return $enumr
     }
 }
 
@@ -824,5 +930,5 @@ class IndexedBag : Bag,handjive.Collections.IIndexedBag{
 }
 
 
-
-
+class Set {
+}
