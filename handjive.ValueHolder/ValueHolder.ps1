@@ -1,6 +1,7 @@
 using module handjive.LimitedList
 
 class DependencyListenerEntry{
+    [object]$Listener
     [scriptBlock]$ScriptBlock
     [object[]]$AdditionalArguments
 
@@ -8,13 +9,14 @@ class DependencyListenerEntry{
 
     }
 
-    DependencyListenerEntry([scriptBlock]$aBlock,[object[]]$AdditionalArguments){
+    DependencyListenerEntry([object]$Listener,[scriptBlock]$aBlock,[object[]]$AdditionalArguments){
+        $this.Listener = $Listener
         $this.ScriptBlock = $aBlock
         $this.Arguments = $AdditionalArguments
     }
 
     [object]Perform([object]$arguments,[hashtable]$workingset){
-        return (&$this.ScriptBlock $arguments $this.AdditionalArguments $workingset )
+        return (&$this.ScriptBlock $this.listener $arguments $this.AdditionalArguments $workingset )
     }
 }
 class DependencyHolder{
@@ -37,10 +39,10 @@ class DependencyHolder{
         return ($this.ElementClass::new())
     }
     
-    Add([object[]]$additionalArgs,[scriptBlock]$aBlock){
+    Add([object]$listener,[scriptBlock]$aBlock){
         $elem = $this.NewElement()
+        $elem.Listener = $listener
         $elem.ScriptBlock = $aBlock
-        $elem.AdditionalArguments = $additionalArgs
         $this.clients.Add($elem)
     }
 
@@ -66,10 +68,55 @@ class DependencyHolder{
     }
 }
 
+class ValueModel : handjive.IValueModel[object]{
+    hidden [object]$wpvSubject
+
+    ValueModel(){
+    }
+    ValueModel([object]$Subject){
+        $this.wpvSubject = $Subject
+    }
+
+    [object]get_Subject(){
+        return($this.wpvSubject)
+    }
+    set_Subject([object]$Subject){
+        $oldSubject = $this.wpvSubject
+        $this.wpvSubject = $Subject
+        $this.SubjectChanged($oldSubject,$Subject)
+    }
+    
+    [object]ValueUsingSubject([object]$aSubject){
+        return $aSubject
+    }
+    ValueUsingSubject([object]$Subject,[object]$aValue){
+        $this.Subject = $aValue
+    }
+
+    [object]Value(){
+        return $this.ValueUsingSubject($this.Subject)
+    }
+    Value([object]$aValue){
+        if( $this.ValueChanging($this.Value(),$aValue) ){
+            $this.ValueUsingSubject($this.Subject,$aValue)
+            $this.ValueChanged()
+        }
+    }
+    
+    SubjectChanged([object]$old,[object]$new){
+    }
+
+    [bool]ValueChanging([object]$Subject,[object]$aValue){
+        return $true
+    }
+    ValueChanged(){
+    }
+}
+
 class ValueHolder{
     [object]$wpvSubject
-    [DependencyHolder]$SubjectChangeValidator
-    [DependencyHolder]$SubjectChangeListeners
+    [DependencyHolder]$ValueChangeValidator
+    [DependencyHolder]$ValueChangedListeners
     [HashTable]$WorkingSet
         
     ValueHolder(){
@@ -84,8 +131,8 @@ class ValueHolder{
     {
         $this.Subject($null)
         $this.WorkingSet = @{}
-        $this.SubjectChangeValidator = [DependencyHolder]::new(1)
-        $this.SubjectChangeListeners = [DependencyHolder]::new()
+        $this.ValueChangeValidator = [DependencyHolder]::new(1)
+        $this.ValueChangedListeners = [DependencyHolder]::new()
     }
 
     [object]Subject(){
@@ -96,32 +143,42 @@ class ValueHolder{
         $this.wpvSubject = $newSubject
     }
 
-    SetSubjectChangingValidator([object[]]$additionalArgs,[scriptBlock]$aBlock){
-        $this.SubjectChangeValidator.Add($additionalArgs,$aBlock)
+    SetValueChangingValidator([object]$listener,[scriptBlock]$aBlock){
+        $this.ValueChangeValidator.Add($listener,$aBlock)
     }
-    AddSubjectChangedLister($listener,[scriptBlock]$aBlock){
-        $this.SubjectChangeListeners.Add($listener,$aBlock)
+    AddValueChangedListener([object]$listener,[scriptBlock]$aBlock){
+        $this.ValueChangedListeners.Add($listener,$aBlock)
     }
 
-    [bool]SubjectChanging($current,$new){
-        return ($this.SubjectChangeValidator.Perform(@($current,$new),$this.WorkingSet,{$true}))
+    [bool]ValueChanging($current,$new){
+        return ($this.ValueChangeValidator.Perform(@($current,$new),$this.WorkingSet,{$true}))
     }
-    [object]SubjectChanged($newSubject){
-        $this.SubjectChangeListeners.Perform(@( $newSubject ),$this.WorkingSet,{})
+    [object]ValueChanged($newSubject){
+        $this.ValueChangedListeners.Perform(@( $newSubject ),$this.WorkingSet,{})
         return($newSubject)
     }
     [object]Value()
     {
         return ($this.Subject())
     }
+    [object]ValueOr([ScriptBlock]$complementBlock){
+        if( $null -eq ($result = $this.Value()) ){
+            return(&$complementBlock)
+        }
+        else{
+            return($result)
+        }
+    }
+
     [object]Value([object]$newSubject){
-        if( $this.SubjectChanging($this.Subject(),$newSubject) ){
+        if( $this.ValueChanging($this.Subject(),$newSubject) ){
             $this.Subject($newSubject)
-            return ($this.SubjectChanged($newSubject))
+            return ($this.ValueChanged($newSubject))
         }
         else{
             return ($this.Subject())
         }
     }
 }
+
 

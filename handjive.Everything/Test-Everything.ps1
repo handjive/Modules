@@ -96,4 +96,7 @@ switch($args){
             $_.Name | InjectMessage $mb -Flush
         }
     }
+    4 {
+        [Everything]::Search('c:\users\handjive\Documents\書架\BooksArchive','ダンジョン')
+    }
 }

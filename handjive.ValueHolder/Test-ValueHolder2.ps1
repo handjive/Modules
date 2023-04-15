@@ -34,11 +34,11 @@ switch($args){
 
         $bukets = [Collections.ArrayList]::new()
         $mb = [MessageBuilder]::new()
-        $vh.AddSubjectChangedLister(@($mb),{
+        $vh.AddValueChangedListener(@($mb),{
             param($v1,$v2)
             $v2[0].AppendLine($v1[0])
         })
-        $vh.AddSubjectChangedLister(@(),{
+        $vh.AddValueChangedListener(@(),{
             param($v1,$v2)
             [string]::format('Subject changed! new subject is"{0}"',$v1[0])
         })

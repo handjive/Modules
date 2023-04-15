@@ -18,6 +18,7 @@ namespace handjive{
             System.Collections.Generic.IEnumerator<object> Values{ get; }
             int Count{ get; }
             System.Collections.Generic.IComparer<object> SortingComparer{ get; set; }
+            System.Collections.IEqualityComparer EqualityComparer{ get; set; }
             object this[int index]{ get; }
             //int this[object key]{ get; }
             System.Collections.Generic.IEnumerator<object> ValuesSorted{ get; }
@@ -36,6 +37,28 @@ namespace handjive{
             object this[object index]{ get; }
             //System.Collections.IEnumerator ValuesAndOccurrences{ get; }
             //System.Collections.IEnumerator IndexesAndValuesAndOccurrences{ get; }
+        }
+
+        public class EqualityComparerBase<T> : System.Collections.IEqualityComparer, System.Collections.Generic.IEqualityComparer<T>{
+            bool System.Collections.IEqualityComparer.Equals(object left,object right){
+                return(this.PSEquals(left,right));
+            }
+            bool System.Collections.Generic.IEqualityComparer<T>.Equals(T left,T right){
+                return(this.PSEquals(left,right));
+            }
+            int System.Collections.IEqualityComparer.GetHashCode(object obj){
+                return(this.PSGetHashCode(obj));
+            }
+            int System.Collections.Generic.IEqualityComparer<T>.GetHashCode(T obj){
+                return(this.PSGetHashCode(obj));
+            }
+
+            virtual protected bool PSEquals(object left,object right){
+                return(false);
+            }
+            virtual protected int PSGetHashCode(object obj){
+                return(0);
+            }
         }
 
         public class EnumerableBase : System.Collections.Generic.IEnumerable<object>{

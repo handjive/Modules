@@ -316,22 +316,52 @@ class AspectComparer : PluggableComparer{
 <#
  場当たり的なEqualityComparer
 #>
-class PluggableEqualityComparer : Collections.Generic.IEqualityComparer[object]{
-    static [ScriptBlock]$DefaultEqualityComparer = { param($left,$right) return($left -eq $right) }
-    [ScriptBlock]$EqualityComparer = { return $false }
-    [ScriptBlock]$GetHashCodeBlock = { return $args[0].GetHashCode() }
+class PluggableEqualityComparer : handjive.Collections.EqualityComparerBase[object]{
+    static [ScriptBlock]$DefaultEqualityComparerBlock = { param($left,$right) return($left -eq $right) }
+    static [ScriptBlock]$DefaultGetHashCodeBlock = { return ($args[0].GetHashCode()) }
+    static [ScriptBlock]$DefaultGetSubjectBlock = { return($args[0]) }
     
-    PluggableEqualityComparer([object]$substance){
-        $this.EqualityComparer = [PluggableComparer]::DefaultEqualityComparer
+    static [PluggableEqualityComparer]Default(){
+        return([PluggableEqualityComparer]::new())
+    }
+    static [PluggableEqualityComparer]GetSubjectBlock([ScriptBlock]$getSubjectBlock){
+        return([PluggableEqualityComparer]::new($getSubjectBlock))
     }
 
-    [bool]Equals([object]$left,[object]$right){
-        return &$this.EqualityComparerBlock $left $right
+    [ScriptBlock]$EqualityComparerBlock
+    [ScriptBlock]$GetHashCodeBlock
+    [ScriptBlock]$GetSubjectBlock
+
+    PluggableEqualityComparer(){
+        $this.EqualityComparerBlock = [PluggableEqualityComparer]::DefaultEqualityComparerBlock
+        $this.GetHashCodeBlock = [PluggableEqualityComparer]::DefaultGetHashCodeBlock
+        $this.GetSubjectBlock = [PluggableEqualityComparer]::DefaultGetSubjectBlock
+    }
+    PluggableEqualityComparer([ScriptBlock]$getSubjectBlock){
+        $this.EqualityComparerBlock = [PluggableEqualityComparer]::DefaultEqualityComparerBlock
+        $this.GetHashCodeBlock = [PluggableEqualityComparer]::DefaultGetHashCodeBlock
+        $this.GetSubjectBlock = $getSubjectBlock
+    }
+    PluggableEqualityComparer([ScriptBlock]$getSubjectBlock,[ScriptBlock]$getHashCodeBlock){
+        $this.EqualityComparerBlock = [PluggableEqualityComparer]::DefaultEqualityComparerBlock
+        $this.GetHashCodeBlock = $getHashCodeBlock
+        $this.GetSubjectBlock = $getSubjectBlock
     }
 
-   [int]GetHashCode([object]$anObject){
-        return &$this.GetHashCodeBlock $anObject
-   }
+    hidden [object]GetSubject([object]$anObj){
+        return(&$this.GetSubjectBlock $anObj)
+    }
+    [bool]PSEquals([object]$left,[object]$right){
+        $left = $this.GetSubject($left)
+        $right = $this.GetSubject($right)
+        $result = &$this.EqualityComparerBlock $left $right
+        return ($result)
+    }
+
+    [int]PSGetHashCode([object]$anObject){
+        $hash = &$this.GetHashCodeBlock $this.GetSubject($anObject)
+        return ($hash)
+    }
 }
 
 class AspectEqualityComparer : Collections.Generic.IEqualityComparer[object] {
@@ -471,54 +501,67 @@ class BagElement{
 #>
 class Bag : handjive.IWrapper,handjive.Collections.IBag{
     static $ELEMENT_CLASS = [BagElement]
-    hidden [Collections.Specialized.OrderedDictionary]$wpvSubstance
+    #hidden [Collections.Specialized.OrderedDictionary]$wpvSubstance
+    hidden [ValueHolder]$wpvSubstanceHolder
     hidden [Collections.Generic.SortedSet[object]]$wpvValueSet
     hidden [ValueHolder]$wpvSortingComparerHolder
+    hidden [ValueHolder]$wpvEqualityComparerHolder
 
-    Bag() : base(){
-        $this.Initialize()
-        $this.SortingComparer = [PluggableComparer]::DefaultAscending()
+    Bag(){
+        $this.Initialize([PluggableComparer]::DefaultAscending(),[PluggableEqualityComparer]::Default())
     }
     Bag([Collections.Generic.IComparer[object]]$comparer){
-        $this.Initialize()
-        $this.SortingComparer = $comparer
+        $this.Initialize($comparer,[PluggableEqualityComparer]::Default())
     }
-    Bag([Bag]$aBag) : base(){
-        $this.Initialize()
-        $this.SortingComparer = [PluggableComparer]::DefaultAscending()
+    Bag([Bag]$aBag){
+        $this.Initialize([PluggableComparer]::DefaultAscending(),[PluggableEqualityComparer]::Default())
         $this.SetAll($aBag)
     }
-    Bag([Bag]$aBag,[Collections.Generic.IComparer[object]]$comparer) : base(){
-        $this.Initialize()
-        $this.SortingComparer = $comparer
+    Bag([Bag]$aBag,[Collections.Generic.IComparer[object]]$comparer){
+        $this.Initialize($comparer,[PluggableEqualityComparer]::Default())
         $this.SetAll($aBag)
     }
-    Bag([object[]]$elements) : base(){
-        $this.Initialize()
-        $this.SortingComparer = [PluggableComparer]::DefaultAscending()
+    Bag([object[]]$elements){
+        $this.Initialize([PluggableComparer]::DefaultAscending(),[PluggableEqualityComparer]::Default())
         $this.AddAll($elements)
     }
-    Bag([object[]]$elements,[Collections.Generic.IComparer[object]]$comparer) : base(){
-        $this.Initialize()
-        $this.SortingComparer = $comparer
+    Bag([object[]]$elements,[Collections.Generic.IComparer[object]]$comparer){
+        $this.Initialize($comparer,[PluggableEqualityComparer]::Default())
         $this.AddAll($elements)
     }
 
-    hidden initialize(){
-        $this.Substance = [Collections.Specialized.OrderedDictionary]::new()
-        $this.wpvSortingComparerHolder = [ValueHolder]::new()
-        $this.wpvSortingComparerHolder.WorkingSet.Receiver = $this
-        $this.wpvSortingComparerHolder.AddSubjectChangedLister(@(),{ 
-            param($args1,$args2,$workingset) 
-            $receiver = $workingset.Receiver
+    hidden initialize([Collections.Generic.IComparer[object]]$cmpr,[Collections.IEqualityComparer]$eqcmpr){
+        $this.wpvSubstanceHolder = [ValueHolder]::new([Collections.Specialized.OrderedDictionary]::new())
+        $this.wpvSubstanceHolder.AddValueChangedListener($this,{
+            param($receiver,$args1,$args2,$workingset) 
             $receiver.buildValueSet($args1[0])
         })
-    }
 
+        $this.wpvSortingComparerHolder = [ValueHolder]::new($cmpr)
+        $this.wpvSortingComparerHolder.AddValueChangedListener($this,{ 
+            param($receiver,$args1,$args2,$workingset) 
+            $receiver.buildValueSet($args1[0])
+        })
+
+        $this.wpvEqualityComparerHolder = [ValueHolder]::new($eqcmpr)
+        $this.wpvEqualityComparerHolder.AddValueChangedListener($this,{
+            param($receiver,$args1,$args2,$workingset) 
+            $eceiver.rebuildSubstance($args1[0])
+        })
+
+        $this.wpvValueSet = [Collections.Generic.SortedSet[object]]::new([Collections.Generic.IComparer[object]]$cmpr)
+    }
+    hidden rebuildSubstance([Collections.IEqualityComparer]$aComparer){
+        $newSubstance = [Collections.Specialized.OrderedDictionary]::new($aComparer)
+        $this.Substance.Keys.foreach{
+            $this.basicAdd($newSubstance,$_)
+        }
+        $this.Substance = $newSubstance
+    }
     hidden buildValueSet([Collections.Generic.IComparer[object]]$aComparer){
         $this.wpvValueSet = [Collections.Generic.SortedSet[object]]::new([Collections.Generic.IComparer[object]]$aComparer)
-        if( $this.wpvSubstance.Count -gt 0){
-            $this.wpvSubstance.Keys.foreach{ $this.wpvValueSet.Add($_) }
+        if( $this.Substance.Count -gt 0){
+            $this.Substance.Keys.foreach{ $this.wpvValueSet.Add($_) }
         }
     }
 
@@ -528,10 +571,10 @@ class Bag : handjive.IWrapper,handjive.Collections.IBag{
 
 
     hidden [object]get_Substance(){
-        return($this.wpvSubstance)
+        return($this.wpvSubstanceHolder.Value())
     }
     hidden set_Substance([object]$aSubstance){
-        $this.wpvSubstance = $aSubstance
+        $this.wpvSubstanceHolder.Value($aSubstance)
     }
 
     [Collections.Generic.IComparer[object]]get_SortingComparer(){
@@ -539,6 +582,13 @@ class Bag : handjive.IWrapper,handjive.Collections.IBag{
     }
     set_SortingComparer([Collections.Generic.IComparer[object]]$aComparer){
         $this.wpvSortingComparerHolder.Value($aComparer)
+    }
+    
+    [Collections.IEqualityComparer]get_EqualityComparer(){
+        return([Collections.IEqualityComparer]$this.wpvEqualityComparerHolder.Value())
+    }
+    set_EqualityComparer([Collections.IEqualityComparer]$aComparer){
+        $this.wpvEqualityComparerHolder.Value($aComparer)
     }
 
     [Collections.Generic.IEnumerator[object]]get_ValuesSorted(){
@@ -637,12 +687,15 @@ class Bag : handjive.IWrapper,handjive.Collections.IBag{
         return($enumerator)
     }
     
-
-    Add([object]$aValue){
-        if( $null -eq $this.Substance[[object]$aValue] ){
-            $this.Substance.Add([object]$aValue,0)
+    hidden basicAdd([Collections.Specialized.OrderedDictionary]$dict,[object]$aValue){
+        if( $null -eq $dict[[object]$aValue] ){
+            $dict.Add([object]$aValue,0)
         }
-        ($this.Substance[[object]$aValue])++
+        ($dict[[object]$aValue])++
+
+    }
+    Add([object]$aValue){
+        $this.basicAdd($this.Substance,$aValue)
         $this.wpvValueSet.Add($aValue)
     }
     AddAll([object[]]$values){
@@ -730,19 +783,15 @@ class IndexedBag : Bag,handjive.Collections.IIndexedBag{
         $this.wpvIndexDictionary = [Collections.Generic.SortedDictionary[object,object]]::new($indexComparer)
 
         $this.wpvGetIndexBlockHolder = [ValueHolder]::new($getkeyBlock)
-        $this.wpvGetIndexBlockHolder.WorkingSet.Receiver = $this
         $this.wpvGetIndexBlockHolder.WorkingSet.IndexComparer = $indexComparer
-        $this.wpvGetIndexBlockHolder.AddSubjectChangedLister(@(),{
-            param($args1,$args2,$workingset)
-            $receiver = $workingset.Receiver
+        $this.wpvGetIndexBlockHolder.AddValueChangedListener($this,{
+            param($receiver,$args1,$args2,$workingset)
             $receiver.wpvIndexDictionary = $receiver.buildIndexDictionary($receiver,$workingset.indexComparer)
         })
         $this.wpvIndexComparerHolder = [ValueHolder]::new($indexComparer)
-        $this.wpvIndexComparerHolder.WorkingSet.Receiver = $this
         $this.wpvIndexComparerHolder.WorkingSet.IndexComparer = $indexComparer
-        $this.wpvIndexComparerHolder.AddSubjectChangedLister(@(),{ 
-            param($args1,$args2,$workingset) 
-            $receiver = $workingset.Receiver
+        $this.wpvIndexComparerHolder.AddValueChangedListener($this,{ 
+            param($receiver,$args1,$args2,$workingset) 
             $receiver.wpvIndexDictionary = $receiver.buildIndexDictionary($receiver,$workingset.indexComparer)
         })
     }

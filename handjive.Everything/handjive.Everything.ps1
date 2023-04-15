@@ -181,15 +181,14 @@ class Everything : IEverything {
         
         $this.PostBuildElementListeners = [DependencyHolder]::new()
 
-        $beDirty={ param($arg1,$arg2,$workingset)
-            $receiver = $arg2[0]
+        $beDirty={ param($receiver,$args1,$args2,$workingset)
             $receiver.isSearchStringDirty = $true }
 
         $this.SearchStringHolder = [ValueHolder]::new()
-        $this.SearchStringHolder.AddSubjectChangedLister(@($this),$beDirty)
+        $this.SearchStringHolder.AddValueChangedListener($this,$beDirty)
 
         $this.QueryBaseHolder = [ValueHolder]::new()  
-        $this.QueryBaseHolder.AddSubjectChangedLister(@($this),$beDirty)
+        $this.QueryBaseHolder.AddValueChangedListener($this,$beDirty)
 
         $this.ElementClass = $elementClass
     }
