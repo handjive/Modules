@@ -103,6 +103,32 @@ class Interval : handjive.Collections.EnumerableBase, Collections.IEnumerator{
 }
 
 <#
+    Collections.Generic.IEnumerator<object>のCollections.Generic.IEnumerable<object>へのWrapper
+
+    Collections.Generic.Ienumerable<T>とCollections.Generic.IEnumerator<T>を同時に実装したクラスを作ると
+    なにやらメソッドサーチに失敗してブッ飛ぶ様子…
+    
+    仕方がないので分離したWrapperとして。
+#>
+class EnumerableWrapper : handjive.Collections.EnumerableBase[object]{
+    static [EnumerableWrapper]On([Collections.Generic.IEnumerator[object]]$Subject){
+        $newOne = [EnumerableWrapper]::new($Subject)
+        return ($newOne)
+    }
+
+    [Collections.Generic.IEnumerator[object]]$Subject
+
+    EnumerableWrapper([Collections.Generic.IEnumerator[object]]$Subject){
+        $this.Subject = $Subject
+    }
+
+    [Collections.Generic.IEnumerator[object]]PSGetEnumerator(){
+        return $this.Subject
+    }
+
+}
+
+<#
 #　場当たり的なEnumerator
 #
 #  [PluggableEnumerator]::new(Enumerationの主体となるオブジェクト)
@@ -162,7 +188,7 @@ class PluggableEnumerator2 : handjive.Collections.EnumerableEnumerator[object]{
     }
 
     [Collections.Generic.IEnumerator[object]]PSGetEnumerator(){
-        return $this
+        return ([Collections.Generic.IEnumerator[object]]$this)
     }
 
     <# EnumerableEnumerator<T> Members #>
@@ -601,9 +627,10 @@ class Bag : handjive.IWrapper,handjive.Collections.IBag{
     static $VALUESET_CLASS = [Collections.Generic.SortedSet[object]]
     
     hidden [ValueHolder]$wpvSubstanceHolder
-    hidden [Collections.Generic.SortedSet[object]]$wpvValueSet
     hidden [ValueHolder]$wpvSortingComparerHolder
     hidden [ValueHolder]$wpvEqualityComparerHolder
+
+    hidden [Collections.Generic.SortedSet[object]]$wpvValueSet
 
     Bag(){
         $this.Initialize([PluggableComparer]::DefaultAscending(),[PluggableEqualityComparer]::Default())
@@ -699,7 +726,7 @@ class Bag : handjive.IWrapper,handjive.Collections.IBag{
 
     [Collections.Generic.IEnumerator[object]]get_ValuesSorted(){
         $enumerator = [PluggableEnumerator]::new($this)
-        $enumerator.workingset.valueEnumerator = $this.wpvValueSet.GetEnumerator()
+        $enumerator.workingset.valueEnumerator = [Collections.IEnumerator]$this.wpvValueSet.GetEnumerator()
         $enumerator.OnMoveNextBlock = {
             param($substance,$workingset)
             return($workingset.valueEnumerator.MoveNext())

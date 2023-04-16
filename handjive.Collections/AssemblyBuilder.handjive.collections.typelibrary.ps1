@@ -72,6 +72,18 @@ namespace handjive{
                 return(null);
             }
         }
+        public class EnumerableBase<T> : System.Collections.Generic.IEnumerable<T>{
+            System.Collections.Generic.IEnumerator<T> System.Collections.Generic.IEnumerable<T>.GetEnumerator(){
+                return(this.PSGetEnumerator());
+            }
+            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator(){
+                return(this.PSGetEnumerator());
+            }
+            protected virtual System.Collections.Generic.IEnumerator<T> PSGetEnumerator(){
+                return(null);
+            }
+        }
+
 
         public class EnumeratorBase : System.Collections.Generic.IEnumerator<object>{
             object System.Collections.Generic.IEnumerator<object>.Current{ 
