@@ -132,96 +132,13 @@ class EnumerableWrapper : handjive.Collections.EnumerableBase[object]{
 #　場当たり的なEnumerator
 #
 #  [PluggableEnumerator]::new(Enumerationの主体となるオブジェクト)
+#
 #　$penum.Substance         Enumerationの主体となるオブジェクト
 #  $penum.Workingset        Enumerationを実行するために必要なｱﾚｺﾚを格納するための領域(HashTable)
 #  $penum.OnCurrentBlock    Currentにアクセスされた時に実行されるScriptBlock(SubstanceとWorkingSetがパラメータとして渡される)
 #  $penum.OnMoveNextBlock   MoveNext()が実行要求された時に実行されるScriptBlock(SubstanceとWorkingSetがパラメータとして渡される)
 #  $penum.OnResetBlock      Reset()が実行要求された時に実行されるScriptBlock(SubstanceとWorkingSetがパラメータとして渡される)
 #>
-
-class PluggableEnumerator2 : handjive.Collections.EnumerableEnumerator[object]{
-    hidden [object]$wpvSubstance
-    hidden [ScriptBlock]$wpvOnCurrentBlock = {}
-    hidden [ScriptBlock]$wpvOnMoveNextBlock = { $false }
-    hidden [ScriptBlock]$wpvOnResetBlock = {}
-    hidden [HashTable]$wpvWorkingSet
-
-    PluggableEnumerator2([object]$substance) : base(){
-        $this.wpvSubstance = $Substance
-        $this.wpvWorkingSet = @{}
-    }
-
-    <# Property Accessors #>
-    [object]get_Substance(){
-        return $this.wpvSubstance
-    }
-    set_Substance([object]$substance){
-        $this.wpvSubstance = $substance
-    }
-
-    [object]get_OnMoveNextBlock(){
-        return ($this.wpvOnMoveNextBlock)
-    }
-    set_OnMoveNextBlock([object]$aBlock){
-        $this.wpvOnMoveNextBlock = $aBlock
-    }
-
-    [object]get_OnCurrentBlock(){
-        return $this.wpvOnCurrentBlock
-    }
-    set_OnCurrentBlock([object]$aBlock){
-        $this.wpvOnCurrentBlock = $aBlock
-    }
-
-    [object]get_OnResetBlock(){
-        return($this.wpvOnResetBlock)
-    }
-    set_OnResetBlock([object]$aBlock){
-        $this.wpvOnResetBlock = $aBlock
-    }
-
-    [object]get_WorkingSet(){
-        if( $null -eq $this.wpvWorkingSet ){
-            $this.wpvWorkingSet = @{}
-        }
-        return($this.wpvWorkingSet)
-    }
-
-    [Collections.Generic.IEnumerator[object]]PSGetEnumerator(){
-        return ([Collections.Generic.IEnumerator[object]]$this)
-    }
-
-    <# EnumerableEnumerator<T> Members #>
-    [void]PSDispose([bool]$disposing){
-    }
-
-    [object]PSCurrent(){
-        $result = &$this.OnCurrentBlock $this.Substance $this.WorkingSet
-        return($result)
-    }
-    [bool]PSMoveNext(){
-        $result = &$this.OnMoveNextBlock $this.Substance $this.WorkingSet
-        return($result)
-    }
-    [void]PSReset(){
-        &$this.OnResetBlock $this.Substance $this.WorkingSet
-    }
-
-    [Array]ToArray(){
-        $result = @()
-        while($this.PSMoveNext()){
-            $result += $this.PSCurrent()
-        }
-        return($result)
-    }
-    [Collections.ArrayList]ToArrayList(){
-        $result = [Collections.ArrayList]::new()
-        while($this.PSMoveNext()){
-            $result.Add($this.PSCurrent())
-        }
-        return($result)
-    }
-}
 
 class PluggableEnumerator : handjive.Collections.EnumeratorBase,handjive.Collections.IPluggableEnumerator {
     hidden [object]$wpvSubstance
@@ -271,9 +188,6 @@ class PluggableEnumerator : handjive.Collections.EnumeratorBase,handjive.Collect
         return($this.wpvWorkingSet)
     }
 
-    [Collections.Generic.IEnumerator[object]]GetEnumerator(){
-        return $this
-    }
     <# EnumeratorBase Members #>
     PSDispose([bool]$disposing){
     }
