@@ -113,6 +113,70 @@ namespace handjive{
             protected virtual void PSDispose(){
             }
         }
+        
+        public class EnumerableEnumerator<T> : System.Collections.Generic.IEnumerable<T>, System.Collections.Generic.IEnumerator<T>{
+            //
+            // Generic.IEnumerable<T>
+            //
+            System.Collections.Generic.IEnumerator<T> System.Collections.Generic.IEnumerable<T>.GetEnumerator(){
+                return(this.PSGetEnumerator());
+            }
+            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator(){
+                return(this.PSGetEnumerator());
+            }
+
+            //
+            // Generic.IEnumerator<T>
+            //
+            T System.Collections.Generic.IEnumerator<T>.Current{ 
+                get{ 
+                    return((T)(this.PSCurrent())); 
+                }
+            }
+            bool MoveNext(){
+                return(this.PSMoveNext());
+            }
+            void Reset(){
+                this.PSReset();
+            }
+            void System.IDisposable.Dispose(){
+                this.PSDispose();
+            }
+
+            //
+            // IEnumerator
+            //
+            object System.Collections.IEnumerator.Current{
+                get{
+                    return(this.PSCurrent());
+                }
+            }
+            bool System.Collections.IEnumerator.MoveNext(){
+                return(this.PSMoveNext());
+            }
+            void System.Collections.IEnumerator.Reset(){
+                this.PSReset();
+            }
+
+            //
+            // Virtual Functions
+            //
+            protected virtual System.Collections.Generic.IEnumerator<T> PSGetEnumerator(){
+                return(null);
+            }
+
+            protected virtual object PSCurrent(){
+                return(null);
+            }
+            protected virtual bool PSMoveNext(){
+                return(false);
+            }
+            protected virtual void PSReset(){
+            }
+            protected virtual void PSDispose(){
+            }
+
+        }
     }
 }
 "@

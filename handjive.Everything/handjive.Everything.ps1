@@ -196,8 +196,8 @@ class Everything : IEverything {
     Reset()
     {
         $this.ResetResults()
-        $this.SearchStringHolder.Subject("")
-        $this.QueryBaseHolder.Subject("")
+        $this.SearchStringHolder.Subject = ""
+        $this.QueryBaseHolder.Subject = ""
         $this.isSearchStringDirty = $false
         $this.esapi::Everything_Reset()
     }

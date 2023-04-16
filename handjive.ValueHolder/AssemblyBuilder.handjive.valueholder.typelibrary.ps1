@@ -7,6 +7,7 @@ namespace handjive{
         T Subject{ get;set; }
         T Value();
         void Value(T aValue);
+        void Initialize();
     }
 }
 "@

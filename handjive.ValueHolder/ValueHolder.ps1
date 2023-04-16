@@ -69,21 +69,35 @@ class DependencyHolder{
 }
 
 class ValueModel : handjive.IValueModel[object]{
+    hidden [DependencyHolder]$SubjectChangingListeners
+    hidden [DependencyHolder]$SubjectChangedListeners
     hidden [object]$wpvSubject
+    
+    [HashTable]$WorkingSet
+
+    hidden [void]Initialize(){
+        $this.Workingset = @{}
+        $this.SubjectChangingListeners = [DependencyHolder]::new(1)
+        $this.SubjectChangedListeners = [DependencyHolder]::new()
+    }
 
     ValueModel(){
+        $this.Initialize()
     }
     ValueModel([object]$Subject){
         $this.wpvSubject = $Subject
+        $this.Initialize()
     }
 
     [object]get_Subject(){
         return($this.wpvSubject)
     }
     set_Subject([object]$Subject){
-        $oldSubject = $this.wpvSubject
-        $this.wpvSubject = $Subject
-        $this.SubjectChanged($oldSubject,$Subject)
+        if( $this.SubjectChanging($this.Subject,$Subject) ){
+            $oldSubject = $this.wpvSubject
+            $this.wpvSubject = $Subject
+            $this.SubjectChanged($oldSubject,$Subject)
+        }
     }
     
     [object]ValueUsingSubject([object]$aSubject){
@@ -102,45 +116,43 @@ class ValueModel : handjive.IValueModel[object]{
             $this.ValueChanged()
         }
     }
-    
+    SetSubjectChangingValidator([object]$listener,[scriptBlock]$aBlock){
+        $this.SubjectChangingValidator.Add($listener,$aBlock)
+    }
+    AddSubjectChangedListener([object]$listener,[scriptBlock]$aBlock){
+        $this.SubjectChangedListeners.Add($listener,$aBlock)
+    }
+
+    [bool]SubjectChanging([object]$current,[object]$new){
+        return($this.SubjectChangingListeners.Perform(@($current,$new),$this.Workingset,{$true}))
+    }
+
     SubjectChanged([object]$old,[object]$new){
+        $this.ValueChangedListeners.Perform(@( $old,$new ),$this.WorkingSet,{})
     }
 
     [bool]ValueChanging([object]$Subject,[object]$aValue){
         return $true
     }
+
     ValueChanged(){
     }
 }
 
-class ValueHolder{
-    [object]$wpvSubject
+class ValueHolder : ValueModel{
     [DependencyHolder]$ValueChangeValidator
     [DependencyHolder]$ValueChangedListeners
-    [HashTable]$WorkingSet
         
-    ValueHolder(){
-        $this.Initialize()
-    }
-    ValueHolder([object]$subject){
-        $this.Initialize()
-        $this.Subject($subject)
-    }
-
-    initialize()
+    hidden [void]Initialize()
     {
-        $this.Subject($null)
-        $this.WorkingSet = @{}
+        ([ValueModel]$this).Initialize()
         $this.ValueChangeValidator = [DependencyHolder]::new(1)
         $this.ValueChangedListeners = [DependencyHolder]::new()
     }
 
-    [object]Subject(){
-        return ($this.wpvSubject)
+    ValueHolder() : base(){
     }
-    Subject([object]$newSubject)
-    {
-        $this.wpvSubject = $newSubject
+    ValueHolder([object]$subject) : base($subject){
     }
 
     SetValueChangingValidator([object]$listener,[scriptBlock]$aBlock){
@@ -157,10 +169,7 @@ class ValueHolder{
         $this.ValueChangedListeners.Perform(@( $newSubject ),$this.WorkingSet,{})
         return($newSubject)
     }
-    [object]Value()
-    {
-        return ($this.Subject())
-    }
+
     [object]ValueOr([ScriptBlock]$complementBlock){
         if( $null -eq ($result = $this.Value()) ){
             return(&$complementBlock)
@@ -169,15 +178,47 @@ class ValueHolder{
             return($result)
         }
     }
+}
 
-    [object]Value([object]$newSubject){
-        if( $this.ValueChanging($this.Subject(),$newSubject) ){
-            $this.Subject($newSubject)
-            return ($this.ValueChanged($newSubject))
-        }
-        else{
-            return ($this.Subject())
-        }
+
+class AspectAdaptor : ValueModel{
+    [string]$Aspect
+
+    hidden [void]Initialize(){
+        ([ValueModel]$this).Initialize()
+    }
+    
+    AspectAdaptor([object]$subject,[string]$aspect) : base($subject){
+        $this.Aspect = $aspect
+    }
+
+    [object]ValueUsingSubject([object]$subject){
+        $aValue = ($subject).($this.Aspect)
+        return ($aValue)
+    }
+    ValueUsingSubject([object]$subject,[object]$value){
+        ($this.Subject).($this.Aspect) = $value
+    }
+}
+
+class PluggableAdaptor : ValueModel {
+    [ScriptBlock]$GetValueBlock
+    [ScriptBlock]$SetValueBlock
+
+    hidden [void]Initialize(){
+        ([ValueModel]$this).Initialize()
+    }
+
+    PluggableAdaptor([object]$Subject,[ScriptBlock]$GetValueBlock,[ScriptBlock]$SetValueBlock) : base($Subject){
+        $this.GetValueBlock = $GetValueBlock
+        $this.SetValueBlock = $SetValueBlock
+    }
+
+    [object]ValueUsingSubject([object]$Subject){
+        return (&$this.GetValueBlock $Subject)
+    }
+    ValueUsingSubject([object]$Subject,[object]$Value){
+        &$this.SetValueBlock $Subject $Value
     }
 }
 

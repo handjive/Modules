@@ -19,8 +19,6 @@ class EverythingAPI{
     
     static [Reflection.TypeInfo]DefaultAPI(){
         if( $null -eq [EverythingAPI]::Default){
-            Write-Host 'Loading EverythingAPI assembly'
-
             if($null -eq [EverythingAPI]::AssemblyPath){
                 Write-Host $script:message1 -ForegroundColor Yellow
                 if( $PSScriptRoot -eq ""){
