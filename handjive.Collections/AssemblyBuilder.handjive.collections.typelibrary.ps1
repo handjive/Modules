@@ -12,6 +12,7 @@ namespace handjive{
             object OnCurrentBlock{ get; set; }
             object OnMoveNextBlock{ get; set; }
             object OnResetBlock{ get; set; }
+            object OnDisposeBlock{ get; set; }
             object WorkingSet{ get; }
         }        
         public interface IBag{
