@@ -319,7 +319,9 @@ class AspectComparer : PluggableComparer{
     }
     
     [int]Compare([object]$left,[object]$right){
-        return (&$this.CompareBlock $this.GetAspect($left) $this.GetAspect($right))
+        $v1 = $this.GetAspect($left)
+        $v2 = $this.GetAspect($right)
+        return (&$this.CompareBlock $v1 $v2)
     }
 
     [string]ToString(){
@@ -392,6 +394,7 @@ class PluggableEqualityComparer : handjive.Collections.EqualityComparerBase[obje
     }
 }
 
+#　AspectComparerとの相互変換が欲しい! (Pluggableも)
 class AspectEqualityComparer : Collections.Generic.IEqualityComparer[object] {
     [string]$Aspect
 
@@ -815,7 +818,7 @@ class Bag : handjive.IWrapper,handjive.Collections.IBag{
         $this.IntersectWith($enumerator,$this.wpvValueSet.Comparer)
     }
 
-    hidden [object]basicExceptWith([Collections.Generic.IEnumerator[object]]$enumerator,[Collections.Generic.IComparer[object]]$comparer){
+    hidden [object]basicExceptWith([Collections.Generic.IEnumerator[object]]$enumerator,[Collections.Generic.IEqualityComparer[object]]$eqcmpr){
         $newDict = if( $null -eq $this.EqualityComparer ){
                         ([Bag]::SUBSTANCE_CLASS)::new()
                     }
@@ -824,16 +827,23 @@ class Bag : handjive.IWrapper,handjive.Collections.IBag{
                     }
         $aSet = ([Bag]::VALUESET_CLASS)::new($this.wpvValueSet,$comparer)
         
+        [Linq.Enumerable]::Except([EnumerableWrapper]::on($enumerator),$aSet,$eqcompr)
+        # やっぱLinq?
         $enumerator.foreach{
-            if( !$aSet.Contains($_) ){
-                $this.basicAdd($newDict,$_)
+            $left = $_
+            $aSet.foreach{
+                $right = $_
+                $result = $comparer.Compare($left,$right)
+                if( $result -ne 0 ){
+                    $this.basicAdd($newDict,$left)
+                }
             }
         }
         return($newDict)
     }
 
     ExceptWith([Collections.Generic.IEnumerator[object]]$enumerator,[Collections.Generic.IComparer[object]]$comparer){
-        $this.basicExceptWith($enumerator,$comparer)
+        $this.Substance = $this.basicExceptWith($enumerator,$comparer)
     }
     ExceptWith([Collections.Generic.IEnumerator[object]]$enumerator){
         $this.basicExceptWith($enumerator,$this.wpvValueSet.Comparer)
