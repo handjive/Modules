@@ -155,4 +155,3 @@ class EverythingAPI
     }
 }
 
-Export-ModuleMember

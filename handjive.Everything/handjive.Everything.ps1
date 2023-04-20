@@ -62,7 +62,7 @@ enum ESAPI_SORT{
 
 
 class EverythingSearchResultElement : ISearchResultElement,IComparable {
-    static [object]$DefaultComparer = [AspectComparer]::DefaultAscending('Name')
+    static [object]$DefaultComparer = [AspectComparer]::new('Name')
     hidden [string]$wpvQueryBase
     hidden [int]$wpvNumber
     hidden [string]$wpvName
@@ -83,7 +83,7 @@ class EverythingSearchResultElement : ISearchResultElement,IComparable {
 
     <# Reponsibility for IComparable #>
     [int] CompareTo([object]$left){
-        return ($this.Comparer.Compare($this,$left))
+        return ($this.Comparer.PSCompare($this,$left))
     }
 
     [string]get_QueryBase(){
@@ -154,6 +154,8 @@ class Everything : IEverything {
         $es = [Everything]::new()
         $es.QueryBase = $queryBase
         $es.PerformQuery($queryString)
+        Write-Host ([String]::Format('Status: {0}',$es.LastError))
+        Write-Host ([String]::Format('Number of results: {0}',$es.NumberOfResults))
         return $es.Results
     }
 
@@ -297,12 +299,20 @@ class Everything : IEverything {
     set_Results([object[]]$var){
         $this.wpvResults = $var
     }
+    [int]get_NumberOfResults(){
+        return ($this.esapi::Everything_GetNumResults())
+    }
+
+    <#[Collections.Generic.IEnumerator[object]]GetEnumerator(){
+        return($this.ResultsEnumerable().GetEnumerator())
+    }#>
 
     [Collections.Generic.IEnumerator[object]]GetEnumerator(){
         $enumr = [PluggableEnumerator]::new($this)
+        $enumr.WorkingSet.NumberOfResults = $this.NumberOfResults
         $enumr.OnMoveNextBlock = {
             param($substance,$workingset)
-            return($workingset.Locator -lt $workingset.NumResults)
+            return($workingset.Locator -lt $workingset.NumberOfResults)
         }
         $enumr.OnCurrentBlock = {
             param($substance,$workingset)

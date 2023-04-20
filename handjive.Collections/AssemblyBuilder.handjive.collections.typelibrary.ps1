@@ -15,31 +15,6 @@ namespace handjive{
             object OnDisposeBlock{ get; set; }
             object WorkingSet{ get; }
         }        
-        public interface IBag{
-            System.Collections.Generic.IEnumerator<object> Values{ get; }
-            int Count{ get; }
-            System.Collections.Generic.IComparer<object> SortingComparer{ get; set; }
-            System.Collections.IEqualityComparer EqualityComparer{ get; set; }
-            object this[int index]{ get; }
-            //int this[object key]{ get; }
-            System.Collections.Generic.IEnumerator<object> ValuesSorted{ get; }
-            System.Collections.Generic.IEnumerator<object> ValuesOrdered{ get; }
-            System.Collections.Generic.IEnumerator<object> ElementsSorted{ get; }
-            System.Collections.Generic.IEnumerator<object> ElementsOrdered{ get; }
-        }
-
-        public interface IIndexedBag{
-            object GetIndexBlock{ get; set; }
-            System.Collections.Generic.IEnumerator<object> Indexes{ get; }
-            //System.Collections.IEnumerator IndexesOrdered{ get; }
-            //System.Collections.IEnumerator Values{ get; }
-            //int Count{ get; }
-            //object[] this[int index]{ get; }
-            object this[object index]{ get; }
-            //System.Collections.IEnumerator ValuesAndOccurrences{ get; }
-            //System.Collections.IEnumerator IndexesAndValuesAndOccurrences{ get; }
-        }
-
         public class ComparerBase<T> : System.Collections.IEqualityComparer, System.Collections.IComparer,System.Collections.Generic.IEqualityComparer<T>,System.Collections.Generic.IComparer<T>{
             // IEqualityComparer
             bool System.Collections.IEqualityComparer.Equals(object left,object right){
@@ -77,6 +52,34 @@ namespace handjive{
             virtual protected int PSCompare(object left,object right){
                 return(0);
             }
+        }
+
+        public class CombinedComparer : ComparerBase<object>{
+        }
+        
+        public interface IBag{
+            System.Collections.Generic.IEnumerator<object> Values{ get; }
+            int Count{ get; }
+            handjive.Collections.CombinedComparer Comparer{ get; set; }
+            //System.Collections.IEqualityComparer EqualityComparer{ get; set; }
+            object this[int index]{ get; }
+            //int this[object key]{ get; }
+            System.Collections.Generic.IEnumerator<object> ValuesSorted{ get; }
+            System.Collections.Generic.IEnumerator<object> ValuesOrdered{ get; }
+            System.Collections.Generic.IEnumerator<object> ElementsSorted{ get; }
+            System.Collections.Generic.IEnumerator<object> ElementsOrdered{ get; }
+        }
+
+        public interface IIndexedBag{
+            object GetIndexBlock{ get; set; }
+            System.Collections.Generic.IEnumerator<object> Indexes{ get; }
+            //System.Collections.IEnumerator IndexesOrdered{ get; }
+            //System.Collections.IEnumerator Values{ get; }
+            //int Count{ get; }
+            //object[] this[int index]{ get; }
+            object this[object index]{ get; }
+            //System.Collections.IEnumerator ValuesAndOccurrences{ get; }
+            //System.Collections.IEnumerator IndexesAndValuesAndOccurrences{ get; }
         }
 
         public class EnumerableBase : System.Collections.Generic.IEnumerable<object>{

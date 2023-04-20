@@ -1,5 +1,6 @@
 using module handjive.ValueHolder
 using module handjive.ChainScript
+using namespace handjive.Collections
 
 <#
 # 一定範囲の整数値
@@ -10,7 +11,7 @@ using module handjive.ChainScript
 # while($anInterval.MoveNext(){ $anInterval.Current }
 # $anInterval.foreach{ ------ }
 #>
-class Interval : handjive.Collections.EnumerableBase, Collections.IEnumerator{
+class Interval : EnumerableBase, Collections.IEnumerator{
     [int]$Start
     [int]$Stop
     [int]$Step
@@ -110,7 +111,7 @@ class Interval : handjive.Collections.EnumerableBase, Collections.IEnumerator{
     
     仕方がないので分離したWrapperとして。
 #>
-class EnumerableWrapper : handjive.Collections.EnumerableBase[object]{
+class EnumerableWrapper : EnumerableBase[object]{
     static [EnumerableWrapper]On([Collections.Generic.IEnumerator[object]]$Subject){
         $newOne = [EnumerableWrapper]::new($Subject)
         return ($newOne)
@@ -141,7 +142,7 @@ class EnumerableWrapper : handjive.Collections.EnumerableBase[object]{
 #  $penum.OnDisposeBlock    Dispose()が実行要求された時に実行されるScriptBlock(SubstanceとWorkingSetがパラメータとして渡される)
 #>
 
-class PluggableEnumerator : handjive.Collections.EnumeratorBase,handjive.Collections.IPluggableEnumerator {
+class PluggableEnumerator : EnumeratorBase,IPluggableEnumerator {
     <#
     # Collections.IEnumratorをCollections.Generic.IEnumeratorに偽装する
     # (いる?)
@@ -319,8 +320,6 @@ class EmptyEnumerator : PluggableEnumerator {
 # 比較対象にGetSubjectBlockを適用した結果で比較を実行(CompreはCompareBlockの評価結果)、その結果を返す
 # GetSubjectBlockもCompareBlockも指定しない場合は、対象をそのまま比較・昇順
 #>
-class CombinedComparer : handjive.Collections.ComparerBase[object]{
-}
 
 class PluggableComparer : CombinedComparer{
     hidden static [ScriptBlock]$DefaultAscendingBlock  = { param($left,$right) if( $left -eq $right ){ return 0 } elseif( $left -lt $right ){ return -1 } else {return 1 } }
@@ -378,7 +377,8 @@ class PluggableComparer : CombinedComparer{
     }
     
     [int]Compare([object]$left,[object]$right){
-        return($this.PSCompare($left,$right))
+        $result = $this.PSCompare($left,$right)
+        return($result)
     }
     
     [bool]Equals([object]$left,[object]$right){
@@ -391,29 +391,22 @@ class PluggableComparer : CombinedComparer{
 }
 
 class AspectComparer : PluggableComparer{
-    static [AspectComparer]DefaultAscending([string]$aspect){
-        return([AspectComparer]::new([AspectComparer]::AscendingBlock,$aspect))
-    }
-    static [AspectComparer]DefaultDescending([string]$aspect){
-        return([AspectComparer]::new([AspectComparer]::DescendingBlock,$aspect))
-    }
-
     [string]$Aspect
-
-    hidden [object]GetSubject([object]$anObject){
+<#    hidden [object]GetSubject([object]$anObject){
         $aValue = $anObject.($this.Aspect)
         if( $null -eq $aValue ){
             throw [String]::format('Invalid Aspect "{0}" for "{1}"',$this.Aspect,$anObject.Gettype())
         }
 
         return($aValue)
-    }
+    }#>
 
-    AspectComparer([ScriptBlock]$comparerBlock,[string]$aspect) : base($comparerBlock,{ return $args[0] }){
+    <#AspectComparer([ScriptBlock]$comparerBlock,[string]$aspect) : base($comparerBlock,{ return $args[0] }){
         $this.Aspect = $aspect
-    }
+    }#>
     AspectComparer([string]$aspect) : base({ return $args[0]}){
         $this.Aspect = $aspect
+        $this.GetSubjectBlock = [ScriptBlock]::Create([String]::Format('return($args[0].{0})',$this.Aspect))
         $this.DefaultAscending()
     }
     
@@ -422,10 +415,10 @@ class AspectComparer : PluggableComparer{
             return([String]::Format('{0}()',$this.gettype().Name))
         }
         $type = switch( $this.CompareBlock.gethashcode() ){
-            ([AspectComparer]::AscendingBlock.GetHashCode()){
+            ([AspectComparer]::DefaultAscendingBlock.GetHashCode()){
                 'Default-Ascending'
             }
-            ([AspectComparer]::DescendingBlock.GetHashCode()){
+            ([AspectComparer]::DefaultDescendingBlock.GetHashCode()){
                 'Default-Descending'
             }
             default{
@@ -436,89 +429,50 @@ class AspectComparer : PluggableComparer{
     }
 }
 
-<#
- 場当たり的なEqualityComparer
-#>
-<#
-class PluggableEqualityComparer : handjive.Collections.EqualityComparerBase[object]{
-    static [ScriptBlock]$DefaultEqualityComparerBlock = { param($left,$right) return($left -eq $right) }
-    static [ScriptBlock]$DefaultGetHashCodeBlock = { return ($args[0].GetHashCode()) }
-    static [ScriptBlock]$DefaultGetSubjectBlock = { return($args[0]) }
-    
-    static [PluggableEqualityComparer]Default(){
-        return([PluggableEqualityComparer]::new())
+class CombinedComparerWrapper : CombinedComparer,handjive.IWrapper{
+    hidden [object]$wpvSubstance
+
+    CombinedComparerWrapper([Collections.Generic.IComparer[object]]$cmpr){
+        $this.Substance = $cmpr
     }
-    static [PluggableEqualityComparer]GetSubjectBlock([ScriptBlock]$getSubjectBlock){
-        return([PluggableEqualityComparer]::new($getSubjectBlock))
+    CombinedComparerWrapper([Collections.IComparer]$cmpr){
+        $this.Substance = $cmpr
     }
 
-    [ScriptBlock]$EqualityComparerBlock
-    [ScriptBlock]$GetHashCodeBlock
-    [ScriptBlock]$GetSubjectBlock
-
-    PluggableEqualityComparer(){
-        $this.EqualityComparerBlock = [PluggableEqualityComparer]::DefaultEqualityComparerBlock
-        $this.GetHashCodeBlock = [PluggableEqualityComparer]::DefaultGetHashCodeBlock
-        $this.GetSubjectBlock = [PluggableEqualityComparer]::DefaultGetSubjectBlock
+    hidden [object]get_Substance(){
+        return $this.wpvSubstance
     }
-    PluggableEqualityComparer([ScriptBlock]$getSubjectBlock){
-        $this.EqualityComparerBlock = [PluggableEqualityComparer]::DefaultEqualityComparerBlock
-        $this.GetHashCodeBlock = [PluggableEqualityComparer]::DefaultGetHashCodeBlock
-        $this.GetSubjectBlock = $getSubjectBlock
-    }
-    PluggableEqualityComparer([ScriptBlock]$getSubjectBlock,[ScriptBlock]$getHashCodeBlock){
-        $this.EqualityComparerBlock = [PluggableEqualityComparer]::DefaultEqualityComparerBlock
-        $this.GetHashCodeBlock = $getHashCodeBlock
-        $this.GetSubjectBlock = $getSubjectBlock
+    hidden set_Substance([object]$subject){
+        $this.wpvSubstance = $subject
     }
 
-    hidden [object]GetSubject([object]$anObj){
-        return(&$this.GetSubjectBlock $anObj)
+    <#
+    # Result of [System.Collections.Generic.ObjectComparer[object]]::new()|get-member
+    #
+    #   int Compare(System.Object x, System.Object y), 
+    #   int IComparer.Compare(System.Object x, System.Object y)
+    #   int IComparer[Object].Compare(System.Object x, System.Object…Equals      
+    #   Method     bool Equals(System.Object obj)
+    #   GetHashCode Method     int GetHashCode()
+    #   GetType     Method     type GetType()
+    #   ToString    Method     string ToString()
+    #>
+    [int]PSCompare([object]$left,[object]$right){
+        return $this.Substance.Compare($left,$right)
     }
     [bool]PSEquals([object]$left,[object]$right){
-        $left = $this.GetSubject($left)
-        $right = $this.GetSubject($right)
-        $result = &$this.EqualityComparerBlock $left $right
-        return ($result)
+        return(($this.Substance.Compare($left,$right) -eq 0));
     }
-
-    [int]PSGetHashCode([object]$anObject){
-        $hash = &$this.GetHashCodeBlock $this.GetSubject($anObject)
-        return ($hash)
+    [int]PSGetHashCode([object]$obj){
+        return $obj.GetHashCode()
     }
 }
 
-#　AspectComparerとの相互変換が欲しい! (Pluggableも)
-class AspectEqualityComparer : Collections.Generic.IEqualityComparer[object] {
-    [string]$Aspect
-
-    hidden [object]GetAspect([object]$anObject){
-        $aValue = $anObject.($this.Aspect)
-        if( $null -eq $aValue ){
-            throw [String]::format('Invalid Aspect "{0}" for "{1}"',$this.Aspect,$anObject.Gettype())
-        }
-
-        return($aValue)
-    }
-
-    AspectEqualityComparer([string]$aspect){
-        $this.Aspect = $aspect
-    }
-
-    [bool]Equals([object]$left,[object]$right){
-        return($this.GetAspect($left) -eq $this.GetAspect($right))
-    }
-
-    [int]GetHashCode([object]$anObject){
-        return ($this.GetAspect($anObject)).GetHashCode()
-    }
-}
-#>
 
 <#
  コレクションをなんかした結果を取り出すアダプタ
 #>
-class CollectionPluggableAdaptor : handjive.Collections.ICollectionAdaptor{
+class CollectionPluggableAdaptor : ICollectionAdaptor{
     [object]$Subject
     [ScriptBlock]$GetValueBlock = { $args[0] }
 
@@ -549,7 +503,7 @@ class CollectionPluggableAdaptor : handjive.Collections.ICollectionAdaptor{
 <# 
 　コレクションから特定プロパティを取り出すアダプタ
 #>
-class CollectionAspectAdaptor : handjive.Collections.ICollectionAdaptor{
+class CollectionAspectAdaptor : ICollectionAdaptor{
     [AspectAdaptor]$aspectAdaptor
 
     CollectionAspectAdaptor([object]$subject,[string]$aspect){
@@ -622,13 +576,13 @@ class BagElement{
 #       OccurrencesOf   [int] ([object]$aValue)       $aValueの重複数を得る
 #       Includes        [bool]([object]$aValue)       $aValueが含まれるかの真偽値を返す
 #>
-class Bag : handjive.IWrapper,handjive.Collections.IBag{
-    static [Bag]Intersect([Collections.Generic.IEnumerator[object]]$left,[Collections.Generic.IEnumerator[object]]$right,[Collections.Generic.IComparer[object]]$comparer){
+class Bag : handjive.IWrapper,IBag{
+    static [Bag]Intersect([Collections.Generic.IEnumerable[object]]$left,[Collections.Generic.IEnumerable[object]]$right,[CombinedComparer]$comparer){
         $aBag = [Bag]::new($left,$comparer)
-        $aBag.IntersectWith($right)
+        $aBag.IntersectBy($right)
         return($aBag)
     }
-    static [Bag]Except([Collections.Generic.IEnumerator[object]]$left,[Collections.Generic.IEnumerator[object]]$right,[Collections.Generic.IComparer[object]]$comparer){
+    static [Bag]Except([Collections.Generic.IEnumerable[object]]$left,[Collections.Generic.IEnumerable[object]]$right,[CombinedComparer]$comparer){
         $aBag = [Bag]::new($left,$comparer)
         $aBag.ExceptWith($right)
         return($aBag)
@@ -639,8 +593,7 @@ class Bag : handjive.IWrapper,handjive.Collections.IBag{
     static $VALUESET_CLASS = [Collections.Generic.SortedSet[object]]
     
     hidden [ValueHolder]$wpvSubstanceHolder
-    hidden [ValueHolder]$wpvSortingComparerHolder
-    hidden [ValueHolder]$wpvEqualityComparerHolder
+    hidden [ValueHolder]$wpvComparerHolder
 
     hidden [Collections.Generic.SortedSet[object]]$wpvValueSet
 
@@ -674,46 +627,48 @@ class Bag : handjive.IWrapper,handjive.Collections.IBag{
         $this.Initialize($comparer)
         $this.AddAll($enumerator)
     }
+    Bag([Collections.Generic.IEnumerable[object]]$enumerable){
+        $this.Initialize([PluggableComparer]::New())
+        $this.AddAll($enumerable)
+    }
+    Bag([Collections.Generic.IEnumerable[object]]$enumerable,[CombinedComparer]$comparer){
+        $this.Initialize($comparer)
+        $this.AddAll($enumerable)
+    }
 
     hidden initialize([CombinedComparer]$comparer){
         $this.wpvSubstanceHolder = [ValueHolder]::new(([Bag]::SUBSTANCE_CLASS)::new($comparer))
         $this.wpvSubstanceHolder.AddValueChangedListener($this,{
             param($receiver,$args1,$args2,$workingset) 
-            $receiver.buildValueSet($receiver.SortingComparer)
+            $receiver.buildValueSet($args1[1],$receiver.Comparer)
         })
 
-        $this.wpvSortingComparerHolder = [ValueHolder]::new($comparer)
-        $this.wpvSortingComparerHolder.AddValueChangedListener($this,{ 
+        $this.wpvComparerHolder = [ValueHolder]::new($comparer)
+        $this.wpvComparerHolder.AddValueChangedListener($this,{ 
             param($receiver,$args1,$args2,$workingset) 
-            $receiver.buildValueSet($args1[0])
-        })
-
-        $this.wpvEqualityComparerHolder = [ValueHolder]::new($comparer)
-        $this.wpvEqualityComparerHolder.AddValueChangedListener($this,{
-            param($receiver,$args1,$args2,$workingset) 
-            $eceiver.rebuildSubstance($args1[0])
+            $receiver.rebuildSubstance($args1[0])
+            #$receiver.buildValueSet($args1[0])
         })
 
         $this.wpvValueSet = ([Bag]::VALUESET_CLASS)::new([Collections.Generic.IComparer[object]]$comparer)
     }
-    hidden rebuildSubstance([Collections.IEqualityComparer]$aComparer){
+    hidden rebuildSubstance([CombinedComparer]$aComparer){
         $newSubstance = ([Bag]::SUBSTANCE_CLASS)::new($aComparer)
-        $this.Substance.Keys.foreach{
+        $this.Substance.psbase.Keys.foreach{
             $this.basicAdd($newSubstance,$_)
         }
         $this.Substance = $newSubstance
     }
-    hidden buildValueSet([Collections.Generic.IComparer[object]]$aComparer){
-        $this.wpvValueSet = [Collections.Generic.SortedSet[object]]::new([Collections.Generic.IComparer[object]]$aComparer)
-        if( $this.Substance.Count -gt 0){
-            $this.Substance.Keys.foreach{ $this.wpvValueSet.Add($_) }
+    hidden buildValueSet([Collections.Specialized.OrderedDictionary]$dict,[CombinedComparer]$aComparer){
+        $this.wpvValueSet = ([Bag]::VALUESET_CLASS)::new(<#[Collections.Generic.IComparer[object]]#>$aComparer)
+        if( $this.Substance.psbase.Count -gt 0){
+            $this.Substance.psbase.Keys.foreach{ $this.wpvValueSet.Add($_) }
         }
     }
 
     hidden [object]newElement(){
         return(([Bag]::ELEMENT_CLASS)::new())
     }
-
 
     hidden [object]get_Substance(){
         return($this.wpvSubstanceHolder.Value())
@@ -722,21 +677,14 @@ class Bag : handjive.IWrapper,handjive.Collections.IBag{
         $this.wpvSubstanceHolder.Value($aSubstance)
     }
 
-    [Collections.Generic.IComparer[object]]get_SortingComparer(){
-        return([Collections.Generic.IComparer[object]]$this.wpvSortingComparerHolder.Value())
+    hidden [CombinedComparer]get_Comparer(){
+        return($this.wpvComparerHolder.Value())
     }
-    set_SortingComparer([Collections.Generic.IComparer[object]]$aComparer){
-        $this.wpvSortingComparerHolder.Value($aComparer)
+    hidden set_Comparer([CombinedComparer]$aComparer){
+        $this.wpvComparerHolder.Value($aComparer)
     }
     
-    [Collections.IEqualityComparer]get_EqualityComparer(){
-        return([Collections.IEqualityComparer]$this.wpvEqualityComparerHolder.Value())
-    }
-    set_EqualityComparer([Collections.IEqualityComparer]$aComparer){
-        $this.wpvEqualityComparerHolder.Value($aComparer)
-    }
-
-    [Collections.Generic.IEnumerator[object]]get_ValuesSorted(){
+    hidden [Collections.Generic.IEnumerator[object]]get_ValuesSorted(){
         $enumerator = [PluggableEnumerator]::new($this)
         $enumerator.workingset.valueEnumerator = [Collections.IEnumerator]$this.wpvValueSet.GetEnumerator()
         $enumerator.OnMoveNextBlock = {
@@ -754,7 +702,7 @@ class Bag : handjive.IWrapper,handjive.Collections.IBag{
         return($enumerator)
     }
 
-    [Collections.Generic.IEnumerator[object]]get_ValuesOrdered(){
+    hidden [Collections.Generic.IEnumerator[object]]get_ValuesOrdered(){
         $enumerator = [PluggableEnumerator]::new($this)
         $enumerator.workingset.valueEnumerator = $this.Substance.Keys.GetEnumerator()
         $enumerator.OnMoveNextBlock = {
@@ -771,25 +719,17 @@ class Bag : handjive.IWrapper,handjive.Collections.IBag{
         }
         return($enumerator)
     }
-    [Collections.Generic.IEnumerator[object]]get_Values(){
+    hidden [Collections.Generic.IEnumerator[object]]get_Values(){
         return($this.get_ValuesSorted())
     }
 
-    [int]get_Count(){
+    hidden [int]get_Count(){
         return($this.Substance.Count)
     }
 
-    [object]get_Item([int]$index){
+    hidden [object]get_Item([int]$index){
         $keys = $this.Substance.Keys
         return($keys[$index])
-    }
-
-    [int]OccurrencesOf([object]$value){
-        return($this.Substance[[object]$value])
-    }
-
-    [bool]Includes([object]$aValue){
-        return($this.wpvValueSet.Contains($aValue))
     }
 
     hidden [Collections.Generic.IEnumerator[object]]create_ElementsEnumerator(){        
@@ -851,8 +791,12 @@ class Bag : handjive.IWrapper,handjive.Collections.IBag{
             $this.Add($_)
         }
     }
+    AddAll([Collections.Generic.IEnumerable[object]]$enumerable){
+        $enumerable.GetEnumerator().foreach{
+            $this.Add($_)
+        }
+    }
     
-  
     Remove([object]$aValue){
         if( $null -eq $this.Substance[$aValue] )
         {
@@ -889,59 +833,62 @@ class Bag : handjive.IWrapper,handjive.Collections.IBag{
         $values.foreach{ $this.Purge($_) }
     }
 
-    hidden [object]basicIntersectWith([Collections.Generic.IEnumerator[object]]$enumerator,[Collections.Generic.IComparer[object]]$comparer){
-        $newDict = if( $null -eq $this.EqualityComparer ){
-                        ([Bag]::SUBSTANCE_CLASS)::new()
-                    }
-                    else{
-                        ([Bag]::SUBSTANCE_CLASS)::new($this.EqualityComparer)
-                    }
-        $aSet = ([Bag]::VALUESET_CLASS)::new($this.wpvValueSet,$comparer)
-        
-        $enumerator.foreach{
-            if( $aSet.Contains($_) ){
-                $this.basicAdd($newDict,$_)
-            }
+    [int]OccurrencesOf([object]$value){
+        return($this.Substance[[object]$value])
+    }
+
+    [bool]Includes([object]$aValue){
+        return($this.wpvValueSet.Contains($aValue))
+    }
+
+
+    hidden [object]basicIntersectBy([Collections.Generic.IEnumerable[object]]$enumerable,[CombinedComparer]$comparer){
+        $newDict = ([Bag]::SUBSTANCE_CLASS)::new($comparer)
+        $values = @()
+        $enumerable.foreach{
+            $values += $comparer.GetSubject($_)
+        }
+        $result = [Linq.Enumerable]::IntersectBy[object,object]([EnumerableWrapper]::on($this.ValuesSorted),$values,[Func[object,object]]$comparer.GetSubjectBlock)
+      
+        $result.foreach{
+            $this.basicAdd($newDict,$_)
         }
         return($newDict)
     }
 
-    IntersectWith([Collections.Generic.IEnumerator[object]]$enumerator,[Collections.Generic.IComparer[object]]$comparer){
-        $this.Substance = $this.basicIntersectWith($enumerator,$comparer)
+    IntersectBy([Collections.Generic.IEnumerable[object]]$enumerable,[CombinedComparer]$comparer){
+        $this.Substance = $this.basicIntersectBy($enumerable,$comparer)
     }
-    IntersectWith([Collections.Generic.IEnumerator[object]]$enumerator){
-        $this.IntersectWith($enumerator,$this.wpvValueSet.Comparer)
+    IntersectBy([Collections.Generic.IEnumerable[object]]$enumerable){
+        $this.IntersectBy($enumerable,$this.wpvValueSet.Comparer)
+    }
+    IntersectBy([Collections.Generic.IEnumerator[object]]$enumerator,[CombinedComparer]$comparer){
+        $this.Substance = $this.basicIntersectBy([EnumerableWrapper]::on($enumerator),$comparer)
+    }
+    IntersectBy([Collections.Generic.IEnumerator[object]]$enumerator){
+        $this.IntersectBy([EnumerableWrapper]::on($enumerator),$this.wpvValueSet.Comparer)
     }
 
-    hidden [object]basicExceptWith([Collections.Generic.IEnumerator[object]]$enumerator,[CombinedComparer]$comparer){
-        $newDict = if( $null -eq $this.EqualityComparer ){
-                        ([Bag]::SUBSTANCE_CLASS)::new()
-                    }
-                    else{
-                        ([Bag]::SUBSTANCE_CLASS)::new($this.EqualityComparer)
-                    }
-        $aSet = ([Bag]::VALUESET_CLASS)::new($this.wpvValueSet,$comparer)
-        
-        [Linq.Enumerable]::Except([EnumerableWrapper]::on($enumerator),$aSet,$comparer)
-        # やっぱLinq?
-        $enumerator.foreach{
-            $left = $_
-            $aSet.foreach{
-                $right = $_
-                $result = $comparer.Compare($left,$right)
-                if( $result -ne 0 ){
-                    $this.basicAdd($newDict,$left)
-                }
-            }
+    hidden [object]basicExceptWith([Collections.Generic.IEnumerable[object]]$enumerable,[CombinedComparer]$comparer){
+        $newDict = ([Bag]::SUBSTANCE_CLASS)::new($comparer)
+        $result = [Linq.Enumerable]::Except([EnumerableWrapper]::on($this.ValuesSorted),$enumerable,$comparer)
+        $result.foreach{
+            $this.basicAdd($newDict,$_)
         }
         return($newDict)
     }
 
-    ExceptWith([Collections.Generic.IEnumerator[object]]$enumerator,[Collections.Generic.IComparer[object]]$comparer){
-        $this.Substance = $this.basicExceptWith($enumerator,$comparer)
+    ExceptWith([Collections.Generic.IEnumerable[object]]$enumerable,[CombinedComparer]$comparer){
+        $this.Substance = $this.basicExceptWith($enumerable,$comparer)
+    }
+    ExceptWith([Collections.Generic.IEnumerable[object]]$enumerable){
+        $this.basicExceptWith($enumerable,$this.wpvValueSet.Comparer)
+    }
+    ExceptWith([Collections.Generic.IEnumerator[object]]$enumerator,[CombinedComparer]$comparer){
+        $this.Substance = $this.basicExceptWith([EnumerableWrapper]::on($enumerator),$comparer)
     }
     ExceptWith([Collections.Generic.IEnumerator[object]]$enumerator){
-        $this.basicExceptWith($enumerator,$this.wpvValueSet.Comparer)
+        $this.basicExceptWith([EnumerableWrapper]::on($enumerator),$this.wpvValueSet.Comparer)
     }
 
     <#IntersectWith([object[]]$anArray){
@@ -965,16 +912,16 @@ class IndexedBagElement : BagElement{
 }
 
 
-class IndexedBag : Bag,handjive.Collections.IIndexedBag{ 
+class IndexedBag : Bag,IIndexedBag{ 
     static $ELEMENT_CLASS = [IndexedBagElement]
     
     hidden [ValueHolder]$wpvGetIndexBlockHolder
     hidden [ValueHolder]$wpvIndexComparerHolder
     hidden [Collections.Generic.SortedDictionary[object,object]]$wpvIndexDictionary
 
-    hidden [Collections.Generic.SortedDictionary[object,object]]buildIndexDictionary([IndexedBag]$anIndexedBag,[Collections.Generic.IComparer[object]]$indexComparer)
+    hidden [Collections.Generic.SortedDictionary[object,object]]buildIndexDictionary([IndexedBag]$anIndexedBag,[CombinedComparer]$indexComparer)
     {
-        $newDict = [Collections.Generic.SortedDictionary[object,object]]::new($indexComparer)
+        $newDict = [Collections.Generic.SortedDictionary[object,object]]::new([Collections.Generic.IComparer[object]]$indexComparer)
         $anIndexedBag.Substance.keys.foreach{
             $aValue = $anIndexedBag.Substance[[object]$key]
             $index = $anIndexedBag.GetIndexOf($aValue)
@@ -983,28 +930,30 @@ class IndexedBag : Bag,handjive.Collections.IIndexedBag{
         return($newDict)
     }
 
-    hidden Initialize([ScriptBlock]$getkeyBlock,[Collections.Generic.IComparer[object]]$indexComparer){
+    hidden Initialize([ScriptBlock]$getIndexBlock){
         <#
         # GetKeyBlockかIndexComparerが変更されたらIndexDictionaryを再構成
         #>
-        $this.wpvIndexDictionary = [Collections.Generic.SortedDictionary[object,object]]::new($indexComparer)
+        $comparer = [PluggableComparer]::GetSubjectBlock($getIndexBlock)
+        $this.wpvIndexDictionary = [Collections.Generic.SortedDictionary[object,object]]::new($comparer)
 
-        $this.wpvGetIndexBlockHolder = [ValueHolder]::new($getkeyBlock)
-        $this.wpvGetIndexBlockHolder.WorkingSet.IndexComparer = $indexComparer
+        $this.wpvGetIndexBlockHolder = [ValueHolder]::new($getIndexBlock)
         $this.wpvGetIndexBlockHolder.AddValueChangedListener($this,{
             param($receiver,$args1,$args2,$workingset)
-            $receiver.wpvIndexDictionary = $receiver.buildIndexDictionary($receiver,$workingset.indexComparer)
+            $receiver.wpvIndexComparerHolder.Subject = [PluggableComparer]::GetSubjectBlock($args1[1])
+            $receiver.wpvIndexDictionary = $receiver.buildIndexDictionary($receiver,$receiver.IndexComparer)
         })
-        $this.wpvIndexComparerHolder = [ValueHolder]::new($indexComparer)
-        $this.wpvIndexComparerHolder.WorkingSet.IndexComparer = $indexComparer
+        $this.wpvIndexComparerHolder = [ValueHolder]::new($comparer)
         $this.wpvIndexComparerHolder.AddValueChangedListener($this,{ 
             param($receiver,$args1,$args2,$workingset) 
-            $receiver.wpvIndexDictionary = $receiver.buildIndexDictionary($receiver,$workingset.indexComparer)
+            $receiver.wpvGetIndexBlockHolder.Subject = $args1[1].GetSubjectBlock
+            $receiver.wpvIndexDictionary = $receiver.buildIndexDictionary($receiver,$receiver.IndexComparer)
+            $receiver.Comparer = $receiver.IndexComparer
         })
     }
 
     IndexedBag() : base(){
-        ([IndexedBag]$this).Initialize({ $args[0] },[PluggableComparer]::New())
+        ([IndexedBag]$this).Initialize({ $args[0] })
     }
 
     [object]newElement(){
@@ -1138,7 +1087,11 @@ class IndexedBag : Bag,handjive.Collections.IIndexedBag{
 
         $index = $this.GetIndexOf($value)
         if( $null -eq $this.wpvIndexDictionary[$index] ){
-            $this.wpvIndexDictionary.Add($index,[Bag]::new($this.wpvIndexDictionary.Comparer))
+            # ComparerがCombinedComparerじゃなかったらWrapする?(できる?)
+            $cmpr = $this.wpvIndexDictionary.Comparer
+            $adjustedCmpr = if( $cmpr -is [CombinedComparer] ){ $cmpr } else{ [CombinedComparerWrapper]::new([Collections.Generic.IComparer[object]]$cmpr) }
+            $newBag = [Bag]::new([CombinedComparer]$adjustedCmpr)
+            $this.wpvIndexDictionary.Add($index,$newBag)
         }
         ($this.wpvIndexDictionary[$index]).Add($value)
     }

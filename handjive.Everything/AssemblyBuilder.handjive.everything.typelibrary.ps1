@@ -18,7 +18,8 @@ namespace handjive{
             object LastError{ get; }
             object SortOrder{ get; set; }
             object RequestFlags{ get; set; }
-       }
+            int NumberOfResults{ get; }
+        }
     }
 }
 "@

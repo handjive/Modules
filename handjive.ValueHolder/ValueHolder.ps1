@@ -46,7 +46,7 @@ class DependencyHolder{
         $this.clients.Add($elem)
     }
 
-    [object]Perform([object]$argArray,[hashtable]$workingset,[scriptBlock]$ifEmpty){
+    [object]Perform([object]$argArray,[hashtable]$workingset,[ScriptBLock]$ifEmpty){
         $lastResult = $null
         if( $this.Count() -eq 0 ){
             return &$ifEmpty
@@ -113,7 +113,7 @@ class ValueModel : handjive.IValueModel[object]{
     Value([object]$aValue){
         if( $this.ValueChanging($this.Value(),$aValue) ){
             $this.ValueUsingSubject($this.Subject,$aValue)
-            $this.ValueChanged()
+            $this.ValueChanged($aValue)
         }
     }
     SetSubjectChangingValidator([object]$listener,[scriptBlock]$aBlock){
@@ -128,14 +128,14 @@ class ValueModel : handjive.IValueModel[object]{
     }
 
     SubjectChanged([object]$old,[object]$new){
-        $this.ValueChangedListeners.Perform(@( $old,$new ),$this.WorkingSet,{})
+        $this.SubjectChangedListeners.Perform(@( $old,$new ),$this.WorkingSet,{})|out-null
     }
 
     [bool]ValueChanging([object]$Subject,[object]$aValue){
         return $true
     }
 
-    ValueChanged(){
+    ValueChanged([object]$newValue){
     }
 }
 
@@ -162,12 +162,15 @@ class ValueHolder : ValueModel{
         $this.ValueChangedListeners.Add($listener,$aBlock)
     }
 
+    ValueUsingSubject([object]$subject,[object]$value){
+        $this.wpvSubject = $value
+    }
+
     [bool]ValueChanging($current,$new){
         return ($this.ValueChangeValidator.Perform(@($current,$new),$this.WorkingSet,{$true}))
     }
-    [object]ValueChanged($newSubject){
-        $this.ValueChangedListeners.Perform(@( $newSubject ),$this.WorkingSet,{})
-        return($newSubject)
+    ValueChanged($newValue){
+        $this.ValueChangedListeners.Perform(@( $newValue ),$this.WorkingSet,{})
     }
 
     [object]ValueOr([ScriptBlock]$complementBlock){

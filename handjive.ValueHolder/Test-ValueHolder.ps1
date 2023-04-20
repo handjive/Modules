@@ -1,3 +1,4 @@
+import-module Profiler
 class Test1{
     $One
     $Two
@@ -55,7 +56,6 @@ switch($args){
 
         $mb.Flush()
     }
-
     2 {
         $a = [AspectAdaptor]::new(($t1 = [Test1]::new()),'One')
 
@@ -66,5 +66,43 @@ switch($args){
         $b.Value('Tara')
         $b.Value(),$t1.Two | write-host
     }
+    3 {
+        $vh1 = [ValueHolder]::new()
+        $vh2 = [ValueHolder]::new()
+        $dummyContext = @{ vh1=$vh1; vh2=$vh2; }
 
+        $vh1.AddValueChangedListener($dummyContext,{
+            param($listener,$args1,$args2,$workingset)
+            $listener.vh2.Subject = $args1[1]
+        })
+        $vh2.AddValueChangedListener($dummyContext,{
+            param($listener,$args1,$args2,$workingset)
+            $listener.vh1.Subject = $args1[1]
+        })
+
+        Trace-Script -ScriptBlock {
+            @(1..1000).foreach{
+                $vh1.Value('Hoge')
+                $vh2.Value('Tara')
+            }
+        }
+        (Get-LatestTrace).Top50Duration
+    }
+    4 {
+        $es = [Everything]::new()
+        $es.Reset()
+        Trace-Script -ScriptBlock { $es.PerformQuery('*.ps1') }
+        $trace1 = Get-LatestTrace
+        $trace1.Top50Durations
+
+        $enumer = $es.ResultsEnumerable()
+        Trace-Script -ScriptBlock { 
+            $es.Results
+        }
+        $trace2 = Get-LatestTrace
+        $trace2.Top50Durations
+    }
+    5 {
+        [Everything]::Search('c:\users\handjive\Documents\書架\BooksArchive','ダンジョン')
+    }
 }
