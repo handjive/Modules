@@ -724,7 +724,15 @@ class Bag : handjive.IWrapper,IBag{
     }
 
     hidden [int]get_Count(){
-        return($this.Substance.Count)
+        <# 
+        # なんだか全く釈然としないんだけど、単に$this.Substance.Count
+        # としただけではCountの結果が返ってこない…
+        # psbase介さないとプロパティのアクセスが出来ないっておかしくね?
+        # (それぞれ確認するためにステップ分解したまんま)
+        #>
+        $aDict = $this.Substance -as [Bag]::SUBSTANCE_CLASS
+        $count = $aDict.psbase.Count
+        return($count)
     }
 
     hidden [object]get_Item([int]$index){
