@@ -179,7 +179,7 @@ class Everything : IEverything {
     }
 
     Initialize([object]$elementClass){
-        $this.esapi = [EverythingAPI]::DefaultAPI()
+        $this.esapi = [handjive.Everything.EverythingAPI]
         
         $this.PostBuildElementListeners = [DependencyHolder]::new()
 
