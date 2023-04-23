@@ -216,7 +216,12 @@ class Everything : IEverything {
         return $this.QueryBaseHolder.Value()
     }
     set_QueryBase([string]$value){
-        $this.QueryBaseHolder.Value($value)
+        $dirinfo = EnsureSubstancePath -LiteralPath $value -ifLink {
+            Param($substanceOrLink,$substanceFileInfo)
+            [String]::Format('[Everything]:Target path changed to "{0}" cause it is a link',$substanceFileInfo.FullName) | write-warning
+        }
+        
+        $this.QueryBaseHolder.Value($dirinfo.FullName)
     }
 
     [string]get_SearchString()
