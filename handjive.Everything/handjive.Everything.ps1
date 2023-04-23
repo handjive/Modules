@@ -335,6 +335,9 @@ class Everything : IEverything {
         $enumr.PSReset()
         return($enumr)
     }
+    [Collections.Generic.IEnumerable[object]]ResultsEnumerable(){
+        return $this.GetEnumerator().ToEnumerable()
+    }
 
     BuildResultSet(){
         $this.wpvResults = @()

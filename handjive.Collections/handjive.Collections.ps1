@@ -507,8 +507,7 @@ class CollectionAspectAdaptor : ICollectionAdaptor{
     [AspectAdaptor]$aspectAdaptor
 
     CollectionAspectAdaptor([object]$subject,[string]$aspect){
-        $this.aspectAdaptor = [AspectAdaptor]::new()
-        $this.aspectAdaptor.Aspect = $aspect
+        $this.aspectAdaptor = [AspectAdaptor]::new($subject,$aspect)
     }
 
     hidden [object]GetAspectValue([object]$anObj){
@@ -579,12 +578,12 @@ class BagElement{
 class Bag : handjive.IWrapper,IBag{
     static [Bag]Intersect([Collections.Generic.IEnumerable[object]]$left,[Collections.Generic.IEnumerable[object]]$right,[CombinedComparer]$comparer){
         $aBag = [Bag]::new($left,$comparer)
-        $aBag.IntersectBy($right)
+        $aBag.IntersectBy($right,$comparer)
         return($aBag)
     }
     static [Bag]Except([Collections.Generic.IEnumerable[object]]$left,[Collections.Generic.IEnumerable[object]]$right,[CombinedComparer]$comparer){
         $aBag = [Bag]::new($left,$comparer)
-        $aBag.ExceptWith($right)
+        $aBag.ExceptWith($right,$comparer)
         return($aBag)
     }
 
@@ -611,7 +610,7 @@ class Bag : handjive.IWrapper,IBag{
         $this.Initialize($comparer)
         $this.SetAll($aBag)
     }
-    Bag([object[]]$elements){
+    <#Bag([object[]]$elements){
         $this.Initialize([PluggableComparer]::New())
         $this.AddAll($elements)
     }
@@ -626,7 +625,7 @@ class Bag : handjive.IWrapper,IBag{
     Bag([Collections.Generic.IEnumerator[object]]$enumerator,[CombinedComparer]$comparer){
         $this.Initialize($comparer)
         $this.AddAll($enumerator)
-    }
+    }#>
     Bag([Collections.Generic.IEnumerable[object]]$enumerable){
         $this.Initialize([PluggableComparer]::New())
         $this.AddAll($enumerable)
@@ -761,18 +760,18 @@ class Bag : handjive.IWrapper,IBag{
        return($enumerator)
     }
 
-    [Collections.Generic.IEnumerator[object]]get_ElementsSorted(){
+    [Collections.Generic.IEnumerable[object]]get_ElementsSorted(){
         $enumerator = $this.create_ElementsEnumerator()
         $enumerator.WorkingSet.valueEnumerator = $this.get_ValuesSorted()
         $enumerator.PSReset()
-        return($enumerator)
+        return($enumerator.ToEnumerable())
     }
 
-    [Collections.Generic.IEnumerator[object]]get_ElementsOrdered(){
+    [Collections.Generic.IEnumerable[object]]get_ElementsOrdered(){
         $enumerator = $this.create_ElementsEnumerator()
         $enumerator.WorkingSet.valueEnumerator = $this.get_ValuesOrdered()
         $enumerator.PSReset()
-        return($enumerator)
+        return($enumerator.ToEnumerable())
     }
 
     hidden [Collections.Generic.IEnumerator[object]]PSGetEnumerator(){
@@ -791,16 +790,16 @@ class Bag : handjive.IWrapper,IBag{
         $this.basicAdd($this.Substance,$aValue)
         $this.wpvValueSet.Add($aValue)
     }
-    AddAll([object[]]$values){
+    <#AddAll([object[]]$values){
         $values.foreach{ $this.Add($_) }
-    }
+    }#>
     AddAll([Collections.Generic.IEnumerator[object]]$enumr){
         $enumr.foreach{
             $this.Add($_)
         }
     }
     AddAll([Collections.Generic.IEnumerable[object]]$enumerable){
-        $enumerable.GetEnumerator().foreach{
+        $enumerable.foreach{
             $this.Add($_)
         }
     }
@@ -849,6 +848,15 @@ class Bag : handjive.IWrapper,IBag{
         return($this.wpvValueSet.Contains($aValue))
     }
 
+    [bool]Includes([ScriptBlock]$nominator){
+        $this.ValuesSorted.foreach{
+            if( &$nominator $_ ){
+                return $true
+            }
+        }
+
+        return $false
+    }
 
     hidden [object]basicIntersectBy([Collections.Generic.IEnumerable[object]]$enumerable,[CombinedComparer]$comparer){
         $newDict = ([Bag]::SUBSTANCE_CLASS)::new($comparer)
@@ -867,15 +875,6 @@ class Bag : handjive.IWrapper,IBag{
     IntersectBy([Collections.Generic.IEnumerable[object]]$enumerable,[CombinedComparer]$comparer){
         $this.Substance = $this.basicIntersectBy($enumerable,$comparer)
     }
-    IntersectBy([Collections.Generic.IEnumerable[object]]$enumerable){
-        $this.IntersectBy($enumerable,$this.wpvValueSet.Comparer)
-    }
-    IntersectBy([Collections.Generic.IEnumerator[object]]$enumerator,[CombinedComparer]$comparer){
-        $this.Substance = $this.basicIntersectBy([EnumerableWrapper]::on($enumerator),$comparer)
-    }
-    IntersectBy([Collections.Generic.IEnumerator[object]]$enumerator){
-        $this.IntersectBy([EnumerableWrapper]::on($enumerator),$this.wpvValueSet.Comparer)
-    }
 
     hidden [object]basicExceptWith([Collections.Generic.IEnumerable[object]]$enumerable,[CombinedComparer]$comparer){
         $newDict = ([Bag]::SUBSTANCE_CLASS)::new($comparer)
@@ -889,22 +888,6 @@ class Bag : handjive.IWrapper,IBag{
     ExceptWith([Collections.Generic.IEnumerable[object]]$enumerable,[CombinedComparer]$comparer){
         $this.Substance = $this.basicExceptWith($enumerable,$comparer)
     }
-    ExceptWith([Collections.Generic.IEnumerable[object]]$enumerable){
-        $this.basicExceptWith($enumerable,$this.wpvValueSet.Comparer)
-    }
-    ExceptWith([Collections.Generic.IEnumerator[object]]$enumerator,[CombinedComparer]$comparer){
-        $this.Substance = $this.basicExceptWith([EnumerableWrapper]::on($enumerator),$comparer)
-    }
-    ExceptWith([Collections.Generic.IEnumerator[object]]$enumerator){
-        $this.basicExceptWith([EnumerableWrapper]::on($enumerator),$this.wpvValueSet.Comparer)
-    }
-
-    <#IntersectWith([object[]]$anArray){
-        $this.IntersectWith($anArray.GetEnumerator(),$this.wpvValueSet.Comparer)
-    }
-    IntersectWith([object[]]$anArray,[Collections.Generic.IComparer[object]]$comparer){
-        $this.IntersectWith($anArray.GetEnumerator(),$comparer)
-    }#>
 }
 
 
@@ -962,6 +945,14 @@ class IndexedBag : Bag,IIndexedBag{
 
     IndexedBag() : base(){
         ([IndexedBag]$this).Initialize({ $args[0] })
+    }
+    IndexedBag([Collections.Generic.IEnumerator[object]]$enumerator,[CombinedComparer]$comparer){
+        ([IndexedBag]$this).Initialize($comparer.GetSubjectBlock)
+        $this.AddAll($enumerator)
+    }
+    IndexedBag([Collections.Generic.IEnumerable[object]]$enumerable,[CombinedComparer]$comparer){
+        ([IndexedBag]$this).Initialize($comparer.GetSubjectBlock)
+        $this.AddAll($enumerable)
     }
 
     [object]newElement(){
