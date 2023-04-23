@@ -1,5 +1,6 @@
 using module handjive.Collections
 using module handjive.ChainScript
+using module handjive.Everything
 
 switch($args){
     1{
@@ -19,7 +20,7 @@ switch($args){
         $aBag.ValuesSorted | InjectMessage $mb -Flush -OneLine
 
         '----- Changing Comparer to Desending -----' | InjectMessage $mb -Flush
-        $aBag.SortingComparer = [PluggableComparer]::DefaultDescending()
+        $aBag.Comparer = [PluggableComparer]::DefaultDescending()
         $aBag.ValuesSorted | InjectMessage $mb -Flush -oneline
 
     }
@@ -40,7 +41,7 @@ switch($args){
         $aBag.ValuesSorted | InjectMessage $mb -Flush -OneLine
 
         '----- Changing Comparer to Asending -----' | InjectMessage $mb -Flush
-        $aBag.SortingComparer = [PluggableComparer]::DefaultDescending()
+        $aBag.Comparer = [PluggableComparer]::DefaultDescending()
         $aBag.ValuesSorted | InjectMessage $mb -Flush -oneline
     }
     1.2 {
@@ -49,14 +50,16 @@ switch($args){
 
         $aBag1 = [Bag]::new()
         $aBag1.AddAll([Interval]::new(20,1,2))
-        $elementsOrdered = $aBag1.ElementsOrdered.ToArray()
-        $elementsSorted = $aBag1.ElementsSorted.ToArray()
+        $elementsOrdered = $aBag1.ElementsOrdered
+        $elementsSorted = $aBag1.ElementsSorted
         '----- ElementsOrdered -----' | InjectMessage $mb -Flush
         $aBag1.ElementsOrdered.foreach{ $_.Value,$_.Occurrence | InjectMessage $mb -OneLine -Flush }
         '----- Enumerate Bag directory -----' | InjectMessage $mb -Flush
         $aBag1.foreach{ $_.Value,$_.Occurrence | InjectMessage $mb -OneLine -Flush }
         '----- ElementsSorted -----' | InjectMessage $mb -Flush
         $aBag1.ElementsSorted.foreach{ $_.Value,$_.Occurrence | InjectMessage $mb -OneLine -Flush }
+
+        $aBag1.foreach{ $_.Value,$_.Occurrence | InjectMessage $mb -OneLine -Flush }
 
         $aBag2 = [Bag]::new($aBag1)
         $aBag3 = [Bag]::new([Interval]::new(1,100,9))
@@ -68,7 +71,7 @@ switch($args){
         $aBag2.ValuesSorted | InjectMessage $mb -Flush -OneLine
 
         '----- Changing Comparer to Desending -----' | InjectMessage $mb -Flush
-        $aBag2.SortingComparer = [PluggableComparer]::DefaultDescending()
+        $aBag2.Comparer = [PluggableComparer]::DefaultDescending()
         $aBag2.ValuesSorted | InjectMessage $mb -Flush -oneline
 
         

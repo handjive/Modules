@@ -303,11 +303,7 @@ class Everything : IEverything {
         return ($this.esapi::Everything_GetNumResults())
     }
 
-    <#[Collections.Generic.IEnumerator[object]]GetEnumerator(){
-        return($this.ResultsEnumerable().GetEnumerator())
-    }#>
-
-    [Collections.Generic.IEnumerator[object]]GetEnumerator(){
+    hidden [Collections.Generic.IEnumerator[object]]ResultsEnumerator(){
         $enumr = [PluggableEnumerator]::new($this)
         $enumr.WorkingSet.NumberOfResults = $this.NumberOfResults
         $enumr.OnMoveNextBlock = {
@@ -335,13 +331,13 @@ class Everything : IEverything {
         $enumr.PSReset()
         return($enumr)
     }
-    [Collections.Generic.IEnumerable[object]]ResultsEnumerable(){
-        return $this.GetEnumerator().ToEnumerable()
+    [Collections.Generic.IEnumerable[object]]get_ResultsEnumerable(){
+        return $this.ResultsEnumerator().ToEnumerable()
     }
 
     BuildResultSet(){
         $this.wpvResults = @()
-        $this.GetEnumerator().foreach{
+        $this.ResultsEnumerable.foreach{
             $this.wpvResults += $_
         }
         <#

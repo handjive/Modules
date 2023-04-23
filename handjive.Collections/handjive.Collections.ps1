@@ -319,10 +319,20 @@ class EmptyEnumerator : PluggableEnumerator {
 class PluggableComparer : CombinedComparer{
     hidden static [ScriptBlock]$DefaultAscendingBlock  = { param($left,$right) if( $left -eq $right ){ return 0 } elseif( $left -lt $right ){ return -1 } else {return 1 } }
     hidden static [ScriptBlock]$DefaultDescendingBlock = { param($left,$right) if( $left -eq $right ){ return 0 } elseif( $left -lt $right ){ return 1 } else {return -1 } }
-    
+
+    static [PluggableComparer]DefaultAscending(){
+        $newOne = [PluggableComparer]::new()
+        $newOne.SetDefaultAscending()
+        return $newOne
+    }
+    static [PluggableComparer]DefaultDescending(){
+        $newOne = [PluggableComparer]::new()
+        $newOne.SetDefaultDescending()
+        return $newOne
+    }
     static [PluggableComparer]GetSubjectBlock([ScriptBlock]$getSubjectBlock){
         $newOne = [PluggableComparer]::new()
-        $newOne.DefaultAscending()
+        $newOne.SetDefaultAscending()
         $newOne.GetSubjectBlock = $getSubjectBlock
         return $newOne
     }
@@ -331,22 +341,22 @@ class PluggableComparer : CombinedComparer{
     [ScriptBlock]$GetSubjectBlock = { return $args[0] }
     
     PluggableComparer() : base(){
-        $this.DefaultAscending()
+        $this.SetDefaultAscending()
     }
     PluggableComparer([ScriptBlock]$getSubjectBlock) : base(){
-        $this.DefaultAscending()
+        $this.SetDefaultAscending()
         $this.GetSubjectBlock = $getSubjectBlock
     }
 
     PluggableComparer([ScriptBlock]$comparerBlock,[ScriptBlock]$getSubjectBlock) : base(){
-        $this.DefaultAscending()
+        $this.SetDefaultAscending()
         $this.GetSubjectBlock = $getSubjectBlock
     }
 
-    DefaultAscending(){
+    SetDefaultAscending(){
         $this.CompareBlock = ($this.GetType())::DefaultAscendingBlock
     }
-    DefaultDescending(){
+    SetDefaultDescending(){
         $this.CompareBlock = ($this.GetType())::DefaultDescendingBlock
     }
 
@@ -402,7 +412,7 @@ class AspectComparer : PluggableComparer{
     AspectComparer([string]$aspect) : base({ return $args[0]}){
         $this.Aspect = $aspect
         $this.GetSubjectBlock = [ScriptBlock]::Create([String]::Format('return($args[0].{0})',$this.Aspect))
-        $this.DefaultAscending()
+        $this.SetDefaultAscending()
     }
     
     [string]ToString(){
@@ -505,7 +515,7 @@ class CollectionAspectAdaptor : ICollectionAdaptor{
         return ($this.aspectAdaptor.ValueUsingSubject($anObj))
     }
 
-    [Collections.Generic.IEnumerator[object]]get_Values(){
+    [Collections.Generic.IEnumerable[object]]get_Values(){
         $enumr = [PluggableEnumerator]::new($this)
         $enumr.workingset.valueEnumerator = $this.Subject.GetEnumerator()
         $enumr.OnMoveNextBlock = {
@@ -521,10 +531,11 @@ class CollectionAspectAdaptor : ICollectionAdaptor{
             param($subject,$workingset)
             $workingset.valueEnumerator.Reset()
         }
-        return $enumr
+        return $enumr.ToEnumerable()
     }
 }
 
+<# HashTableでよくね? #>
 class BagElement{
     [object]$Value
     [int]$Occurrence
@@ -545,13 +556,13 @@ class BagElement{
 #　(格納対象オブジェクトはICompareable.CompareTo()に答える必要あり)
 #
 #   プロパティ
-#       SortingComparer         Collections.IComparer { get; set }  ValuesSorted,ElementsSortedのソート順を決定するためのIComparer
-#       ValuesOrdered           Collections.IEnumerator { get; }    追加順で値を返すEnumerator
-#       ValuesSorted            Collections.IEnumerator { get; }    SortingComparer順で値を返すEnumerator。
+#       SortingComparer         Collections.IComparer   { get; set }  ValuesSorted,ElementsSortedのソート順を決定するためのIComparer
+#       ValuesOrdered           Collections.IEnumerable { get; }    追加順で値を返すEnumerator
+#       ValuesSorted            Collections.IEnumerable { get; }    SortingComparer順で値を返すEnumerator。
 #                                                                   比較の結果同じ(-eq)と判定されたオブジェクトは集約されてしまう。ValueOrderdの結果と食い違う事になるので注意。
 #                                                                   (ValuesOrderdで返されるオブジェクトがValuesSortedには含まれない、という状況が起きる)
-#       ElementsOrdered         Collections.IEnumerator { get; }    追加順で値と重複数([Bag]::ELEMENT_CLASSのインスタンス)を返すEnumerator
-#       ElementsSorted          Collections.IEnumerator { get; }    SortingComparer順で値と重複数([Bag]::ELEMENT_CLASSのインスタンス)を返すEnumerator
+#       ElementsOrdered         Collections.IEnumerable { get; }    追加順で値と重複数([Bag]::ELEMENT_CLASSのインスタンス)を返すEnumerator
+#       ElementsSorted          Collections.IEnumerable { get; }    SortingComparer順で値と重複数([Bag]::ELEMENT_CLASSのインスタンス)を返すEnumerator
 #       Count                   int { get; }                        値の数
 #       item[]                  int item[[int]$index]   { get; }    追加順で指定した値
 #
@@ -566,7 +577,7 @@ class BagElement{
 #       OccurrencesOf   [int] ([object]$aValue)       $aValueの重複数を得る
 #       Includes        [bool]([object]$aValue)       $aValueが含まれるかの真偽値を返す
 #>
-class Bag : handjive.IWrapper,IBag{
+class Bag : EnumerableBase,handjive.IWrapper,IBag{
     static [Bag]Intersect([Collections.Generic.IEnumerable[object]]$left,[Collections.Generic.IEnumerable[object]]$right,[CombinedComparer]$comparer){
         $aBag = [Bag]::new($left,$comparer)
         $aBag.IntersectBy($right,$comparer)
@@ -595,28 +606,12 @@ class Bag : handjive.IWrapper,IBag{
     }
     Bag([Bag]$aBag){
         $this.Initialize([PluggableComparer]::New())
-        $this.SetAll($aBag)
+        $this.Substance = $aBag.Substance
     }
     Bag([Bag]$aBag,[CombinedComparer]$comparer){
         $this.Initialize($comparer)
-        $this.SetAll($aBag)
+        $this.Substance = $aBag.Substance
     }
-    <#Bag([object[]]$elements){
-        $this.Initialize([PluggableComparer]::New())
-        $this.AddAll($elements)
-    }
-    Bag([object[]]$elements,[CombinedComparer]$comparer){
-        $this.Initialize($comparer)
-        $this.AddAll($elements)
-    }
-    Bag([Collections.Generic.IEnumerator[object]]$enumerator){
-        $this.Initialize([PluggableComparer]::New())
-        $this.AddAll($enumerator)
-    }
-    Bag([Collections.Generic.IEnumerator[object]]$enumerator,[CombinedComparer]$comparer){
-        $this.Initialize($comparer)
-        $this.AddAll($enumerator)
-    }#>
     Bag([Collections.Generic.IEnumerable[object]]$enumerable){
         $this.Initialize([PluggableComparer]::New())
         $this.AddAll($enumerable)
@@ -650,7 +645,7 @@ class Bag : handjive.IWrapper,IBag{
         $this.Substance = $newSubstance
     }
     hidden buildValueSet([Collections.Specialized.OrderedDictionary]$dict,[CombinedComparer]$aComparer){
-        $this.wpvValueSet = ([Bag]::VALUESET_CLASS)::new(<#[Collections.Generic.IComparer[object]]#>$aComparer)
+        $this.wpvValueSet = ([Bag]::VALUESET_CLASS)::new($aComparer)
         if( $this.Substance.psbase.Count -gt 0){
             $this.Substance.psbase.Keys.foreach{ $this.wpvValueSet.Add($_) }
         }
@@ -720,23 +715,6 @@ class Bag : handjive.IWrapper,IBag{
         return($this.get_ValuesSorted())
     }
 
-    hidden [int]get_Count(){
-        <# 
-        # なんだか全く釈然としないんだけど、単に$this.Substance.Count
-        # としただけではCountの結果が返ってこない…
-        # psbase介さないとプロパティのアクセスが出来ないっておかしくね?
-        # (それぞれ確認するためにステップ分解したまんま)
-        #>
-        $aDict = $this.Substance -as [Bag]::SUBSTANCE_CLASS
-        $count = $aDict.psbase.Count
-        return($count)
-    }
-
-    hidden [object]get_Item([int]$index){
-        $keys = $this.Substance.Keys
-        return($keys[$index])
-    }
-
     hidden [Collections.Generic.IEnumerator[object]]create_ElementsEnumerator(){        
         $enumerator = [PluggableEnumerator]::new($this)
         $enumerator.OnResetBlock = {
@@ -758,25 +736,49 @@ class Bag : handjive.IWrapper,IBag{
        return($enumerator)
     }
 
-    [Collections.Generic.IEnumerable[object]]get_ElementsSorted(){
+    hidden [Collections.Generic.IEnumerator[object]]basicElementsSorted(){
         $enumerator = $this.create_ElementsEnumerator()
         $enumerator.WorkingSet.valueEnumerator = $this.basicValuesSorted()
         $enumerator.PSReset()
-        return($enumerator.ToEnumerable())
+        return($enumerator)
+    }
+    [Collections.Generic.IEnumerable[object]]get_ElementsSorted(){
+        return($this.basicElementsSorted().ToEnumerable())
     }
 
-    [Collections.Generic.IEnumerable[object]]get_ElementsOrdered(){
+    hidden [Collections.Generic.IEnumerator[object]]basicElementsOrdered(){
         $enumerator = $this.create_ElementsEnumerator()
         $enumerator.WorkingSet.valueEnumerator = $this.basicValuesOrdered()
         $enumerator.PSReset()
-        return($enumerator.ToEnumerable())
+        return($enumerator)
     }
 
-    <#hidden [Collections.Generic.IEnumerator[object]]PSGetEnumerator(){
-        $enumerator = $this.get_ElementsOrdered()
-        return($enumerator)
-    }#>
+    [Collections.Generic.IEnumerable[object]]get_ElementsOrdered(){
+        return($this.basicElementsOrdered().ToEnumerable())
+    }
+
+    hidden [Collections.Generic.IEnumerator[object]]PSGetEnumerator(){
+        return($this.basicElementsSorted())
+    }
     
+
+    hidden [int]get_Count(){
+        <# 
+        # なんだか全く釈然としないんだけど、単に$this.Substance.Count
+        # としただけではCountの結果が返ってこない…
+        # psbase介さないとプロパティのアクセスが出来ないっておかしくね?
+        # (それぞれ確認するためにステップ分解したまんま)
+        #>
+        $aDict = $this.Substance -as [Bag]::SUBSTANCE_CLASS
+        $count = $aDict.psbase.Count
+        return($count)
+    }
+
+    hidden [object]get_Item([int]$index){
+        $keys = $this.Substance.Keys
+        return($keys[$index])
+    }
+
     hidden basicAdd([Collections.Specialized.OrderedDictionary]$dict,[object]$aValue){
         if( $null -eq $dict[[object]$aValue] ){
             $dict.Add([object]$aValue,0)
@@ -889,6 +891,7 @@ class Bag : handjive.IWrapper,IBag{
 }
 
 
+<# HashTableでよくね? #>
 class IndexedBagElement : BagElement{
     [object]$Index
 
@@ -974,7 +977,7 @@ class IndexedBag : Bag,IIndexedBag{
         return($this.wpvIndexDictionary[$anIndex])
     }
 
-    [Collections.Generic.IEnumerator[object]]get_Indexes(){
+    [Collections.Generic.IEnumerable[object]]get_Indexes(){
         $enumr = [PluggableEnumerator]::new($this)
         $enumr.workingset.keyEnumerator = $this.wpvIndexDictionary.keys.getEnumerator()
         $enumr.OnMoveNextBlock = {
@@ -989,7 +992,7 @@ class IndexedBag : Bag,IIndexedBag{
             param($substance,$workingset)
             $workingset.keyEnumerator.Reset()
         }
-        return $enumr
+        return $enumr.ToEnumerable()
     }
 
     <#
@@ -1038,7 +1041,7 @@ class IndexedBag : Bag,IIndexedBag{
         return($enumerator)
     }#>
 
-    [Collections.Generic.IEnumerator[object]]get_ElementsSorted(){
+    hidden [Collections.Generic.IEnumerator[object]]elementsSortedEnumerator(){
         $indexEnum = $this.Indexes
         $bagsEnum = $this.wpvIndexDictionary.Values.GetEnumerator()
         $scriptChain = $this.elementsEnumeratorBody($indexEnum,$bagsEnum)
@@ -1064,7 +1067,11 @@ class IndexedBag : Bag,IIndexedBag{
         }
         return($enumerator)
     }
-    [Collections.Generic.IEnumerator[object]]get_ElementsOrdered(){
+    [Collections.Generic.IEnumerable[object]]get_ElementsSorted(){
+        return $this.elementsSortedEnumerator().ToEnumerable()
+    }
+    
+    [Collections.Generic.IEnumerator[object]]elementsOrderedEnumerator(){
         $enumerator = $this.create_ElementsEnumerator()
         $enumerator.WorkingSet.valueEnumerator = $this.Substance.Keys.GetEnumerator()
         $enumerator.OnCurrentBlock = {
@@ -1078,13 +1085,20 @@ class IndexedBag : Bag,IIndexedBag{
         $enumerator.PSReset()
         return($enumerator)
     }
+    [Collections.Generic.IEnumerable[object]]get_ElementsOrdered(){
+        return $this.elementsOrderedEnumerator().ToEnumerable()
+    }
+
+    [Collections.Generic.IEnumerable[object]]PSGetEnumerator(){
+        return $this.get_ElementsSorted()
+    }
 
     Add([object]$value){
         ([Bag]$this).Add($value)
 
         $index = $this.GetIndexOf($value)
         if( $null -eq $this.wpvIndexDictionary[$index] ){
-            # ComparerがCombinedComparerじゃなかったらWrapする?(できる?)
+            # ComparerがCombinedComparerじゃなかったらWrapする
             $cmpr = $this.wpvIndexDictionary.Comparer
             $adjustedCmpr = if( $cmpr -is [CombinedComparer] ){ $cmpr } else{ [CombinedComparerWrapper]::new([Collections.Generic.IComparer[object]]$cmpr) }
             $newBag = [Bag]::new([CombinedComparer]$adjustedCmpr)

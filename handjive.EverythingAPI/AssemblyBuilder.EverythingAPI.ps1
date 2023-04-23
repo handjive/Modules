@@ -135,7 +135,7 @@ public static DateTime GetResultDateModified(UInt32 nIndex)
 }
 "@
 
-AssemblyBuilder -MemberDefinition -Name 'EverythingAPI' -Source $esapi_cscode -Destination $PSScriptRoot -AssemblyName 'handjive.everythingapi.dll'
+Add-Type -MemberDefinition $esapi_cscode -Name 'EverythingAPI' -Namespace 'handjive.Everything' -OutputAssembly "$PSScriptRoot\handjive.everythingapi.dll" -OutputType Library
 <#
 $DESTINATION_PATH = 'C:\Users\handjive\Scripts.PowerShell\Modules\assemblies'
 $ASSEMBLY_NAME = 'handjive.everythingapi.dll'

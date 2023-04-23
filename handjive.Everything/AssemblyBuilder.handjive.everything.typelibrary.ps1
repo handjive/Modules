@@ -11,7 +11,7 @@ namespace handjive{
             string FullName{ get; }
        }
        public interface IEverything{
-            System.Collections.Generic.IEnumerator<object> GetEnumerator();
+            System.Collections.Generic.IEnumerable<object> ResultsEnumerable{ get; }
             object[] Results{ get; }
             string QueryBase{ get; set; }
             string SearchString{ get; set; }
