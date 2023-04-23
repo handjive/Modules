@@ -29,4 +29,11 @@ switch($args){
         write-host '----- foreach -----'
         $iv3.foreach{ write-host $_ }
     }
+
+    2 {
+        $iv1 = [Interval]::new(1,10,2)
+        $iv1.foreach{
+            write-host $_
+        }
+    }
 }

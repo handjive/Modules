@@ -5,7 +5,7 @@ $cscode = @"
 namespace handjive{
     namespace Collections{
         public interface ICollectionAdaptor{
-            System.Collections.Generic.IEnumerator<object> Values{ get; }
+            System.Collections.Generic.IEnumerable<object> Values{ get; }
         }
         public interface IPluggableEnumerator {
             object Substance{ get; set; }

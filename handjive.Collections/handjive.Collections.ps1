@@ -105,11 +105,6 @@ class Interval : EnumerableBase, Collections.IEnumerator{
 
 <#
     Collections.Generic.IEnumerator<object>のCollections.Generic.IEnumerable<object>へのWrapper
-
-    Collections.Generic.Ienumerable<T>とCollections.Generic.IEnumerator<T>を同時に実装したクラスを作ると
-    なにやらメソッドサーチに失敗してブッ飛ぶ様子…
-    
-    仕方がないので分離したWrapperとして。
 #>
 class EnumerableWrapper : EnumerableBase[object]{
     static [EnumerableWrapper]On([Collections.Generic.IEnumerator[object]]$Subject){
@@ -250,7 +245,7 @@ class PluggableEnumerator : EnumeratorBase,IPluggableEnumerator {
         return $this.PSCurrent()
     }
     [bool]MoveNext(){
-        return $this.MoveNext()
+        return $this.PSMoveNext()
     }
     Reset(){
         $this.PSReset()
@@ -272,7 +267,7 @@ class PluggableEnumerator : EnumeratorBase,IPluggableEnumerator {
     }
 
     [EnumerableWrapper]ToEnumerable(){
-        return [EnumerableWrapper]::on($this)
+        return ([EnumerableWrapper]::on($this))
     }
 }
 
@@ -429,6 +424,10 @@ class AspectComparer : PluggableComparer{
     }
 }
 
+<#
+#    Collections.IComparerとCollections.Generic.IComparer[]を均すためのWrapper
+#    ex. Collections.Specialized.OrderdDictionaryとCollections.Generic.SortedDictionary[]のComparerを共通に使える
+#>
 class CombinedComparerWrapper : CombinedComparer,handjive.IWrapper{
     hidden [object]$wpvSubstance
 
@@ -439,6 +438,7 @@ class CombinedComparerWrapper : CombinedComparer,handjive.IWrapper{
         $this.Substance = $cmpr
     }
 
+    <# Members of handjive.IWrapper #>
     hidden [object]get_Substance(){
         return $this.wpvSubstance
     }
@@ -446,17 +446,7 @@ class CombinedComparerWrapper : CombinedComparer,handjive.IWrapper{
         $this.wpvSubstance = $subject
     }
 
-    <#
-    # Result of [System.Collections.Generic.ObjectComparer[object]]::new()|get-member
-    #
-    #   int Compare(System.Object x, System.Object y), 
-    #   int IComparer.Compare(System.Object x, System.Object y)
-    #   int IComparer[Object].Compare(System.Object x, System.Object…Equals      
-    #   Method     bool Equals(System.Object obj)
-    #   GetHashCode Method     int GetHashCode()
-    #   GetType     Method     type GetType()
-    #   ToString    Method     string ToString()
-    #>
+    <# SubclassResponsibilities of CompinedComparer #>
     [int]PSCompare([object]$left,[object]$right){
         return $this.Substance.Compare($left,$right)
     }
@@ -470,9 +460,10 @@ class CombinedComparerWrapper : CombinedComparer,handjive.IWrapper{
 
 
 <#
- コレクションをなんかした結果を取り出すアダプタ
+# コレクションをなんかした結果を取り出すアダプタ
+# (Select-Objectでいい? -> PSObjectにWrapされない)
 #>
-class CollectionPluggableAdaptor : ICollectionAdaptor{
+class CollectionPluggableAdaptor : EnumerableBase,ICollectionAdaptor{
     [object]$Subject
     [ScriptBlock]$GetValueBlock = { $args[0] }
 
@@ -481,7 +472,7 @@ class CollectionPluggableAdaptor : ICollectionAdaptor{
         $this.GetValueBlock = $getValueBlock
     }
 
-    [Collections.Generic.IEnumerator[object]]get_Values(){
+    [Collections.Generic.IEnumerable[object]]get_Values(){
         $enumr = [PluggableEnumerator]::new($this)
         $enumr.workingset.valueEnumerator = $this.Subject.GetEnumerator()
         $enumr.OnMoveNextBlock = {
@@ -497,7 +488,7 @@ class CollectionPluggableAdaptor : ICollectionAdaptor{
             $workingset.valueEnumerator.Reset()
         }
 
-        return $enumr
+        return $enumr.ToEnumerable()
     }
 }
 <# 
@@ -683,7 +674,7 @@ class Bag : handjive.IWrapper,IBag{
         $this.wpvComparerHolder.Value($aComparer)
     }
     
-    hidden [Collections.Generic.IEnumerator[object]]get_ValuesSorted(){
+    hidden [Collections.Generic.IEnumerator[object]]basicValuesSorted(){
         $enumerator = [PluggableEnumerator]::new($this)
         $enumerator.workingset.valueEnumerator = [Collections.IEnumerator]$this.wpvValueSet.GetEnumerator()
         $enumerator.OnMoveNextBlock = {
@@ -701,7 +692,7 @@ class Bag : handjive.IWrapper,IBag{
         return($enumerator)
     }
 
-    hidden [Collections.Generic.IEnumerator[object]]get_ValuesOrdered(){
+    hidden [Collections.Generic.IEnumerator[object]]basicValuesOrdered(){
         $enumerator = [PluggableEnumerator]::new($this)
         $enumerator.workingset.valueEnumerator = $this.Substance.Keys.GetEnumerator()
         $enumerator.OnMoveNextBlock = {
@@ -718,7 +709,14 @@ class Bag : handjive.IWrapper,IBag{
         }
         return($enumerator)
     }
-    hidden [Collections.Generic.IEnumerator[object]]get_Values(){
+
+    hidden [Collections.Generic.IEnumerable[object]]get_ValuesOrdered(){
+        return ($this.basicValuesOrdered()).ToEnumerable()
+    }
+    hidden [Collections.Generic.IEnumerable[object]]get_ValuesSorted(){
+        return ($this.basicValuesSorted()).ToEnumerable()
+    }
+    hidden [Collections.Generic.IEnumerable[object]]get_Values(){
         return($this.get_ValuesSorted())
     }
 
@@ -762,22 +760,22 @@ class Bag : handjive.IWrapper,IBag{
 
     [Collections.Generic.IEnumerable[object]]get_ElementsSorted(){
         $enumerator = $this.create_ElementsEnumerator()
-        $enumerator.WorkingSet.valueEnumerator = $this.get_ValuesSorted()
+        $enumerator.WorkingSet.valueEnumerator = $this.basicValuesSorted()
         $enumerator.PSReset()
         return($enumerator.ToEnumerable())
     }
 
     [Collections.Generic.IEnumerable[object]]get_ElementsOrdered(){
         $enumerator = $this.create_ElementsEnumerator()
-        $enumerator.WorkingSet.valueEnumerator = $this.get_ValuesOrdered()
+        $enumerator.WorkingSet.valueEnumerator = $this.basicValuesOrdered()
         $enumerator.PSReset()
         return($enumerator.ToEnumerable())
     }
 
-    hidden [Collections.Generic.IEnumerator[object]]PSGetEnumerator(){
+    <#hidden [Collections.Generic.IEnumerator[object]]PSGetEnumerator(){
         $enumerator = $this.get_ElementsOrdered()
         return($enumerator)
-    }
+    }#>
     
     hidden basicAdd([Collections.Specialized.OrderedDictionary]$dict,[object]$aValue){
         if( $null -eq $dict[[object]$aValue] ){
