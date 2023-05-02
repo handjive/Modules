@@ -15,7 +15,7 @@ class RandomFilename : System.IDisposable{
         return $this.FileSystemInfo
     }
     [IO.FileSystemInfo]CreateDirectory(){
-        $this.fileSystemInfo = New-Item -LiteralPath $this.FullPath -ItemType Directory
+        $this.fileSystemInfo = New-Item -Path $this.FullPath -ItemType Directory
         return $this.FileSystemInfo
     }
 

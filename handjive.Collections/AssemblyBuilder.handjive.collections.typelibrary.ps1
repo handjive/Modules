@@ -148,6 +148,38 @@ namespace handjive{
             protected virtual void PSDispose(){
             }
         }
+
+        public interface IItemIndexer{
+            object this[object index]{ get; set; }
+            object this[int index]{ get; set; }
+        }
+    
+        public class IndexableEnumerableBase : IItemIndexer ,System.Collections.Generic.IEnumerable<object>{
+            System.Collections.Generic.IEnumerator<object> System.Collections.Generic.IEnumerable<object>.GetEnumerator(){
+                return(this.PSGetEnumerator());
+            }
+            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator(){
+                return(this.PSGetEnumerator());
+            }
+    
+            public object this[object index]{
+                get{ return PSGetItem_ObjectIndex(index); }
+                set{ PSSetItem_ObjectIndex(index,value); }
+            }
+            public object this[int index]{
+                get{ return PSGetItem_IntIndex(index); }
+                set{ PSSetItem_IntIndex(index,value); }
+            }
+    
+            protected virtual System.Collections.Generic.IEnumerator<object> PSGetEnumerator(){ return(null); }
+            protected virtual object PSGetItem_ObjectIndex(object index){ return(null); }
+            protected virtual void   PSSetItem_ObjectIndex(object index,object value){  }
+            protected virtual object PSGetItem_IntIndex(int index){ return(null); }
+            protected virtual void   PSSetItem_IntIndex(int index,object value){  }
+        }
+        public interface IIndexAdaptor{
+            int Count { get; }
+        }
     }
 }
 "@

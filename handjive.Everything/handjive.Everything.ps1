@@ -1,6 +1,7 @@
 using namespace handjive.Everything
 
-using module handjive.EverythingAPI
+using module handjive.Collections
+#using module handjive.EverythingAPI
 using module handjive.ValueHolder
 
 enum ESAPI_ERROR{
@@ -317,8 +318,8 @@ class Everything : IEverything {
         }
         $enumr.OnResetBlock = {
             param($substance,$workingset)
-            $enumr.Workingset.Locator = 0
-            $enumr.Workingset.NumResults = $substance.esapi::Everything_GetNumResults()
+            $workingset.Locator = 0
+            $workingset.NumResults = $substance.esapi::Everything_GetNumResults()
         }
         
         $enumr.PSReset()
