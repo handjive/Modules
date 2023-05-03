@@ -1,4 +1,4 @@
-using module handjive.LimitedList
+#using module handjive.LimitedList
 
 class DependencyListenerEntry{
     [object]$Listener
@@ -71,6 +71,7 @@ class DependencyHolder{
 class ValueModel : handjive.IValueModel[object]{
     hidden [DependencyHolder]$SubjectChangingListeners
     hidden [DependencyHolder]$SubjectChangedListeners
+    hidden [bool]$SuppressDependents = $false
     hidden [object]$wpvSubject
     
     [HashTable]$WorkingSet
@@ -100,6 +101,15 @@ class ValueModel : handjive.IValueModel[object]{
         }
     }
     
+    SuppressDependentsDo([ScriptBlock]$aBlock){
+        $this.SuppressDependents = $true
+        try{
+            &$aBlock
+        }
+        finally{
+            $this.SuppressDependents = $false
+        }
+    }
     [object]ValueUsingSubject([object]$aSubject){
         return $aSubject
     }
@@ -124,11 +134,18 @@ class ValueModel : handjive.IValueModel[object]{
     }
 
     [bool]SubjectChanging([object]$current,[object]$new){
-        return($this.SubjectChangingListeners.Perform(@($current,$new),$this.Workingset,{$true}))
+        if( !$this.SuppressDependents ){
+            return($this.SubjectChangingListeners.Perform(@($current,$new),$this.Workingset,{$true}))
+        }
+        else{
+            return $true
+        }
     }
 
     SubjectChanged([object]$old,[object]$new){
-        $this.SubjectChangedListeners.Perform(@( $old,$new ),$this.WorkingSet,{})|out-null
+        if( !$this.SuppressDependents ){
+            $this.SubjectChangedListeners.Perform(@( $old,$new ),$this.WorkingSet,{})|out-null
+        }
     }
 
     [bool]ValueChanging([object]$Subject,[object]$aValue){
@@ -167,10 +184,17 @@ class ValueHolder : ValueModel{
     }
 
     [bool]ValueChanging($current,$new){
-        return ($this.ValueChangeValidator.Perform(@($current,$new),$this.WorkingSet,{$true}))
+        if( !$this.SuppressDependents ){
+            return ($this.ValueChangeValidator.Perform(@($current,$new),$this.WorkingSet,{$true}))
+        }
+        else{
+            return $true
+        }
     }
     ValueChanged($newValue){
-        $this.ValueChangedListeners.Perform(@( $newValue ),$this.WorkingSet,{})
+        if( !$this.SuppressDependents ){
+            $this.ValueChangedListeners.Perform(@( $newValue ),$this.WorkingSet,{})
+        }
     }
 
     [object]ValueOr([ScriptBlock]$complementBlock){

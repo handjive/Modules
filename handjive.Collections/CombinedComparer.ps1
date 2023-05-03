@@ -16,7 +16,7 @@ using namespace handjive.Collections
 # GetSubjectBlockもCompareBlockも指定しない場合は、対象をそのまま比較・昇順
 #>
 
-class PluggableComparer : CombinedComparer{
+class PluggableComparer : CombinedComparer,IPluggableComparer{
     hidden static [ScriptBlock]$DefaultAscendingBlock  = { param($left,$right) if( $left -eq $right ){ return 0 } elseif( $left -lt $right ){ return -1 } else {return 1 } }
     hidden static [ScriptBlock]$DefaultDescendingBlock = { param($left,$right) if( $left -eq $right ){ return 0 } elseif( $left -lt $right ){ return 1 } else {return -1 } }
 
@@ -37,20 +37,35 @@ class PluggableComparer : CombinedComparer{
         return $newOne
     }
 
-    [ScriptBlock]$CompareBlock
+    [ValueHolder]$CompareBlockHolder
     [ScriptBlock]$GetSubjectBlock = { return $args[0] }
     
     PluggableComparer() : base(){
+        $this.initialize()
         $this.SetDefaultAscending()
     }
     PluggableComparer([ScriptBlock]$getSubjectBlock) : base(){
+        $this.initialize()
         $this.SetDefaultAscending()
-        $this.GetSubjectBlock = $getSubjectBlock
+        $this.GetSubjectBlockHolder.Subject = $getSubjectBlock
     }
 
     PluggableComparer([ScriptBlock]$comparerBlock,[ScriptBlock]$getSubjectBlock) : base(){
+        $this.Initialzie()
         $this.SetDefaultAscending()
-        $this.GetSubjectBlock = $getSubjectBlock
+        $this.GetSubjectBlockHolder.Subject = $getSubjectBlock
+    }
+
+    hidden initialize(){
+        $this.CompareBlockHolder = [ValueHolder]::new()
+    }
+    
+    hidden [object]get_CompareBlock(){
+        return $this.CompareBlockHolder.Value()
+    }
+    
+    hidden set_CompareBlock([object]$aBlock){
+        $this.CompareBlockHolder.Value($aBlock)
     }
 
     SetDefaultAscending(){

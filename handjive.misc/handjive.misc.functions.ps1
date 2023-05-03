@@ -1,4 +1,4 @@
-
+. "$PSScriptRoot\Get-PathDepth.ps1"
 function Beep
 {
     [console]::Beep(440,500)

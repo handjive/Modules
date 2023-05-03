@@ -3,6 +3,44 @@ using module handjive.ChainScript
 
 using namespace handjive.Collections
 
+class PluggableEnumerableWrapper : EnumerableBase, handjive.IWrapper{
+    static [PluggableEnumerableWrapper]On([object]$substance){
+        $newOne = [PluggableEnumerableWrapper]::new($substance)
+        return $newOne
+    }
+
+    [object]$wpvSubstance
+    [HashTable]$WorkingSet
+    [ScriptBlock]$GetEnumeratorBlock = { param($substance,$workingset,$result) [PluggableEnumerator]::Empty() }
+
+    PluggableEnumerableWrapper([object]$substance){
+        $this.Substance = $substance
+        $this.WorkingSet = @{}
+    }
+
+    [object]get_Substance(){
+        return $this.wpvSubstance
+    }
+    set_Substance([object]$substance){
+        $this.wpvSubstance = $substance
+    }
+
+    hidden [object]extractResult([Hashtable]$result){
+        $key = $result.keys[0]
+        return ($result[$key])[-1]
+    }
+
+    [Collections.Generic.IEnumerator[object]]PSGetEnumerator(){
+        $result = @{}
+        &$this.GetEnumeratorBlock $this.Substance $this.WorkingSet $result | out-null
+        return($this.extractResult($result))
+    }
+
+    [Collections.Generic.IEnumerator[object]]GetEnumerator(){
+        return $this.PSGetEnumerator()
+    }
+}
+
 <#
     Collections.Generic.IEnumerator<object>のCollections.Generic.IEnumerable<object>へのWrapper
 #>

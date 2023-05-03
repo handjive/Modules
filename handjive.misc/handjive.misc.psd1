@@ -9,7 +9,7 @@
 @{
 
 # Script module or binary module file associated with this manifest.
-RootModule = 'handjive.misc.psm1'
+RootModule = 'handjive.misc.classes.ps1'
 
 # Version number of this module.
 ModuleVersion = '1.0'
@@ -51,7 +51,7 @@ Copyright = '(c) handjive. All rights reserved.'
 # ProcessorArchitecture = ''
 
 # Modules that must be imported into the global environment prior to importing this module
-RequiredModules = @('handjive.StringUtility','handjive.RandomFilename','handjive.Bounds')
+RequiredModules = @()
 
 # Assemblies that must be loaded prior to importing this module
 RequiredAssemblies = @('handjive.miscif.dll')
@@ -66,7 +66,7 @@ RequiredAssemblies = @('handjive.miscif.dll')
 # FormatsToProcess = @()
 
 # Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
-NestedModules = @('Get-PathDepth.ps1')
+NestedModules = @('handjive.misc.functions.ps1')
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
 FunctionsToExport = '*' #@('Beep','Write-HostByFlag','Get-PathDepth','SizeInByte','EnsureSubstancePath')

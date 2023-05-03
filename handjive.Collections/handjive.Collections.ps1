@@ -3,7 +3,7 @@ using module handjive.ChainScript
 
 using namespace handjive.Collections
 
-. "$PSScriptRoot\EnumerableWrapper.ps1"
+. "$PSScriptRoot\PluggableEnumerator.ps1"
 . "$PSScriptRoot\CombinedComparer.ps1"
 . "$PSScriptRoot\IndexAdaptor.ps1"
 . "$PSScriptRoot\CollectionAdaptor.ps1"

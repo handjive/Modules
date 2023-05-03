@@ -17,6 +17,10 @@ namespace handjive{
             object WorkingSet{ get; }
         }        
 
+        public interface IPluggableComparer{
+            object CompareBlock{ get; set; }
+        }
+
         public class ComparerBase<T> : System.Collections.IEqualityComparer, System.Collections.IComparer,System.Collections.Generic.IEqualityComparer<T>,System.Collections.Generic.IComparer<T>{
             // IEqualityComparer
             bool System.Collections.IEqualityComparer.Equals(object left,object right){

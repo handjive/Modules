@@ -1,4 +1,4 @@
-using module handjive.StringUtility
+using module handjive.misc
 
 enum StreamName{
     Host
