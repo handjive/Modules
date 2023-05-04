@@ -26,13 +26,13 @@ class DefaultProvider_IndexAdaptor{
             ,$workingset    # 作業用領域
             ,$result        # 処理対象となるオブジェクトの格納先(ScriptBlockがIEnumeratorを返すと自動展開されてしまうためこれを経由)
         )
-        $enumeratorMethod = $Substance.gettype().GetMethod('GetEnumerator')
-        $result.Value = if( $null -eq $enumeratorMethod ){
-                                [PluggableEnumerator]::Empty()
-                            }
-                            else{
-                                $subject.GetEnumerator()
-                            }
+        $enumeratorMethod = $subject.gettype().GetMethod('GetEnumerator')
+        if( $null -eq $enumeratorMethod ){
+            $result.Value = [PluggableEnumerator]::Empty()
+        }
+        else{
+            $result.Value = $subject.GetEnumerator()
+        }
     }
 
     # プロパティ"Count"の実行ブロック
@@ -223,41 +223,6 @@ class IndexAdaptor : handjive.Collections.IndexableEnumerableBase,handjive.Colle
         &($this.GetEnumeratorBlock) $this.getSubject() $this.WorkingSet $result | out-null
         return $this.extractResult($result)
     }
-
-    hidden [object]get_Item([int]$index){
-        if( !(&$this.IndexRangeValidator.Int $this.getSubject() $this.WorkingSet $index) ){
-            return &$this.OnGetIndexOutofRange.Int $this.getSubject() $this.WorkingSet $index
-        }
-        else{
-            return( (&$this.GetItemBlock.Int $this.getSubject() $this.WorkingSet $index) )
-        }
-    }
-    hidden set_Item([int]$index,[object]$value){
-        if( !(&$this.IndexRangeValidator.Int $this.getSubject() $this.WorkingSet $index) ){
-            &$this.OnSetIndexOutofRange.Int $this.getSubject() $this.WorkingSet $index $value
-        }
-        else{
-            &$this.SetItemBlock.Int $this.getSubject() $this.WorkingSet $index $value
-        }
-    }
-
-    hidden [object]get_Item([object]$index){
-        if( !(&$this.IndexRangeValidator.Object $this.getSubject() $this.WorkingSet $index) ){
-            return &$this.OnGetIndexOutofRange.Object $this.getSubject() $this.WorkingSet $index
-        }
-        else{
-            return( (&$this.GetItemBlock.Object $this.getSubject() $this.WorkingSet $index) )
-        }
-    }
-    hidden set_Item([object]$index,[object]$value){
-        if( !(&$this.IndexRangeValidator.Object $this.getSubject() $this.WorkingSet $index) ){
-            &$this.OnSetIndexOutofRange.Object $this.getSubject() $this.WorkingSet $index $null
-        }
-        else{
-            &$this.SetItemBlock.Object $this.getSubject() $this.WorkingSet $index $value
-        }
-    }
-
 
     hidden [object]PSGetItem_IntIndex([int]$index){
         if( !(&$this.IndexRangeValidator.Int $this.getSubject() $this.WorkingSet $index) ){

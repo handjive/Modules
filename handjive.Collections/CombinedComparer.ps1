@@ -1,5 +1,5 @@
-using module handjive.ValueHolder
-using module handjive.ChainScript
+#using module handjive.ValueHolder
+#using module handjive.ChainScript
 
 using namespace handjive.Collections
 
@@ -92,7 +92,7 @@ class PluggableComparer : CombinedComparer,IPluggableComparer{
             return 1
         }
         else{
-            return((&$this.CompareBlock $leftSubject $rightSubject))
+            return((&$this.CompareBlock $leftSubject $rightSubject $this))
         }
     }
 
