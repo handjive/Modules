@@ -10,26 +10,36 @@ class BagValuesAndOccurrencesComparer : PluggableComparer{
     static $DefaultAscendingBlock = { 
         param($left,$right,$comparer) 
 
-        $leftValueSubject = &$comparer.SubjectUsingValueBlock $left.Value
-        $rightValueSubject = &$comparer.SubjectUsingValueBlock $right.Value
+        $leftkey = $comparer.subjectUsingValue($left)
+        $rightKey = $comparer.subjectUsingValue($right)
 
-        if( $left.Occurrence -eq $right.Occurrence ){
-            if( $leftValueSubject -eq $rightValueSubject ){ return 0 } elseif( $leftValueSubject -lt $rightValueSubject ){ return -1 } else{ return 1 }
+        if( $leftkey -lt $rightkey ){
+            return -1
         }
-        elseif( $left.Occurrence -lt $right.Occurrence ){ return -1 } else{ return 1 }
+        elseif( $leftkey -gt $rightkey ){
+            return 1
+        }
+        elseif( $leftkey -eq $rightkey ){
+            return 0 
+        }
     }
 
     <# Sort by Occurrence, Value's Subject Descening #>
     static $DefaultDescendingBlock = {  
         param($left,$right,$comparer) 
 
-        $leftValueSubject = &$comparer.SubjectUsingValueBlock $left.Value
-        $rightValueSubject = &$comparer.SubjectUsingValueBlock $right.Value
+        $leftkey = $comparer.subjectUsingValue($left)
+        $rightKey = $comparer.subjectUsingValue($right)
 
-        if( $left.Occurrence -eq $right.Occurrence ){
-            if( $leftValueSubject -eq $rightValueSubject ){ return 0 } elseif( $leftValueSubject -lt $rightValueSubject ){ return 1 } else{ return -1 }
+        if( $leftkey -lt $rightkey ){
+            return 1
         }
-        elseif( $left.Occurrence -lt $right.Occurrence ){ return 1 } else{ return -1 }
+        elseif( $leftkey -gt $rightkey ){
+            return -1
+        }
+        elseif( $leftkey -eq $rightkey ){
+            return 0 
+        }
     }
 
     static [BagValuesAndOccurrencesComparer]DefaultAscending(){
@@ -46,20 +56,67 @@ class BagValuesAndOccurrencesComparer : PluggableComparer{
     [ScriptBlock]$SubjectUsingValueBlock = { $args[0] }
 
     BagValuesAndOccurrencesComparer() : base(){
+
         $this.SetDefaultAscending()
     }
 
     [object]subjectUsingValue([object]$elem){
-        return &$this.SubjectUsingValueBlock $elem.Value
+        return &$this.SubjectUsingValueBlock $elem
     }
     
     SetDefaultAscending(){
+        $this.SetDefaultAscendingByValue()
+    }
+    SetDefaultAscendingByValue(){
         $this.CompareBlock = ($this.gettype())::DefaultAscendingBlock
+        $this.SubjectUsingValueBlock = { $args[0].Value }
+    }
+    SetDefaultAscendingByOccurrence(){
+        $this.CompareBlock = ($this.gettype())::DefaultAscendingBlock
+        $this.SubjectUsingValueBlock = { $args[0].Occurrence }
     }
 
     SetDefaultDescending(){
-        $this.CompareBlock = ($this.gettype())::DefaultDescendingBlock
+        $this.SetDefaultDescendingByValue()
     }
+    SetDefaultDescendingByValue(){
+        $this.CompareBlock = ($this.gettype())::DefaultDescendingBlock
+        $this.SubjectUsingValueBlock = { $args[0].Value }
+    }
+    SetDefaultDescendingByOccurrence(){
+        $this.CompareBlock = ($this.gettype())::DefaultDescendingBlock
+        $this.SubjectUsingValueBlock = { $args[0].Occurrence }
+    }
+}
+
+class SortingComparerHolder : handjive.Collections.ISortingComparerHolder{
+    hidden [Bag2]$substance
+    hidden [ValueHolder]$wpvValues
+    hidden [ValueHolder]$wpvValuesAndOccurrences
+
+    SortingComparerHolder([Bag2]$substance){
+        $this.substance = $substance
+
+        $this.wpvValues = [ValueHolder]::new()
+        $this.wpvValues.AddValueChangedListener($substance,{ param($substance,$args1,$args2) $substance.OnValuesComparerChanged() } )
+
+        $this.wpvValuesAndOccurrences = [ValueHolder]::new()
+        $this.wpvValues.AddValueChangedListener($substance,{ param($substance,$args1,$args2) $substance.OnValuesAndOccurrencesComparerChanged() } )
+    }
+
+    [CombinedComparer]get_Values(){
+        return $this.wpvValues.Value()
+    }
+    set_Values([CombinedComparer]$comparer){
+        $this.wpvValues.Value($comparer)
+    }
+    [CombinedComparer]get_ValuesAndOccurrences(){
+        return $this.wpvValuesAndOccurrences.Value()
+    }
+    set_ValuesAndOccurrences([CombinedComparer]$comparer){
+        $this.wpvValuesAndOccurrences.Value($comparer)
+    }
+
 }
 
 <#
@@ -85,7 +142,7 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
     [Collections.ArrayList]$elements
     [Collections.Specialized.OrderedDictionary]$occurrences
 
-    [HashTable]$SortingComparer
+    [SortingComparerHolder]$SortingComparer
     [HashTable]$Adaptors
 
     <#
@@ -112,13 +169,7 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
     #>
     hidden initialize([CombinedComparer]$valueComparer,[CombinedComparer]$vAoComparer){
         $this.elements = [Collections.ArrayList]::new()
-
-        if( $null -eq $valueComparer ){
-            $this.occurrences = [Collections.Specialized.OrderedDictionary]::new()
-        }
-        else{
-            $this.occurrences = [Collections.Specialized.OrderedDictionary]::new($valueComparer)
-        }
+        $this.occurrences = [Collections.Specialized.OrderedDictionary]::new()
 
         $thisType = $this.gettype()
         if( $null -eq $valueComparer ){
@@ -128,11 +179,13 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
             $vAoComparer = $thisType::vAoComparerClass::new()
         }
 
-        $vAoComparer.GetSubjectBlock = $valueComparer.GetSubjectBlock
-        $this.SortingComparer = @{
-            Values = $valueComparer;
-            ValuesAndOccurrences = $vAoComparer;
-        }
+        #$vAoComparer.GetSubjectBlock = $valueComparer.GetSubjectBlock
+        #SuppressDependentsDo
+        $this.SortingComparer = [SortingComparerHolder]::new($this)
+        $this.SortingComparer.Values = $valueComparer
+        $this.SortingComparer.ValuesAndOccurrences = $vAoComparer
+        #$this.SortingComparer.Values.SuppressDependentsDo({  })
+        #$this.SortingComparer.ValuesAndOccurrences.SuppressDependentsDo({  })
         
         if( $valueComparer -is [PluggableComparer] ){
             $valueComparer.CompareBlockHolder.AddValueChangedListener($this,{ param($listener,$args1,$args2) $listener.ValuesChanged() })
@@ -143,10 +196,32 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
         $this.ValuesChanged()
     }
 
+    <# 
+    # Dependency handlers 
+    #>
+    hidden OnValuesComparerChanged(){
+        $this.rebuildOccurrences()
+        $this.ValuesChanged()
+    }
+    
+    hidden OnValuesAndOccurrencesComparerChanged(){
+        #write-host 'OnValuesAndOccurrencesComparerChanged()'
+    }
+
     hidden ValuesChanged(){
         $this.Adaptors = @{ ValuesSorted=$null; ValuesOrdered=$null; ValuesAndOccurrencesSorted=$null; ValuesAndOccurrencesOrdered=$null; }
     }
 
+    hidden rebuildOccurrences(){
+        if( $this.elements.Count -eq 0 ){
+            return
+        }
+        
+        $this.occurrences = [Collections.Specialized.OrderedDictionary]::new()
+        $this.elements.foreach{
+            $this.addOccurrencesOf($_)
+        }
+    }
 
     <#
     # Property implementations
@@ -259,11 +334,13 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
     }
 
     hidden [Collections.Generic.IEnumerable[object]]get_ValuesAndOccurrencesOrdered(){
-        $ixa = $this.basicValuesAndOccurrencesIndexAdaptor()
-        $valuesAndOccurrences = $this.basicValuesAndOccurrences()
-        $ixa.WorkingSet.vAoEnumerator = $valuesAndOccurrences.GetEnumerator()
-        $ixa.WorkingSet.vAoArray = [Collections.Generic.List[object]]::new($valuesAndOccurrences)
-        $this.Adaptors.ValuesAndOccurrencesOrdered = $ixa
+        if( $null -eq $this.Adaptors.ValuesAndOccurrencesOrdered ){
+            $ixa = $this.basicValuesAndOccurrencesIndexAdaptor()
+            $valuesAndOccurrences = $this.basicValuesAndOccurrences()
+            $ixa.WorkingSet.vAoEnumerator = $valuesAndOccurrences.GetEnumerator()
+            $ixa.WorkingSet.vAoArray = [Collections.Generic.List[object]]::new($valuesAndOccurrences)
+            $this.Adaptors.ValuesAndOccurrencesOrdered = $ixa
+        }
         return $this.Adaptors.ValuesAndOccurrencesOrdered
     }
 
@@ -271,6 +348,7 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
         if( $null -eq $this.Adaptors.ValuesAndOccurrencesSorted ){
             $comparer = $this.SortingComparer.ValuesAndOccurrences
             $sorted = [Linq.Enumerable]::OrderBy[object,object]($this.basicValuesAndOccurrences(),[func[object,object]]{ $args[0] },$comparer)
+            #$sorted = [Linq.Enumerable]::OrderBy[object,object]($this.basicValuesAndOccurrences(),[func[object,object]]{ $args[0].Value }).ThenBy({ $args[0].Occurrence })
             $ixa = $this.basicValuesAndOccurrencesIndexAdaptor()
             $ixa.WorkingSet.vAoEnumerator = ([Collections.Generic.List[object]]::new($sorted)).GetEnumerator()
             #$ixa.WorkingSet.vAoEnumerator = $sorted.GetEnumerator()
@@ -302,7 +380,7 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
     # Methods: Add/Remove/Clear
     #>
     hidden addOccurrencesOf([object]$value){
-        $subject = $value
+        $subject = $this.SortingComparer.Values.GetSubject($value)
         if( $null -eq ($this.occurrences[[object]$subject]) ){
             $occurs = [Collections.ArrayList]::new()
             $occurs.Add($value)
@@ -313,7 +391,7 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
         }
     }
     hidden removeOccurrencesOf([object]$value){
-        $subject = $value
+        $subject = $this.SortingComparer.Values.GetSubject($value)
         if( $null -eq $this.occurrences[[object]$subject] ){
             return
         }
@@ -365,13 +443,15 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
         $this.occurrences.Clear()
     }
 
+
     <#
     # Methods: Converting
     #>
     [Collections.Generic.HashSet[object]]ToSet(){
-        $aSet = [Collections.Generic.HashSet[object]]::new($this.occurrences.Keys,$this.SortingComparer.Values)
+        $aSet = [Collections.Generic.HashSet[object]]::new($this,$this.SortingComparer.Values)
         return $aSet
     }
+
 
     <#
     # Methods: Filtering    

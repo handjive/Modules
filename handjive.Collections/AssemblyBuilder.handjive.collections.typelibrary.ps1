@@ -157,7 +157,13 @@ namespace handjive{
             object this[object index]{ get; set; }
             object this[int index]{ get; set; }
         }
-    
+        public interface IItemIndexer_IntIndex{
+            object this[int index]{ get; set; }
+        }
+        public interface IItemIndexer_ObjectIndex{
+            object this[object index]{ get; set; }
+        }
+
         public class IndexableEnumerableBase : IItemIndexer ,System.Collections.Generic.IEnumerable<object>{
             System.Collections.Generic.IEnumerator<object> System.Collections.Generic.IEnumerable<object>.GetEnumerator(){
                 return(this.PSGetEnumerator());
@@ -183,6 +189,23 @@ namespace handjive{
         }
         public interface IIndexAdaptor{
             int Count { get; }
+        }
+        
+        public interface IBag2{
+            int Count { get; }
+            int CountOccurrences { get; }
+            int CountWithoutDuplicate { get; }
+
+            System.Collections.Generic.IEnumerable<object> Values{ get; }
+            System.Collections.Generic.IEnumerable<object> ValuesOrdered{ get; }
+            System.Collections.Generic.IEnumerable<object> ValuesSorted{ get; }
+            System.Collections.Generic.IEnumerable<object> ValuesAndOccurrences{ get; }
+            System.Collections.Generic.IEnumerable<object> ValuesAndOccurrencesOrdered{ get; }
+            System.Collections.Generic.IEnumerable<object> ValuesAndOccurrencesSorted{ get; }
+        }
+        public interface ISortingComparerHolder{
+            CombinedComparer Values { get; set; }
+            CombinedComparer ValuesAndOccurrences { get; set; }
         }
     }
 }
