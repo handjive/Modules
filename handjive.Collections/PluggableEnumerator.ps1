@@ -161,7 +161,7 @@ class PluggableEnumerator : EnumeratorBase,IPluggableEnumerator {
 
     static [PluggableEnumerator]InstantWrapOn([object[]]$indexable){
         $newOne = [PluggableEnumerator]::new($indexable)
-        $newOne.Workingset.Max = $indexable.Count
+        $newOne.Workingset.Max = $indexable.Count -1
         $newOne.OnMoveNextBlock = {
             param($substance,$workingset)
             return( $workingset.Locator++ -lt $workingset.Max )
