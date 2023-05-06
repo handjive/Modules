@@ -10,7 +10,7 @@
 #>
 class DefaultProvider_IndexAdaptor{
     # GetCountBlock,(Get|Set)IndexBlock,On(Get|Set)IndexOutofRange,IndexRangeValidatorに渡される処理対象を取り出す
-    static [ScriptBlock]$DefaultGetSubjectBlock = { 
+    [ScriptBlock]$GetSubjectBlock = { 
         param(
              $substance     # Adaptorの対象となるオブジェクト
             ,$workingset    # 作業用領域
@@ -20,23 +20,29 @@ class DefaultProvider_IndexAdaptor{
     }
 
     # Enumeratorを取得するブロック
-    static [ScriptBlock]$DefaultGetEnumeratorBlock = {
+    [ScriptBlock]$GetEnumeratorBlock = {
         param(
              $subject       # Enumeratorを取得するために使用するオブジェクト(GetSubjectBlockの戻り値)
             ,$workingset    # 作業用領域
             ,$result        # 処理対象となるオブジェクトの格納先(ScriptBlockがIEnumeratorを返すと自動展開されてしまうためこれを経由)
         )
-        $enumeratorMethod = $subject.gettype().GetMethod('GetEnumerator')
-        if( $null -eq $enumeratorMethod ){
+        $methods = $subject.gettype().GetMethods() | where-object { $_.Name -eq 'GetEnumerator' }
+        if( $null -eq $methods ){
             $result.Value = [PluggableEnumerator]::Empty()
         }
         else{
-            $result.Value = $subject.GetEnumerator()
+            $enumerator = $subject.GetEnumerator()
+            if( $enumerator -is [Collections.Generic.IEnumerator[object]] ){
+                $result.Value = $enumerator
+            }
+            else{
+                $result.Value = [PluggableEnumerator]::InstantWrapOn($enumerator)
+            }
         }
     }
 
     # プロパティ"Count"の実行ブロック
-    static [ScriptBlock]$DefaultGetCountBlock = {
+    [ScriptBlock]$GetCountBlock = {
         param(
              $subject           # Countを取得するために使用するオブジェクト(GetSubjectBlockの戻り値)
             ,$workingset        # 作業用領域
@@ -45,7 +51,7 @@ class DefaultProvider_IndexAdaptor{
     }
 
     # "object this[](T index)"の実行ブロック(Get)
-    static [HashTable]$DefaultGetItemBlock = @{
+    [HashTable]$GetItemBlock = @{
         Int={                   # "object this[](int index)"の実行ブロック
             param(
                  $subject        # []の実行に使用するオブジェクト(GetSubjectBlockの戻り値)
@@ -65,7 +71,7 @@ class DefaultProvider_IndexAdaptor{
     }
 
     # "object this[](T index)"の実行ブロック(Set)
-    static $DefaultSetItemBlock = @{
+    [HashTable]$SetItemBlock = @{
         Int={                   # "object this[](int index)"の実行ブロック
             param(
                   $subject      # []の実行に使用するオブジェクト(GetSubjectBlockの戻り値)
@@ -88,7 +94,7 @@ class DefaultProvider_IndexAdaptor{
     
     # インデックスの範囲検証
     # ブロックの評価結果が $true=範囲内、$false=範囲外
-    static $DefaultIndexRangeValidator = @{
+    [Hashtable]$IndexRangeValidator = @{
         Int={ 
             param(
                   $substance     # GetSubjectBlockの戻り値
@@ -109,7 +115,7 @@ class DefaultProvider_IndexAdaptor{
 
     # Getインデックスが範囲外だった時の処理
     # (IndexRangeValidatorが$falseを返したときに実行される)
-    static $DefaultOnGetIndexOutofRange = @{
+    [Hashtable]$OnGetIndexOutofRange = @{
         Int={       # 整数インデックス用
             param(
                  $subject       # GetSubjectBlockの戻り値
@@ -129,7 +135,7 @@ class DefaultProvider_IndexAdaptor{
     }    
     # Setインデックスが範囲外だった時の処理
     # (IndexRangeValidatorが$falseを返したときに実行される)
-    static $DefaultOnSetIndexOutofRange = @{
+    [Hashtable]$OnSetIndexOutofRange = @{
         Int={       # 整数インデックス用
             param(
                  $substance     # GetSubjectBlockの戻り値
@@ -153,8 +159,6 @@ class DefaultProvider_IndexAdaptor{
 # IEnumerableとobject this[int|object index]{get;set;}のAdaptor
 #>
 class IndexAdaptor : handjive.Collections.IndexableEnumerableBase,handjive.Collections.IIndexAdaptor{
-    static $DefaultProvider = [DefaultProvider_IndexAdaptor]
-
     [object]$substance
 
     [ScriptBlock]$GetCountBlock
@@ -179,19 +183,20 @@ class IndexAdaptor : handjive.Collections.IndexableEnumerableBase,handjive.Colle
     }
     
     hidden initialize([object]$substance){
-        $defaults = ($this.gettype())::DefaultProvider
-        $this.substance = $substance
-        $this.GetSubjectBlock = $defaults::DefaultGetSubjectBlock
-        $this.GetEnumeratorBlock = $defaults::DefaultGetEnumeratorBlock
-        $this.GetCountBlock   = $defaults::DefaultGetCountBlock
-        $this.GetItemBlock    = $defaults::DefaultGetItemBlock
-        $this.SetItemBlock    = $defaults::DefaultSetItemBlock
+        $defaults = [DefaultProvider_IndexAdaptor]::new()
+        $this.GetSubjectBlock = $defaults.GetSubjectBlock
+        $this.GetEnumeratorBlock = $defaults.GetEnumeratorBlock
+        $this.GetCountBlock   = $defaults.GetCountBlock
+        $this.GetItemBlock    = $defaults.GetItemBlock
+        $this.SetItemBlock    = $defaults.SetItemBlock
 
-        $this.IndexRangeValidator  = $defaults::DefaultIndexRangeValidator
-        $this.OnGetIndexOutofRange = $defaults::DefaultOnGetIndexOutofRange
-        $this.OnSetIndexOutofRange = $defaults::DefaultOnSetIndexOutofRange
+        $this.IndexRangeValidator  = $defaults.IndexRangeValidator
+        $this.OnGetIndexOutofRange = $defaults.OnGetIndexOutofRange
+        $this.OnSetIndexOutofRange = $defaults.OnSetIndexOutofRange
 
         $this.WorkingSet = @{}
+
+        $this.substance = $substance
     }
 
     hidden [object]extractResult([Hashtable]$result){
@@ -219,6 +224,10 @@ class IndexAdaptor : handjive.Collections.IndexableEnumerableBase,handjive.Colle
     # IndexableEnumerableBase subclass responsibilities
     #>
     [Collections.Generic.IEnumerator[object]]PSGetEnumerator(){
+        if( $null -eq $this.GetEnumeratorBlock ){
+            return [PluggableEnumerator]::Empty()
+        }
+
         $result = @{}
         &($this.GetEnumeratorBlock) $this.getSubject() $this.WorkingSet $result | out-null
         return $this.extractResult($result)

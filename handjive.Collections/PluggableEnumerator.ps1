@@ -67,11 +67,14 @@ class EnumerableWrapper : EnumerableBase ,handjive.IWrapper{
         $this.Substance = $Substance
     }
     EnumerableWrapper([object]$Substance){
-        $enumeratorMethod = $Substance.gettype().GetMethod('GetEnumerator')
-        if( $null -eq $enumeratorMethod ){
+        $methods = $Substance.gettype().GetMethods() | where-object { $_.Name -eq 'GetEnumerator' }
+        if( $null -eq $methods ){
             throw ([String]::Format('{0} has not GetEnumerator.',$Substance.gettype()))
         }
-        $this.Substance = $Substance
+        else{
+            $this.Substance = $Substance
+        }
+
     }
 
     [object]get_Substance(){
@@ -82,20 +85,11 @@ class EnumerableWrapper : EnumerableBase ,handjive.IWrapper{
     }
 
     [Collections.Generic.IEnumerator[object]]PSGetEnumerator(){
-        if( $this.Substance -is [Collections.IEnumerator] ){
-            return ([PluggableEnumerator]::InstantWrapOn($this.Substance))
-        }
-        elseif( $this.Substance -is [Collections.Generic.IEnumerator[object]] ){
+        if( $this.Substance -is [Collections.Generic.IEnumerator[object]] ){
             return $this.Substance
         }
         else{
-            $enumerator = $this.Substance.GetEnumerator()
-            if( $enumerator -isnot [Collections.Generic.IEnumerator[object]] ){
-                return ([PluggableEnumerator]::InstantWrapOn($enumerator))
-            }
-            else{
-                return $enumerator
-            }
+            return ([PluggableEnumerator]::InstantWrapOn($this.Substance))
         }
     }
 

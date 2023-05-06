@@ -196,12 +196,12 @@ namespace handjive{
             int CountOccurrences { get; }
             int CountWithoutDuplicate { get; }
 
-            System.Collections.Generic.IEnumerable<object> Values{ get; }
-            System.Collections.Generic.IEnumerable<object> ValuesOrdered{ get; }
-            System.Collections.Generic.IEnumerable<object> ValuesSorted{ get; }
-            System.Collections.Generic.IEnumerable<object> ValuesAndOccurrences{ get; }
-            System.Collections.Generic.IEnumerable<object> ValuesAndOccurrencesOrdered{ get; }
-            System.Collections.Generic.IEnumerable<object> ValuesAndOccurrencesSorted{ get; }
+            IndexableEnumerableBase Values{ get; }
+            IndexableEnumerableBase ValuesOrdered{ get; }
+            IndexableEnumerableBase ValuesSorted{ get; }
+            IndexableEnumerableBase ValuesAndOccurrences{ get; }
+            IndexableEnumerableBase ValuesAndOccurrencesOrdered{ get; }
+            IndexableEnumerableBase ValuesAndOccurrencesSorted{ get; }
         }
         public interface ISortingComparerHolder{
             CombinedComparer Values { get; set; }
