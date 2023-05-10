@@ -33,9 +33,11 @@ class DefaultProvider_IndexAdaptor{
         else{
             $enumerator = $subject.GetEnumerator()
             if( $enumerator -is [Collections.Generic.IEnumerator[object]] ){
+                $enumerator.Reset()
                 $result.Value = $enumerator
             }
             else{
+                $enumerator.Reset()
                 $result.Value = [PluggableEnumerator]::InstantWrapOn($enumerator)
             }
         }

@@ -76,7 +76,8 @@ class PluggableComparer : CombinedComparer,IPluggableComparer{
     }
 
     hidden [object]GetSubject([object]$anObject){
-        return &$this.GetSubjectBlock $anObject
+        $result = &$this.GetSubjectBlock $anObject
+        return $result
     }
 
     hidden [int]PSCompare([object]$left,[object]$right){

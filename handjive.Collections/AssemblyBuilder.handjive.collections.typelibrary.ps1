@@ -187,6 +187,7 @@ namespace handjive{
             protected virtual object PSGetItem_IntIndex(int index){ return(null); }
             protected virtual void   PSSetItem_IntIndex(int index,object value){  }
         }
+
         public interface IIndexAdaptor{
             int Count { get; }
         }
@@ -196,15 +197,21 @@ namespace handjive{
             int CountOccurrences { get; }
             int CountWithoutDuplicate { get; }
 
-            IndexableEnumerableBase Values{ get; }
-            IndexableEnumerableBase ValuesOrdered{ get; }
-            IndexableEnumerableBase ValuesSorted{ get; }
+            IndexableEnumerableBase Elements{ get; }
+            IndexableEnumerableBase ElementsOrdered{ get; }
+            IndexableEnumerableBase ElementsSorted{ get; }
+
             IndexableEnumerableBase ValuesAndOccurrences{ get; }
             IndexableEnumerableBase ValuesAndOccurrencesOrdered{ get; }
             IndexableEnumerableBase ValuesAndOccurrencesSorted{ get; }
+
+            IndexableEnumerableBase ValuesAndElements{ get; }
+            IndexableEnumerableBase ValuesAndElementsOrdered{ get; }
+            IndexableEnumerableBase ValuesAndElementsSorted{ get; }
         }
+
         public interface ISortingComparerHolder{
-            CombinedComparer Values { get; set; }
+            CombinedComparer Elements { get; set; }
             CombinedComparer ValuesAndOccurrences { get; set; }
         }
     }
