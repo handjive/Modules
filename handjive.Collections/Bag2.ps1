@@ -145,7 +145,7 @@ class BagToSetFactory : ConvertingFactory{
         return $newOne
     }
 
-    [Collections.Generic.HashSet[object]]All(){
+    [Collections.Generic.HashSet[object]]WithAll(){
         $aSet = $this.createNewInstance($this.substance)
         return $aSet
     }
@@ -178,7 +178,7 @@ class BagToBagFactory : ConvertingFactory{
         return ([Bag2]::new($this.substance.SortingComparer.Elements))
     }
 
-    [Bag2]All(){
+    [Bag2]WithAll(){
         return $this.substance.Clone()
     }
 
@@ -228,15 +228,6 @@ class BagToBagFactory : ConvertingFactory{
         return $newOne
     }
 
-    [Bag2]WithExceptBy([Collections.Generic.IEnumerable[object]]$enumerable,[func[object,object]]$keySelector){
-        $selection = [Linq.Enumerable]::ExceptBy[object,object]($this.substance.ValuesAndElements,$enumerable,$keySelector)
-        $newOne = $this.createNewInstance()
-        $selection.foreach{
-            $newOne.AddAll($_.Elements)
-        }
-        return $newOne
-    }
-    
     [Bag2]WithExcept([Collections.Generic.IEnumerable[object]]$enumerable){
         $newOne = $this.WithExceptBy($enumerable,{ $args[0].Value })
         return $newOne
@@ -278,7 +269,7 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
             $factoryDictionary.Add($aType,$factoryClass)
         }
         else{
-            [String]::Format('Factory class for a type [{0}], already installed.',$aType.Name) | write-warning 
+            [String]::Format('{0}: Factory class for a type [{1}], already installed.',[Bag2].Name,$aType.Name) | write-warning 
         }
             
     }
@@ -641,7 +632,7 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
 
     [object]Clone(){
         $newOne = $this.gettype()::new()
-        $newOne.elements = $this.wpvElements.Clone()
+        $newOne.wpvElements = $this.wpvElements.Clone()
         $newOne.rebuildOccurrences()
         return $newOne
     }
