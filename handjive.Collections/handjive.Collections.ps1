@@ -10,5 +10,5 @@ using namespace handjive.Collections
 . "$PSScriptRoot\Interval.ps1"
 . "$PSScriptRoot\Bag.ps1"
 . "$PSScriptRoot\IndexedBag.ps1"
-
+. "$PSScriptRoot\EnumerableSorter.ps1"
 

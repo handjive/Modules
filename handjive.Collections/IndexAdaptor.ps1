@@ -9,146 +9,217 @@
 # IndexAdaptorのデフォルト集
 #>
 class DefaultProvider_IndexAdaptor{
+    <#
+    # SubstanceからEnumeration,Index[in],Index[object]の処理主体を取り出すためのデフォルトブロック
+    # 処理を指定しない限り、Subject=Substance
+    #>
     # GetCountBlock,(Get|Set)IndexBlock,On(Get|Set)IndexOutofRange,IndexRangeValidatorに渡される処理対象を取り出す
-    [ScriptBlock]$GetSubjectBlock = { 
-        param(
-             $substance     # Adaptorの対象となるオブジェクト
-            ,$workingset    # 作業用領域
-            ,$resultHolder  # 処理対象となるオブジェクトの格納先(ScriptBlockがIEnumeratorを返すと自動展開されてしまうためこれを経由)
-        )      
-        $resultHolder.Value = $substance # デフォルトではAdaptorの対象オブジェクトがそのまま返る
+    [HashTable]$GetSubjectBlock = @{
+        Enumerable = { 
+            param(
+                 $adaptor       # IndexAdaptor本体
+                ,$substance     # Adaptorの対象となるオブジェクト
+                ,$workingset    # 作業用領域
+                ,$result        # 処理対象となるオブジェクトの格納先(ScriptBlockがIEnumeratorを返すと自動展開されてしまうためこれを経由)
+            )      
+            $adaptor.subjects.Enumerable = $substance # デフォルトではAdaptorの対象オブジェクトがそのまま返る
+        };
+        IntIndex = { 
+            param(
+                 $adaptor       # IndexAdaptor本体
+                ,$substance     # Adaptorの対象となるオブジェクト
+                ,$workingset    # 作業用領域
+                ,$result        # 処理対象となるオブジェクトの格納先(ScriptBlockがIEnumeratorを返すと自動展開されてしまうためこれを経由)
+            )      
+            $adaptor.Subjects.IntIndex = $substance # デフォルトではAdaptorの対象オブジェクトがそのまま返る
+        };
+        ObjectIndex = { 
+            param(
+                 $adaptor       # IndexAdaptor本体
+                ,$substance     # Adaptorの対象となるオブジェクト
+                ,$workingset    # 作業用領域
+                ,$result        # 処理対象となるオブジェクトの格納先(ScriptBlockがIEnumeratorを返すと自動展開されてしまうためこれを経由)
+            )      
+            $adaptor.Subjects.ObjectIndex = $substance # デフォルトではAdaptorの対象オブジェクトがそのまま返る
+        };
     }
 
+    <#
     # Enumeratorを取得するブロック
+    # ここで渡されるSubject(GetSubjectBlockForEnumの戻り値)がGeneric.IGetEnumerator[object]/IGetEnumerator
+    # に応えられ、それが目的のEnumeratorる場合はこのデフォルト処理で充分。
+    # SubjectがGetEnumeratorに答えられない場合は、このブロックの上書きが必要。
+    # (デフォルトでは、空Enumeratorが返される)
+    #>
     [ScriptBlock]$GetEnumeratorBlock = {
         param(
-             $subject       # Enumeratorを取得するために使用するオブジェクト(GetSubjectBlockの戻り値)
+             $adaptor       # IndexAdaptor本体
+            ,$subject       # Enumeratorを取得するために使用するオブジェクト(GetSubjectBlock.Enumerableの戻り値)
             ,$workingset    # 作業用領域
             ,$result        # 処理対象となるオブジェクトの格納先(ScriptBlockがIEnumeratorを返すと自動展開されてしまうためこれを経由)
         )
+
         $methods = $subject.gettype().GetMethods() | where-object { $_.Name -eq 'GetEnumerator' }
         if( $null -eq $methods ){
-            $result.Value = [PluggableEnumerator]::Empty()
+            $result.Value = [PluggableEnumerator]::Empty()  # 空Enumerator
         }
         else{
             $enumerator = $subject.GetEnumerator()
             if( $enumerator -is [Collections.Generic.IEnumerator[object]] ){
                 $enumerator.Reset()
-                $result.Value = $enumerator
+                $result.Value = $enumerator # Subjectが返すGeneric.IEnumerator[object]そのまま
             }
             else{
                 $enumerator.Reset()
-                $result.Value = [PluggableEnumerator]::InstantWrapOn($enumerator)
+                $result.Value = [PluggableEnumerator]::InstantWrapOn($enumerator)   # IEnumeratorをWrapし、Generic.IEnumerator[object]として返す
             }
         }
     }
 
+    <#
     # プロパティ"Count"の実行ブロック
-    [ScriptBlock]$GetCountBlock = {
-        param(
-             $subject           # Countを取得するために使用するオブジェクト(GetSubjectBlockの戻り値)
-            ,$workingset        # 作業用領域
-        )
-        $subject.Count          # Countとして返される値
+    # Subject(GetSubjectBlock.IntIndex,GetSubjectBlock.ObjectIndex)がCountに応えることが前提
+    #>
+    [Hashtable]$GetCountBlock = @{
+        IntIndex = {
+            param(
+                 $adaptor           # IndexAdaptor本体
+                ,$subject           # GetSubjectBlock.IntIndexの戻り値
+                ,$workingset        # 作業用領域
+            )
+            $subject.Count          
+        };
+        ObjectIndex = {
+            param(
+                 $adaptor           # IndexAdaptor本体
+                ,$subject           # GetSubjectBlock.ObjectIndex
+                ,$workingset        # 作業用領域
+            )
+            $subject.Count          # Countとして返される値
+        };
     }
 
+    <#
     # "object this[](T index)"の実行ブロック(Get)
+    #>
     [HashTable]$GetItemBlock = @{
-        Int={                   # "object this[](int index)"の実行ブロック
+        IntIndex={                  # "object this[](int index)"の実行ブロック
             param(
-                 $subject        # []の実行に使用するオブジェクト(GetSubjectBlockの戻り値)
-                ,$workingset    # 作業用領域
-                ,[int]$index     # インデックス
+                 $adaptor           # IndexAdaptor本体
+                ,$subject           # []の実行に使用するオブジェクト(GetSubjectBlock.IntIndexの戻り値)
+                ,$workingset        # 作業用領域
+                ,[int]$index        # インデックス
             )         
-            $subject[$index]    # []の戻り値
+            $subject[$index]        # []の戻り値
         };
-        Object={                # "object this[](object index)"の実行ブロック
+        ObjectIndex={               # "object this[](object index)"の実行ブロック
             param(
-                 $subject        # []の実行に使用するオブジェクト(GetSubjectBlockの戻り値)
-                ,$workingset    # 作業用領域
-                ,[object]$index # インデックス
+                 $adaptor           # IndexAdaptor本体
+                ,$subject           # []の実行に使用するオブジェクト(GetSubjectBlockの戻り値)
+                ,$workingset        # 作業用領域
+                ,[object]$index     # インデックス
             ) 
-            $subject[$index]  # []の戻り値
+            $subject[$index]        # []の戻り値
         }; 
     }
 
+    <#
     # "object this[](T index)"の実行ブロック(Set)
+    #>
     [HashTable]$SetItemBlock = @{
-        Int={                   # "object this[](int index)"の実行ブロック
+        IntIndex={                  # "object this[](int index)"の実行ブロック
             param(
-                  $subject      # []の実行に使用するオブジェクト(GetSubjectBlockの戻り値)
-                 ,$workingset   # 作業用領域
-                 ,[int]$index   # インデックス
-                ,$value         # セットする値
+                 $adaptor           # IndexAdaptor本体
+                ,$subject           # []の実行に使用するオブジェクト(GetSubjectBlock.IntIndexの戻り値)
+                ,$workingset        # 作業用領域
+                ,[int]$index        # インデックス
+                ,$value             # セットする値
             )
             $subject[$index]= $value 
         }; 
-        Object={                # "object this[](object index)"の実行ブロック
+        ObjectIndex={                    # "object this[](object index)"の実行ブロック
             param(
-                  $subject       # []の実行に使用するオブジェクト(GetSubjectBlockの戻り値)
-                 ,$workingset    # 作業用領域
-                 ,[object]$index # インデックス
-                ,$value         # セットする値
+                 $adaptor           # IndexAdaptor本体
+                ,$subject           # []の実行に使用するオブジェクト(GetSubjectBlock.ObjectIndexの戻り値)
+                ,$workingset        # 作業用領域
+                ,[object]$index     # インデックス
+                ,$value             # セットする値
             )        
             $subject[$index]= $value 
         }; 
     }
     
+    <#
     # インデックスの範囲検証
     # ブロックの評価結果が $true=範囲内、$false=範囲外
+    #>
     [Hashtable]$IndexRangeValidator = @{
-        Int={ 
+        IntIndex={ 
             param(
-                  $substance     # GetSubjectBlockの戻り値
-                 ,$workingset    # 作業用領域
-                 ,$index         # 指定されたインデックス
-                )
-            $true 
+                 $adaptor      # IndexAdaptor
+                ,$subject      # GetSubjectBlock.IntIndexの戻り値
+                ,$workingset   # 作業用領域
+                ,$index        # 指定されたインデックス
+            )
+            return ($index -lt $adaptor.Count('IntIndex'))
         }; 
-        Object={
+        ObjectIndex={
             param(
-                  $substance     # GetSubjectBlockの戻り値
-                 ,$workingset    # 作業用領域
-                 ,$index         # 指定されたインデックス
+                 $adaptor      # IndexAdaptor
+                ,$substance    # GetSubjectBlock.ObjectIndexの戻り値
+                ,$workingset   # 作業用領域
+                ,$index        # 指定されたインデックス
             ) 
-            $true 
+            $true   # ObjectIndexの場合、妥当なデフォルト処理が無いので常に$true
         }; 
     }
 
+    <#
     # Getインデックスが範囲外だった時の処理
-    # (IndexRangeValidatorが$falseを返したときに実行される)
+    # IndexRangeValidatorが$falseを返したときに実行される。
+    # このブロックの戻り値がitem[index]の戻り値となる。
+    # デフォルトとしてExceptionはthrowせず$nullを返す。
+    #>
     [Hashtable]$OnGetIndexOutofRange = @{
-        Int={       # 整数インデックス用
+        IntIndex={       # 整数インデックス用
             param(
-                 $subject       # GetSubjectBlockの戻り値
+                 $adaptor       # IndexAdaptor
+                ,$subject       # GetSubjectBlockの戻り値
                 ,$workingset    # 作業用領域
                 ,$index         # 指定されたインデックス
             ) 
             $null               
         };
-        Object={    # オブジェクトインデックス用
+        ObjectIndex={    # オブジェクトインデックス用
             param(
-                 $substance     # GetSubjectBlockの戻り値
+                 $adaptor       # IndexAdaptor
+                ,$substance     # GetSubjectBlockの戻り値
                 ,$workingset    # 作業用領域
                 ,$index         # 指定されたインデックス
             ) 
             $null               
         };
     }    
+
+    <#
     # Setインデックスが範囲外だった時の処理
-    # (IndexRangeValidatorが$falseを返したときに実行される)
+    # IndexRangeValidatorが$falseを返したときに実行される
+    # デフォルトでは"何もしない"
+    #>
     [Hashtable]$OnSetIndexOutofRange = @{
-        Int={       # 整数インデックス用
+        IntIndex={       # 整数インデックス用
             param(
-                 $substance     # GetSubjectBlockの戻り値
+                 $adaptor       # IndexAdaptor
+                ,$substance     # GetSubjectBlockの戻り値
                 ,$index         # 指定されたインデックス
                 ,$workingset    # 作業用領域
                 ,$value         # セットしようとしたオブジェクト
             ) 
         }; 
-        Object={    # オブジェクトインデックス用
+        ObjectIndex={    # オブジェクトインデックス用
             param(
-                 $substance     # GetSubjectBlockの戻り値
+                 $adaptor       # IndexAdaptor
+                ,$substance     # GetSubjectBlockの戻り値
                 ,$index         # 指定されたインデックス
                 ,$workingset    # 作業用領域
                 ,$value         # セットしようとしたオブジェクト
@@ -158,21 +229,40 @@ class DefaultProvider_IndexAdaptor{
 }
 
 <#
+IEnumerable/IEnumeratoしか実装していないオブジェクトをIEnumerable[object]→IEnumerator[object]に偽装する。
+→Linqが食えるようになる
+
+Indexアクセスを実装していないオブジェクトにIndexアクセスを偽装する。
+
+Substance→IEnumerable[object]{
+    Generic.IEnumerable[object]を実装している:  そのまま
+    IEnumerableを実装している:  EnumerableWrapperをかぶせる
+    IEnumerableを実装せず、Generic.IEnumerable[object]も実装していないがGetEnumeratorを実装している: 
+}
+
+IndexableToEnumerableAdaptor Subject-> item[], add IEnumerable[object]
+EnumerableToIndexableAdaptor Subject-> IEnumerable, add item[int],item[object]
+#>
+<#
 # IEnumerableとobject this[int|object index]{get;set;}のAdaptor
 #>
-class IndexAdaptor : handjive.Collections.IndexableEnumerableBase,handjive.Collections.IIndexAdaptor{
-    [object]$substance
+class IndexAdaptor : handjive.Collections.IndexableEnumerableBase{
+    [object]$substance                          # Generic.IEnumerable[object]になれる何か
 
-    [ScriptBlock]$GetCountBlock
-    [ScriptBlock]$GetSubjectBlock
-    [ScriptBlock]$GetEnumeratorBlock
-    [HashTable]$GetItemBlock
-    [HashTable]$SetItemBlock
-    [HashTable]$OnGetIndexOutofRange
-    [HashTable]$OnSetIndexOutofRange
-    [HashTable]$IndexRangeValidator
+    [ScriptBlock]$GetEnumeratorBlock            # SubjectからEnumeratorを取り出す処理
 
-    [HashTable]$WorkingSet
+    [HashTable]$GetSubjectBlock                 # SubstanceからEnumerator取り出し/index[int]/index[object]用Subjectを取り出すブロック。
+    [HashTable]$GetCountBlock                   # Countの取り出し処理
+    [HashTable]$GetItemBlock                    # item[index]に答える処理
+    [HashTable]$SetItemBlock                    # item[index]=valueの処理
+    [HashTable]$OnGetIndexOutofRange            # GetのIndexが範囲外だった時の処理
+    [HashTable]$OnSetIndexOutofRange            # SetのIndexが範囲外だった時の処理
+    [HashTable]$IndexRangeValidator             # Indexの範囲チェック処理
+
+    [HashTable]$WorkingSet                      # 作業領域
+    
+    hidden [HashTable]$subjects = @{ Enumerable=$null; IntIndex=$null; ObjectIndex=$null; }
+    hidden [bool]$StillBuild = $true
 
     IndexAdaptor([Collections.Generic.IEnumerable[object]]$substance){
         $this.initialize($substance)
@@ -187,6 +277,7 @@ class IndexAdaptor : handjive.Collections.IndexableEnumerableBase,handjive.Colle
     hidden initialize([object]$substance){
         $defaults = [DefaultProvider_IndexAdaptor]::new()
         $this.GetSubjectBlock = $defaults.GetSubjectBlock
+        
         $this.GetEnumeratorBlock = $defaults.GetEnumeratorBlock
         $this.GetCountBlock   = $defaults.GetCountBlock
         $this.GetItemBlock    = $defaults.GetItemBlock
@@ -199,27 +290,50 @@ class IndexAdaptor : handjive.Collections.IndexableEnumerableBase,handjive.Colle
         $this.WorkingSet = @{}
 
         $this.substance = $substance
+        $this.StillBuild = $false
     }
 
     hidden [object]extractResult([Hashtable]$result){
         $key = $result.keys[0]
         return ($result[$key])[-1]
     }
-    hidden [object]getSubject(){
-        $subs = $this.substance
-        $result = @{}
-        &($this.GetSubjectBlock) $subs $this.WorkingSet $result | out-null
-        
-        $subject = $this.extractResult($result)
-        return ($subject)
+
+    hidden [object]getSubject([string]$subjectType){
+        if( $null -eq $this.Subjects[$subjectType] ){
+            $subs = $this.substance
+            &($this.GetSubjectBlock[$subjectType]) $this $subs $this.WorkingSet | out-null
+        }
+        $result = $this.subjects[$subjectType]
+           
+        return ($result)
     }
 
 
     <#
-    # IIndexAdaptor members
+    # Service methods
     #>
-    [int]get_Count(){
-        return (&$this.GetCountBlock $this.getSubject() $this.WorkingSet)
+    InvalidateSubject([string]$subjectType){
+        $this.subjects[$subjectType] = $null
+    }
+
+    InvalidateAllSubjects(){
+        $this.subjects.keys.foreach{
+            $this.subjects[$_] = $null
+        }
+    }
+
+    [object]ElementAtFromEnumerable([int]$index,[Collections.Generic.IEnumerable[object]]$enumerable){
+        $result = [Linq.Enumerable]::ElementAt[object]($enumerable,[int]$index)
+        return $result
+    }
+    [int]CountFromEnumerable([Collections.Generic.IEnumerable[object]]$enumerable){
+        $result = [Linq.Enumerable]::Count[object]($enumerable)
+        return $result
+    }
+
+    [int]Count([string]$subjectType){
+        $result = &($this.GetCountBlock[$subjectType]) $this $this.getSubject($subjectType) $this.WorkingSet
+        return $result
     }
 
     <#
@@ -229,42 +343,57 @@ class IndexAdaptor : handjive.Collections.IndexableEnumerableBase,handjive.Colle
         if( $null -eq $this.GetEnumeratorBlock ){
             return [PluggableEnumerator]::Empty()
         }
+        if( $this.StillBuild ){
+            return [PluggableEnumerator]::Empty()
+        }
 
         $result = @{}
-        &($this.GetEnumeratorBlock) $this.getSubject() $this.WorkingSet $result | out-null
+        &($this.GetEnumeratorBlock) $this $this.getSubject('Enumerable') $this.WorkingSet $result | out-null
         return $this.extractResult($result)
     }
 
     hidden [object]PSGetItem_IntIndex([int]$index){
-        if( !(&$this.IndexRangeValidator.Int $this.getSubject() $this.WorkingSet $index) ){
-            return &$this.OnGetIndexOutofRange.Int $this.getSubject() $this.WorkingSet $index
+        $aSubject = $this.getSubject('IntIndex') 
+        $aWorkingset = $this.WorkingSet
+
+        if( ! (&$this.IndexRangeValidator.IntIndex $this $aSubject $aWorkingset $index) ){
+            return &$this.OnGetIndexOutofRange.IntIndex $this $aSubject $aWorkingset $index $null
         }
         else{
-            return( (&$this.GetItemBlock.Int $this.getSubject() $this.WorkingSet $index) )
+            return( (&$this.GetItemBlock.IntIndex $this $aSubject $aWorkingSet $index) )
         }
     }
     hidden PSSetItem_IntIndex([int]$index,[object]$value){
-        if( !(&$this.IndexRangeValidator.Int $this.getSubject() $this.WorkingSet $index) ){
-            &$this.OnSetIndexOutofRange.Int $this.getSubject() $this.WorkingSet $index $value
+        $aSubject = $this.getSubject('IntIndex') 
+        $aWorkingset = $this.WorkingSet
+
+        if( !(&$this.IndexRangeValidator.IntIndex $this $aSubject $aWorkingset $index) ){
+            &$this.OnSetIndexOutofRange.IntIndex  $this $aSubject $aWorkingset $index $value
         }
         else{
-            &$this.SetItemBlock.Int $this.getSubject() $this.WorkingSet $index $value
+            &$this.SetItemBlock.IntIndex  $this $aSubject $aWorkingset $index $value
         }
     }
     hidden [object]PSGetItem_ObjectIndex([object]$index){
-        if( !(&$this.IndexRangeValidator.Object $this.getSubject() $this.WorkingSet $index) ){
-            return &$this.OnGetIndexOutofRange.Object $this.getSubject() $this.WorkingSet $index
+        $aSubject = $this.getSubject('ObjectIndex') 
+        $aWorkingset = $this.WorkingSet
+
+        if( !(&$this.IndexRangeValidator.ObjectIndex $this $aSubject $aWorkingset $index) ){
+            return &$this.OnGetIndexOutofRange.ObjectIndex $this $aSubject $aWorkingset $index
         }
         else{
-            return( (&$this.GetItemBlock.Object $this.getSubject() $this.WorkingSet $index) )
+            return( (&$this.GetItemBlock.ObjectIndex $this $aSubject $aWorkingset $index) )
         }
     }
     hidden PSSetItem_ObjectIndex([object]$index,[object]$value){
-        if( !(&$this.IndexRangeValidator.Object $this.getSubject() $this.WorkingSet $index) ){
-            &$this.OnSetIndexOutofRange.Object $this.getSubject() $this.WorkingSet $index $null
+        $aSubject = $this.getSubject('ObjectIndex') 
+        $aWorkingset = $this.WorkingSet
+
+        if( !(&$this.IndexRangeValidator.ObjectIndex $this $aSubject $aWorkingset $index) ){
+            &$this.OnSetIndexOutofRange.ObjectIndex $this $aSubject $aWorkingset $index $null
         }
         else{
-            &$this.SetItemBlock.Object $this.getSubject() $this.WorkingSet $index $value
+            &$this.SetItemBlock.ObjectIndex $this $aSubject $aWorkingset $index $value
         }
     }
 }

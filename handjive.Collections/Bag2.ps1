@@ -1,93 +1,6 @@
 using namespace handjive.Collections
 
-
-<#
-# Bag.ValuesAndOccurrencesSorted用のComperer
-# Default2種
-#>
-class BagValuesAndOccurrencesComparer : PluggableComparer{
-    <# Sort by Occurrence, Value's Subject Ascening #>
-    static $DefaultAscendingBlock = { 
-        param($left,$right,$comparer) 
-
-        $leftkey = $comparer.subjectUsingValue($left)
-        $rightKey = $comparer.subjectUsingValue($right)
-
-        if( $leftkey -lt $rightkey ){
-            return -1
-        }
-        elseif( $leftkey -gt $rightkey ){
-            return 1
-        }
-        elseif( $leftkey -eq $rightkey ){
-            return 0 
-        }
-    }
-
-    <# Sort by Occurrence, Value's Subject Descening #>
-    static $DefaultDescendingBlock = {  
-        param($left,$right,$comparer) 
-
-        $leftkey = $comparer.subjectUsingValue($left)
-        $rightKey = $comparer.subjectUsingValue($right)
-
-        if( $leftkey -lt $rightkey ){
-            return 1
-        }
-        elseif( $leftkey -gt $rightkey ){
-            return -1
-        }
-        elseif( $leftkey -eq $rightkey ){
-            return 0 
-        }
-    }
-
-    static [BagValuesAndOccurrencesComparer]DefaultAscending(){
-        $comparer = [BagValuesAndOccurrencesComparer]::new()
-        $comparer.SetDefaultAscendingByValue()
-        return $comparer
-    }
-    static [BagValuesAndOccurrencesComparer]DefaultDescending(){
-        $comparer = [BagValuesAndOccurrencesComparer]::new()
-        $comparer.SetDefaultDescendingByValue()
-        return $comparer
-    }
-
-    [ScriptBlock]$SubjectUsingValueBlock = { $args[0] }
-
-    BagValuesAndOccurrencesComparer() : base(){
-
-        $this.SetDefaultAscending()
-    }
-
-    [object]subjectUsingValue([object]$elem){
-        return &$this.SubjectUsingValueBlock $elem
-    }
-    
-    SetDefaultAscending(){
-        $this.SetDefaultAscendingByValue()
-    }
-    SetDefaultAscendingByValue(){
-        $this.CompareBlock = ($this.gettype())::DefaultAscendingBlock
-        $this.SubjectUsingValueBlock = { $args[0].Value }
-    }
-    SetDefaultAscendingByOccurrence(){
-        $this.CompareBlock = ($this.gettype())::DefaultAscendingBlock
-        $this.SubjectUsingValueBlock = { $args[0].Occurrence }
-    }
-
-    SetDefaultDescending(){
-        $this.SetDefaultDescendingByValue()
-    }
-    SetDefaultDescendingByValue(){
-        $this.CompareBlock = ($this.gettype())::DefaultDescendingBlock
-        $this.SubjectUsingValueBlock = { $args[0].Value }
-    }
-    SetDefaultDescendingByOccurrence(){
-        $this.CompareBlock = ($this.gettype())::DefaultDescendingBlock
-        $this.SubjectUsingValueBlock = { $args[0].Occurrence }
-    }
-}
+. "$PSScriptRoot\ConvertingFactory.ps1"
 
 class SortingComparerHolder : handjive.Collections.ISortingComparerHolder{
     hidden [Bag2]$substance
@@ -119,131 +32,6 @@ class SortingComparerHolder : handjive.Collections.ISortingComparerHolder{
 
 }
 
-class ConvertingFactory{
-    static [Type]$ConformanceType = $null
-    static InstallOn([Type]$type){
-        throw "Subclass responsibility"
-    }
-
-    [Bag2]$substance
-
-    ConvertingFactory([Bag2]$substance){
-        $this.substance = $substance
-    }
-}
-
-class BagToSetFactory : ConvertingFactory{
-    static [Type]$ConformanceType = [Collections.Generic.HashSet[object]]
-    static InstallOn([Type]$type){
-        $type::InstallFactory([BagToSetFactory]::ConformanceType,[BagToSetFactory])
-    }
-
-    BagToSetFactory([Bag2]$substance) : base($substance){}
-
-    hidden [Collections.Generic.HashSet[object]]createNewInstance([Collections.Generic.IEnumerable[object]]$enumerable){
-        $newOne = [Collections.Generic.HashSet[object]]::new($enumerable,$this.substance.SortingComparer.Elements)
-        return $newOne
-    }
-
-    [Collections.Generic.HashSet[object]]WithAll(){
-        $aSet = $this.createNewInstance($this.substance)
-        return $aSet
-    }
-
-    [Collections.Generic.HashSet[object]]WithSelectionBy([ScriptBlock]$nominator){
-        $selection = $this.substance.Where($nominator)
-        $aSet = $this.createNewInstance($selection)
-        return $aSet
-    }
-
-    [Collections.Generic.HashSet[object]]SplitSelectionBy([ScriptBlock]$nominator){
-        $aSet = $this.WithSelectionBy($nominator)
-        $this.substance.RemoveAll($aSet)
-        return $aSet
-    }
-}
-
-class BagToBagFactory : ConvertingFactory{
-    static [Type]$ConformanceType = [Bag2]
-    static InstallOn([Type]$type){
-        $type::InstallFactory([BagToBagFactory]::ConformanceType,[BagToBagFactory])
-    }
-
-    BagToBagFactory([Bag2]$substance) : base($substance){}
-
-    hidden [Bag2]createNewInstance([Collections.Generic.IEnumerable[object]]$enumerable){
-        return ([Bag2]::new($enumerable,$this.substance.SortingComparer.Elements))
-    }
-    hidden [Bag2]createNewInstance(){
-        return ([Bag2]::new($this.substance.SortingComparer.Elements))
-    }
-
-    [Bag2]WithAll(){
-        return $this.substance.Clone()
-    }
-
-    [Bag2]WithSelectionBy([ScriptBlock]$nominator){
-        $selection = $this.substance.Where($nominator)
-        $newOne = $this.CreateNewInstance($selection)
-        return $newOne
-    }
-
-    [Bag2]SplitSelectionBy([ScriptBlock]$nominator){
-        $newOne = $this.WithSelectionBy($nominator)
-        $this.substance.RemoveAll($newOne)
-        return $newOne
-    }
-
-    [Bag2]WithIntersectBy([Collections.Generic.IEnumerable[object]]$enumerable,[func[object,object]]$keySelector){
-        $selection = [Linq.Enumerable]::IntersectBy[object,object]($this.substance.ValuesAndElements,$enumerable,$keySelector)
-        $newOne = $this.createNewInstance()
-        $selection.foreach{
-            $newOne.AddAll($_.Elements)
-        }
-        return $newOne
-    }
-    [Bag2]WithIntersect([Collections.Generic.IEnumerable[object]]$enumerable){
-        $newOne = $this.WithIntersectBy($enumerable,{ $args[0].Value })
-        return $newOne
-    }
-
-    [Bag2]SplitIntersectBy([Collections.Generic.IEnumerable[object]]$enumerable,[func[object,object]]$keySelector){
-        $newOne = $this.WithIntersectBy($enumerable,$keySelector)
-        $this.substance.RemoveAll($newOne)
-        return $newOne
-    }
-
-    [Bag2]SplitIntersect([Collections.Generic.IEnumerable[object]]$enumerable){
-        $newOne = $this.WithIntersect($enumerable)
-        $this.substance.RemoveAll($newOne)
-        return $newOne
-    }
-
-    [Bag2]WithExceptBy([Collections.Generic.IEnumerable[object]]$enumerable,[func[object,object]]$keySelector){
-        $selection = [Linq.Enumerable]::ExceptBy[object,object]($this.substance.ValuesAndElements,$enumerable,$keySelector)
-        $newOne = $this.createNewInstance()
-        $selection.foreach{
-            $newOne.AddAll($_.Elements)
-        }
-        return $newOne
-    }
-
-    [Bag2]WithExcept([Collections.Generic.IEnumerable[object]]$enumerable){
-        $newOne = $this.WithExceptBy($enumerable,{ $args[0].Value })
-        return $newOne
-    }
-
-    [Bag2]SplitExcept([Collections.Generic.IEnumerable[object]]$enumerable){
-        $newOne = $this.WithExcept($enumerable)
-        $this.substance.RemoveAll($newOne)
-        return $newOne
-    }
-    [Bag2]SplitExceptBy([Collections.Generic.IEnumerable[object]]$enumerable,[func[object,object]]$keySelector){
-        $newOne = $this.WithExceptBy($enumerable,$keySelector)
-        $this.substance.RemoveAll($newOne)
-        return $newOne
-    }
-}
 
 <#
     $aBag[int] → $aBag.elements[int]
@@ -273,7 +61,6 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
         }
             
     }
-    static $vAoComparerClass = [BagValuesAndOccurrencesComparer]    # ValuesAndOccurrencesSorted用のComparer
     static $valueComparerClass = [PluggableComparer]                # ValuesSorted用のComparer
 
     hidden [Collections.ArrayList]$wpvElements
@@ -312,12 +99,7 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
         if( $null -eq $elementsComparer ){
             $elementsComparer = $thisType::valueComparerClass::new()
         }
-        if( $null -eq $vAoComparer ){
-            $vAoComparer = $thisType::vAoComparerClass::new()
-        }
 
-        #$vAoComparer.GetSubjectBlock = $valueComparer.GetSubjectBlock
-        #SuppressDependentsDo
         $this.SortingComparer = [SortingComparerHolder]::new($this)
         $this.SortingComparer.Elements = $elementsComparer
         $this.SortingComparer.ValuesAndOccurrences = $vAoComparer
@@ -346,14 +128,12 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
 
     hidden ValuesChanged(){
         if( $null -eq $this.Adaptors ){
-            $this.Adaptors = @{ ElementsSorted=$null; ElementsOrdered=$null; 
-                                ValuesAndOccurrencesSorted=$null; ValuesAndOccurrencesOrdered=$null; 
-                                ValuesAndElementsSorted=$null; ValuesAndElementsOrdered=$null;
+            $this.Adaptors = @{ ElementsOrdered=$null; 
+                                ValuesAndOccurrencesOrdered=$null; 
+                                ValuesAndElementsOrdered=$null;
                             }
         }
         else{
-            $this.Adaptors.ElementsSorted = $null
-            $this.Adaptors.ValuesAndOccurrencesSorted=$null
             $this.Adaptors.ValuesAndElementsOrdered=$null
         }
         # = @{ ValuesSorted=$null; ValuesOrdered=$null; ValuesAndOccurrencesSorted=$null; ValuesAndOccurrencesOrdered=$null; }
@@ -386,38 +166,20 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
     }
 
     hidden [IndexableEnumerableBase]get_Elements(){ 
-        return $this.get_ElementsOrdered()
-    }
-
-    hidden [IndexableEnumerableBase]get_ElementsOrdered(){ 
         if( $null -eq $this.Adaptors.ElementsOrdered ){
-            $ixa = [IndexAdaptor]::new([EnumerableWrapper]::On($this.wpvElements))
-            $ixa.GetEnumeratorBlock = { param($subject,$workingset,$results) 
-                $results.Value = [PluggableEnumerator]::InstantWrapOn($subject.GetEnumerator()) }
-            $ixa.GetItemBlock.Int = { param($subject,$workingset,$index) 
-                $subject.Substance[$index] }
-            $ixa.GetCountBlock = { param($subject,$workingset,$index) $subject.Substance.Count }
+            $ixa = [IndexAdaptor]::new($this)
+            $ixa.GetSubjectBlock.Enumerable = { param($adaptor,$substance,$workingset) $substance.wpvElements }
+            $ixa.GetSubjectBlock.IntIndex   = { param($adaptor,$substance,$workingset) $substance.wpvElements }
+            $ixa.GetItemBlock.IntIndex = { 
+                param($adaptor,$subject,$workingset,$index) $subject[$index] }
+            $ixa.GetCountBlock.IntIndex = { param($adaptor,$subject,$workingset) $subject.Count }
+
             $this.Adaptors.ElementsOrdered = $ixa
         }
         return $this.Adaptors.ElementsOrdered
     }
 
-    hidden [IndexableEnumerableBase]get_ElementsSorted(){
-        if( $null -eq $this.Adaptors.ElementsSorted ){
-            #$keySelector = $this.SortingComparer.Values.GetSubjectBlock
-            $comparer = $this.SortingComparer.Elements
-            $values = [EnumerableWrapper]::On($this.wpvElements)
-            $sorted = [Linq.Enumerable]::OrderBy[object,object]($values,[func[object,object]]{ $args[0] },$comparer)
-            $list = [Collections.Generic.List[object]]::new($sorted)
-            $ixa = [IndexAdaptor]::new($list)
-            $ixa.GetItemBlock.Int = { param($subject,$workingset,$index) $subject[$index] }
-            $ixa.GetCountBlock = { param($subject,$workingset,$index) $subject.Count }
-            $this.Adaptors.ElementsSorted = $ixa
-        }
-        return $this.Adaptors.ElementsSorted
-    }
-
-    hidden [Collections.Generic.IEnumerable[object]]basicValuesAndOccurrences(){
+    hidden [Collections.Generic.IEnumerable[object]]valuesAndOccurrencesEnumerable(){
         $enumerator = [PluggableEnumerator]::new($this)
         $enumerator.WorkingSet.keys = $this.occurrences.keys.GetEnumerator()
         $enumerator.OnMoveNextBlock = {
@@ -445,37 +207,31 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
         return($enumerator.ToEnumerable())
     }
 
-
     hidden [IndexableEnumerableBase]get_ValuesAndOccurrences(){
-        return $this.get_ValuesAndOccurrencesSorted()
-    }
-
-    hidden [IndexableEnumerableBase]get_ValuesAndOccurrencesOrdered(){
         if( $null -eq $this.Adaptors.ValuesAndOccurrencesOrdered ){
-            $ordered = $this.basicValuesAndOccurrences()
-            $aList = [Collections.Generic.List[object]]::new($ordered)
-            $ixa = [IndexAdaptor]::new($aList)
-            $ixa.GetItemBlock.Int = { param($subject,$workingset,[int]$index) $subject[$index] }
-            $ixa.GetCountBlock = { param($subject,$workingset) $subject.Count }
+            $ixa = [IndexAdaptor]::new($this)
+            $ixa.GetSubjectBlock.Enumerable = { 
+                param($adaptor,$substance,$workingset)
+                $adaptor.subjects.Enumerable = $substance.valuesAndOccurrencesEnumerable() 
+            }
+            $ixa.GetSubjectBlock.IntIndex = { 
+                param($adaptor,$substance,$workingset)
+                $adaptor.subjects.IntIndex = $substance.valuesAndOccurrencesEnumerable() 
+            }
+            $ixa.GetItemBlock.IntIndex = { 
+                param($adaptor,$subject,$workingset,[int]$index) 
+                $adaptor.ElementAtFromEnumerable($index,$subject) 
+            }
+            $ixa.GetCountBlock.IntIndex = { 
+                param($adaptor,$subject,$workingset) 
+                $adaptor.CountFromEnumerable($subject) 
+            }
             $this.Adaptors.ValuesAndOccurrencesOrdered = $ixa
         }
         return $this.Adaptors.ValuesAndOccurrencesOrdered
     }
 
-    hidden [IndexableEnumerableBase]get_ValuesAndOccurrencesSorted(){
-        if( $null -eq $this.Adaptors.ValuesAndOccurrencesSorted ){
-            $comparer = $this.SortingComparer.ValuesAndOccurrences
-            $sorted = [Linq.Enumerable]::OrderBy[object,object]($this.basicValuesAndOccurrences(),[func[object,object]]{ $args[0] },$comparer)
-            $aList = [Collections.Generic.List[object]]::new($sorted)
-            $ixa = [IndexAdaptor]::new($aList)
-            $ixa.GetItemBlock.Int = { param($subject,$workingset,[int]$index) $subject[$index] }
-            $ixa.GetCountBlock = { param($subject,$workingset) $subject.Count }
-            $this.Adaptors.ValuesAndOccurrencesSorted = $ixa
-        }
-        return $this.Adaptors.ValuesAndOccurrencesSorted
-    }
-
-    hidden [PluggableEnumerator]basicValuesAndElements(){
+    hidden [Collections.Generic.IEnumerable[object]]valuesAndElementsEnumerable(){
         $enumerator = [PluggableEnumerator]::new($this)
         $enumerator.WorkingSet.keyEnumerator = $this.occurrences.keys.GetEnumerator()
         $enumerator.OnMoveNextBlock = {
@@ -496,38 +252,31 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
             $workingset.keyEnumerator.Reset()
         }
 
-        return($enumerator)
+        return($enumerator.ToEnumerable())
     }
 
     hidden [IndexableEnumerableBase]get_ValuesAndElements(){
-        return $this.get_ValuesAndElementsOrdered()
-    }
-
-    hidden [IndexableEnumerableBase]get_ValuesAndElementsOrdered(){
         if( $null -eq $this.Adaptors.ValuesAndElementsOrdered ){
-            $ixa = [IndexAdaptor]::new($this.basicValuesAndElements().ToEnumerable())
-            $aList = [Collections.Generic.List[object]]::new($this.basicValuesAndElements().ToEnumerable())
-            $ixa.WorkingSet.elemArray = $aList
-            $ixa.GetItemBlock.Int = { param($subject,$workingset,[int]$index) 
-                $workingset.elemArray[[int]$index] }
-            $ixa.GetCountBlock = { param($subject,$workingset) $subject.Count }
+            $ixa = [IndexAdaptor]::new($this)
+            $ixa.GetSubjectBlock.Enumerable = { 
+                param($adaptor,$substance,$workingset)
+                $adaptor.subjects.Enumerable = $substance.valuesAndElementsEnumerable() 
+            }
+            $ixa.GetSubjectBlock.IntIndex = { 
+                param($adaptor,$substance,$workingset)
+                $adaptor.subjects.IntIndex = $substance.valuesAndElementsEnumerable() 
+            }
+            $ixa.GetItemBlock.IntIndex = { 
+                param($adaptor,$subject,$workingset,[int]$index) 
+                $adaptor.ElementAtFromEnumerable($index,$subject) 
+            }
+            $ixa.GetCountBlock.IntIndex = { 
+                param($adaptor,$subject,$workingset) 
+                $adaptor.CountFromEnumerable($subject) 
+            }
             $this.Adaptors.ValuesAndElementsOrdered = $ixa
         }
         return $this.Adaptors.ValuesAndElementsOrdered
-    }
-
-    hidden [IndexableEnumerableBase]get_ValuesAndElementsSorted(){
-        if( $null -eq $this.Adaptors.ValuesAndElementsSorted ){
-            $comparer = $this.SortingComparer.ValuesAndOccurrences
-            $sorted = [Linq.Enumerable]::OrderBy[object,object]($this.basicValuesAndElements().ToEnumerable(),[func[object,object]]{ $args[0] },$comparer)
-            $aList = [Collections.Generic.List[object]]::new($sorted)
-            $ixa = [IndexAdaptor]::new($aList)
-            
-            $ixa.GetItemBlock.Int = { param($subject,$workingset,[int]$index) $subject[$index] }
-            $ixa.GetCountBlock = { param($subject,$workingset) $subject.Count }
-            $this.Adaptors.ValuesAndElementsSorted = $ixa
-        }
-        return $this.Adaptors.ValuesAndElementsSorted
     }
 
 
@@ -641,11 +390,6 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
     <#
     # Methods: Converting
     #>
-    <#[Collections.Generic.HashSet[object]]ToSet(){
-        $aSet = [Collections.Generic.HashSet[object]]::new($this,$this.SortingComparer.Values)
-        return $aSet
-    }#>
-
     [object]To([Type]$aType){
         $aFactory = ($this.gettype())::Factories[$aType]
         return $aFactory::new($this)

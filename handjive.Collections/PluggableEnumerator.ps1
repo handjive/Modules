@@ -86,6 +86,7 @@ class EnumerableWrapper : EnumerableBase ,handjive.IWrapper{
 
     [Collections.Generic.IEnumerator[object]]PSGetEnumerator(){
         if( $this.Substance -is [Collections.Generic.IEnumerator[object]] ){
+            $this.substance.Reset()
             return $this.Substance
         }
         else{

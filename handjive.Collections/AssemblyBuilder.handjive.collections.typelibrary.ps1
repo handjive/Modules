@@ -198,16 +198,8 @@ namespace handjive{
             int CountWithoutDuplicate { get; }
 
             IndexableEnumerableBase Elements{ get; }
-            IndexableEnumerableBase ElementsOrdered{ get; }
-            IndexableEnumerableBase ElementsSorted{ get; }
-
             IndexableEnumerableBase ValuesAndOccurrences{ get; }
-            IndexableEnumerableBase ValuesAndOccurrencesOrdered{ get; }
-            IndexableEnumerableBase ValuesAndOccurrencesSorted{ get; }
-
             IndexableEnumerableBase ValuesAndElements{ get; }
-            IndexableEnumerableBase ValuesAndElementsOrdered{ get; }
-            IndexableEnumerableBase ValuesAndElementsSorted{ get; }
         }
 
         public interface ISortingComparerHolder{
