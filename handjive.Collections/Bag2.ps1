@@ -212,15 +212,15 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
             $ixa = [IndexAdaptor]::new($this)
             $ixa.GetSubjectBlock.Enumerable = { 
                 param($adaptor,$substance,$workingset)
-                $adaptor.subjects.Enumerable = $substance.valuesAndOccurrencesEnumerable() 
+                $substance.valuesAndOccurrencesEnumerable() 
             }
             $ixa.GetSubjectBlock.IntIndex = { 
                 param($adaptor,$substance,$workingset)
-                $adaptor.subjects.IntIndex = $substance.valuesAndOccurrencesEnumerable() 
+                $substance.valuesAndOccurrencesEnumerable() 
             }
             $ixa.GetItemBlock.IntIndex = { 
                 param($adaptor,$subject,$workingset,[int]$index) 
-                $adaptor.ElementAtFromEnumerable($index,$subject) 
+                $adaptor.ElementAtIndexFromEnumerable($index,$subject) 
             }
             $ixa.GetCountBlock.IntIndex = { 
                 param($adaptor,$subject,$workingset) 
@@ -260,15 +260,15 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
             $ixa = [IndexAdaptor]::new($this)
             $ixa.GetSubjectBlock.Enumerable = { 
                 param($adaptor,$substance,$workingset)
-                $adaptor.subjects.Enumerable = $substance.valuesAndElementsEnumerable() 
+                $substance.valuesAndElementsEnumerable() 
             }
             $ixa.GetSubjectBlock.IntIndex = { 
                 param($adaptor,$substance,$workingset)
-                $adaptor.subjects.IntIndex = $substance.valuesAndElementsEnumerable() 
+                $substance.valuesAndElementsEnumerable() 
             }
             $ixa.GetItemBlock.IntIndex = { 
                 param($adaptor,$subject,$workingset,[int]$index) 
-                $adaptor.ElementAtFromEnumerable($index,$subject) 
+                $adaptor.ElementAtIndexFromEnumerable($index,$subject) 
             }
             $ixa.GetCountBlock.IntIndex = { 
                 param($adaptor,$subject,$workingset) 
