@@ -349,13 +349,6 @@ class IndexAdaptor : handjive.Collections.IndexableEnumerableBase{
         }
     }
 
-    <#
-    # Generic.IEnumerable[object]から指定位置のオブジェクトを取り出す
-    # Subjects.IntIndexがGeneric.IEnumerable[object]の場合、GetItemBlock.IntIndexで利用できる
-    #
-    # GetSubjectBlock.IntIndex = { param($adaptor,$subject,$workingset) ごにょごにょ… (Generic.IEnumerable[object]]Something }
-    # GetItemBlock.IntIndex = { param($adaptor,$subject,$workingset,$index) $adaptor.ElementAtIndexFromEnumerable($subject) }
-    #>
     [object]ElementAtIndexFromEnumerable([int]$index,[Collections.Generic.IEnumerable[object]]$enumerable){
         $result = [Linq.Enumerable]::ElementAt[object]($enumerable,[int]$index)
         return $result
