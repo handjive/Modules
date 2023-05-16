@@ -2,37 +2,6 @@ using namespace handjive.Collections
 
 . "$PSScriptRoot\ConvertingFactory.ps1"
 
-class SortingComparerHolder : handjive.Collections.ISortingComparerHolder{
-    hidden [Bag2]$substance
-    hidden [ValueHolder]$wpvElements
-    hidden [ValueHolder]$wpvValuesAndOccurrences
-
-    SortingComparerHolder([Bag2]$substance){
-        $this.substance = $substance
-
-        $this.wpvElements = [ValueHolder]::new()
-        $this.wpvElements.AddValueChangedListener($substance,{ param($substance,$args1,$args2) $substance.OnElementsComparerChanged() } )
-
-        $this.wpvValuesAndOccurrences = [ValueHolder]::new()
-        $this.wpvValuesAndOccurrences.AddValueChangedListener($substance,{ param($substance,$args1,$args2) $substance.OnValuesAndOccurrencesComparerChanged() } )
-    }
-
-    [CombinedComparer]get_Elements(){
-        return $this.wpvElements.Value()
-    }
-    set_Elements([CombinedComparer]$comparer){
-        $this.wpvElements.Value($comparer)
-    }
-    [CombinedComparer]get_ValuesAndOccurrences(){
-        return $this.wpvValuesAndOccurrences.Value()
-    }
-    set_ValuesAndOccurrences([CombinedComparer]$comparer){
-        $this.wpvValuesAndOccurrences.Value($comparer)
-    }
-
-}
-
-
 <#
     $aBag[int] → $aBag.elements[int]
     $aBag.Count→ $aBag.elements.Count
@@ -49,8 +18,13 @@ class SortingComparerHolder : handjive.Collections.ISortingComparerHolder{
     $aBag.ValuesAndOccurrences → IndexAdaptor
     $aBag.ValuesAndOccurrencesSorted → IndexAdaptor
 #>
-class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.IBag2 ,ICloneable {
-    static [Collections.Generic.Dictionary[Type,object]]$Factories=[Collections.Generic.Dictionary[Type,object]]::new()
+class Bag2 : BagBase, handjive.Collections.IBag2 ,ICloneable {
+    static $VALUE_COMPARER_CLASS = [PluggableComparer]                # ValuesSorted用のComparer
+    static $CONVERTING_FACTORY_ANCESTER_CLASS = [BagToSomeConvertingFactory]
+    <#obsolete!#>static [Collections.Generic.Dictionary[Type,object]]$Factories=[Collections.Generic.Dictionary[Type,object]]::new()
+    static [Collections.Generic.Dictionary[Type,object]]$QUOTERS=[Collections.Generic.Dictionary[Type,object]]::new()
+    static [Collections.Generic.Dictionary[Type,object]]$EXTRACTORS=[Collections.Generic.Dictionary[Type,object]]::new()
+
     static InstallFactory([Type]$aType,[Object]$factoryClass){
         $factoryDictionary = [Bag2]::Factories
         if( $null -eq $factoryDictionary[$aType] ){
@@ -61,29 +35,47 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
         }
             
     }
-    static $valueComparerClass = [PluggableComparer]                # ValuesSorted用のComparer
+    hidden static installConvertingFactory([Collections.Generic.Dictionary[Type,object]]$dict,[Type]$aType,[ConvertingFactory]$convertingFactory){
+        if( $null -eq $dict[$aType] ){
+            $dict.Add($aType,$convertingFactory)
+        }
+        else{
+            [String]::Format('{0}: Converting factory class for a type [{1}], already installed.',[Bag2].Name,$aType.Name) | write-warning 
+        }
+    }
+
+    static InstallQuoters([Type]$aType,[Collections.Generic.IEnumerable[object]]$enumerable){
+        $enumerable.foreach{
+            [Bag2]::installConvertingFactory([Bag2]::QUOTERS,$aType,$_)
+        }
+    }
+    static InstallExtractors([Type]$aType,[Collections.Generic.IEnumerable[object]]$enumerable){
+        $enumerable.foreach{
+            [Bag2]::installConvertingFactory([Bag2]::EXTRACTORS,$aType,$_)
+        }
+    }
 
     hidden [Collections.ArrayList]$wpvElements
     hidden [Collections.Specialized.OrderedDictionary]$occurrences
 
-    [SortingComparerHolder]$SortingComparer
+    [ValueHolder]$ComparerHolder
     [HashTable]$Adaptors
 
     <#
     # Constructors
     #>
     Bag2() : base(){
-        $this.initialize($null,$null)
+        $this.initialize($null)
     }
     Bag2([Collections.Generic.IEnumerable[object]]$elements) : base(){
-        $this.initialize($null,$null)
+        $this.initialize($null)
         $this.AddAll($elements)
     }
     Bag2([CombinedComparer]$valueComparer):base(){
-        $this.initialize($valueComparer,$null)
+        $this.initialize($valueComparer)
     }
     Bag2([Collections.Generic.IEnumerable[object]]$elements,[CombinedComparer]$valueComparer):base(){
-        $this.initialize($valueComparer,$null)
+        $this.initialize($valueComparer)
         $this.AddAll($elements)
     }
 
@@ -91,52 +83,35 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
     <#
     # Internal methods
     #>
-    hidden initialize([CombinedComparer]$elementsComparer,[CombinedComparer]$vAoComparer){
+    hidden initialize([CombinedComparer]$elementsComparer){
         $this.wpvElements = [Collections.ArrayList]::new()
         $this.occurrences = [Collections.Specialized.OrderedDictionary]::new()
 
         $thisType = $this.gettype()
         if( $null -eq $elementsComparer ){
-            $elementsComparer = $thisType::valueComparerClass::new()
+            $elementsComparer = $thisType::VALUE_COMPARER_CLASS::new()
         }
 
-        $this.SortingComparer = [SortingComparerHolder]::new($this)
-        $this.SortingComparer.Elements = $elementsComparer
-        $this.SortingComparer.ValuesAndOccurrences = $vAoComparer
-        
-        if( $elementsComparer -is [PluggableComparer] ){
-            $elementsComparer.CompareBlockHolder.AddValueChangedListener($this,{ param($listener,$args1,$args2) $listener.ValuesChanged() })
-        }
-        if( $vAoComparer -is [PluggableComparer] ){
-            $vAoComparer.CompareBlockHolder.AddValueChangedListener($this,{ param($listener,$args1,$args2) $listener.ValuesChanged() })
-        }
-    
-        $this.ValuesChanged()
+        $this.ComparerHolder = [ValueHolder]::new($elementsComparer)
+        $this.invalidateAdaptors()
     }
 
     <# 
     # Dependency handlers 
     #>
-    hidden OnElementsComparerChanged(){
-        $this.rebuildOccurrences()
-        $this.ValuesChanged()
-    }
-    
-    hidden OnValuesAndOccurrencesComparerChanged(){
-        #write-host 'OnValuesAndOccurrencesComparerChanged()'
+    hidden invalidateAdaptors(){
+        $this.Adaptors = @{ ElementsOrdered=$null; 
+            ValuesAndOccurrencesOrdered=$null; 
+            ValuesAndElementsOrdered=$null;
+        }
     }
 
     hidden ValuesChanged(){
-        if( $null -eq $this.Adaptors ){
-            $this.Adaptors = @{ ElementsOrdered=$null; 
-                                ValuesAndOccurrencesOrdered=$null; 
-                                ValuesAndElementsOrdered=$null;
-                            }
+        $this.Adaptors.Values.foreach{
+            if( $null -ne $_ ){
+                $_.InvalidateAllSubjects()
+            }
         }
-        else{
-            $this.Adaptors.ValuesAndElementsOrdered=$null
-        }
-        # = @{ ValuesSorted=$null; ValuesOrdered=$null; ValuesAndOccurrencesSorted=$null; ValuesAndOccurrencesOrdered=$null; }
     }
 
     hidden rebuildOccurrences(){
@@ -149,6 +124,18 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
             $this.addOccurrencesOf($_)
         }
     }
+
+    hidden [object]GetSubjectUsingComparer([object]$value,[Collections.Generic.IComparer[object]]$comparer){
+        if( $comparer -is [PluggableComparer] ){
+            $subject = $comparer.GetSubject($value)
+        }
+        else{
+            $subject = $value
+        }
+
+        return $subject
+    }
+
 
     <#
     # Property implementations
@@ -163,6 +150,17 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
 
     hidden [int]get_CountWithoutDuplicate(){
         return $this.occurrences.Count
+    }
+
+    hidden [CombinedComparer]get_Comparer(){
+        return $this.ComparerHolder.Value()
+    }
+
+    hidden [void]set_Comparer([CombinedComparer]$comparer){
+        $this.invalidateAdaptors()
+        $this.ComparerHolder.Value($comparer)
+        $this.rebuildOccurrences()
+        $this.ValuesChanged()
     }
 
     hidden [IndexableEnumerableBase]get_Elements(){ 
@@ -300,7 +298,7 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
     # Methods: Add/Remove/Clear
     #>
     hidden addOccurrencesOf([object]$value){
-        $subject = $this.SortingComparer.Elements.GetSubject($value)
+        $subject = $this.GetSubjectUsingComparer($value,$this.Comparer)
         if( $null -eq ($this.occurrences[[object]$subject]) ){
             $occurs = [Collections.ArrayList]::new()
             $occurs.Add($value)
@@ -311,7 +309,7 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
         }
     }
     hidden removeOccurrencesOf([object]$value){
-        $subject = $this.SortingComparer.Elements.GetSubject($value)
+        $subject = $this.GetSubjectUsingComparer($value,$this.Comparer)
         if( $null -eq $this.occurrences[[object]$subject] ){
             return
         }
@@ -386,34 +384,6 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
         return $newOne
     }
 
-
-    <#
-    # Methods: Converting
-    #>
-    [object]To([Type]$aType){
-        $aFactory = ($this.gettype())::Factories[$aType]
-        return $aFactory::new($this)
-    }
-
-
-    <#
-    # Methods: Filtering    
-    # BagにDistinctは要るのか問題。
-    # (ValuesAndOccurrencesが既にDistinctぢゃね?)
-    # Iteration(Select,Collect,Detect,InjectIntoとかはStremAdaptorでいいきもしなくもなくもなくない
-    # どう分けたらいいんﾀﾞﾛｶ…?
-    #>
-    [Collections.Generic.IEnumerable[object]]DistinctBy([func[object,object]]$keySelector){
-        $result = [Linq.Enumerable]::DistinctBy[object,object]($this,$keySelector)
-        return $result
-    }
-    
-    [Collections.Generic.IEnumerable[object]]Where([func[object,bool]]$nominator){
-        $result = [Linq.Enumerable]::Where[object]($this,$nominator)
-        return $result
-    }
-
-
     <#
     # Subclass repsponsibilities about: IndexableEnumerableBase 
     #>
@@ -431,7 +401,27 @@ class Bag2 : handjive.Collections.IndexableEnumerableBase, handjive.Collections.
         $this.wpvElements[$index] = $value
         $this.addOccurrencesOf($value)
     }
+
+    <#
+    # Methods: Converting
+    #>
+    <#obsolete!#>[object]To([Type]$aType){
+        $aFactory = ($this.gettype())::Factories[$aType]
+        return $aFactory::new($this)
+    }
+
+    [ConvertingFactory]QuoteTo([Type]$aType){
+        $aFactory = $this.gettype()::QUOTERS[$aType] ?? $this.gettype()::CONVERTING_FACTORY_ANCESTER_CLASS::PASSTHRU_FACTORY
+        return $aFactory
+    }
+
+    [ConvertingFactory]ExtractTo([Type]$aType){
+        $aFactory = $this.gettype()::EXTRACTORS[$aType] ?? $this.gettype()::CONVERTING_FACTORY_ANCESTER_CLASS::PASSTHRU_FACTORY
+        return $aFactory
+    }
 }
 
+[BagToEnumerableFactory]::InstallOn([Bag2])
 [BagToBagFactory]::InstallOn([Bag2])
 [BagToSetFactory]::InstallOn([Bag2])
+

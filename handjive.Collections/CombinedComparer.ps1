@@ -47,13 +47,13 @@ class PluggableComparer : CombinedComparer,IPluggableComparer{
     PluggableComparer([ScriptBlock]$getSubjectBlock) : base(){
         $this.initialize()
         $this.SetDefaultAscending()
-        $this.GetSubjectBlockHolder.Subject = $getSubjectBlock
+        $this.GetSubjectBlock = $getSubjectBlock
     }
 
     PluggableComparer([ScriptBlock]$comparerBlock,[ScriptBlock]$getSubjectBlock) : base(){
         $this.Initialzie()
         $this.SetDefaultAscending()
-        $this.GetSubjectBlockHolder.Subject = $getSubjectBlock
+        $this.GetSubjectBlock = $getSubjectBlock
     }
 
     hidden initialize(){

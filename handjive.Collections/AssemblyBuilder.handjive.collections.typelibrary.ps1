@@ -197,12 +197,29 @@ namespace handjive{
             int CountOccurrences { get; }
             int CountWithoutDuplicate { get; }
 
+            CombinedComparer Comparer{ get; set; }
+
             IndexableEnumerableBase Elements{ get; }
             IndexableEnumerableBase ValuesAndOccurrences{ get; }
             IndexableEnumerableBase ValuesAndElements{ get; }
         }
 
-        public interface ISortingComparerHolder{
+        /*
+        public class ConvertingFactory<T> {
+            public static System.Type ConformacceType = null;
+            public static void InstallOn(System.Type aType){
+                ConvertingFactory<T>.ConformacceType = typeof(object);
+                throw new System.ApplicationException("Subclass responsibility");
+            }
+
+            protected T substance;
+
+            public ConvertingFactory(T aSubstance){
+                this.substance = aSubstance;
+            }
+        }*/
+
+        public interface ISortingComparerHolder{    // Obsolate
             CombinedComparer Elements { get; set; }
             CombinedComparer ValuesAndOccurrences { get; set; }
         }

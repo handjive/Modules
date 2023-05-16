@@ -81,6 +81,15 @@ class DefaultProvider_IndexAdaptor{
     # Subject(GetSubjectBlock.IntIndex,GetSubjectBlock.ObjectIndex)がCountに応えることが前提
     #>
     [Hashtable]$GetCountBlock = @{
+        Enumerable = {
+            param(
+                 $adaptor           # IndexAdaptor本体
+                ,$subject           # GetSubjectBlock.IntIndexの戻り値
+                ,$workingset        # 作業用領域
+            )
+            [Linq.Enumerable]::Count[object]($subject)
+        };
+
         IntIndex = {
             param(
                  $adaptor           # IndexAdaptor本体
@@ -161,7 +170,7 @@ class DefaultProvider_IndexAdaptor{
                 ,$workingset   # 作業用領域
                 ,$index        # 指定されたインデックス
             )
-            return ($index -lt $adaptor.Count('IntIndex'))
+            return ($index -lt $adaptor.CountFor('IntIndex'))
         }; 
         ObjectIndex={
             param(
@@ -234,18 +243,20 @@ Indexアクセスを実装していないオブジェクトにIndexアクセス�
 
 [プロパティ(デフォルトはDefaultProvider_IndexAdaptorを参照)]
 
-    [object]$substance                          Generic.IEnumerable[object]になれる何か(或いはその処理主体)
+    [object]substance                   Generic.IEnumerable[object]になれる何か(或いはその処理主体)
 
-    [HashTable]$GetSubjectBlock                 key=Enumerable,IntIndex,ObjectIndex: Substanceからそれぞれの処理用オブジェクトを取り出すブロック。
-    [HashTable]$GetCountBlock                   key=IntIndex,ObjectIndex: Countの取り出し処理
-    [HashTable]$GetItemBlock                    key=IntIndex,ObjectIndex: item[index]に答える処理
-    [HashTable]$SetItemBlock                    key=IntIndex,ObjectIndex: item[index]=valueの処理
-    [HashTable]$OnGetIndexOutofRange            key=IntIndex,ObjectIndex: GetのIndexが範囲外だった時の処理
-    [HashTable]$OnSetIndexOutofRange            key=IntIndex,ObjectIndex: SetのIndexが範囲外だった時の処理
-    [HashTable]$IndexRangeValidator             key=IntIndex,ObjectIndex: Indexの範囲チェック処理
+    [HashTable]GetSubjectBlock          key=Enumerable,IntIndex,ObjectIndex: Substanceからそれぞれの処理用オブジェクトを取り出すブロック。
+    [HashTable]GetCountBlock            key=IntIndex,ObjectIndex: Countの取り出し処理
+    [HashTable]GetItemBlock             key=IntIndex,ObjectIndex: item[index]に答える処理
+    [HashTable]SetItemBlock             key=IntIndex,ObjectIndex: item[index]=valueの処理
+    [HashTable]OnGetIndexOutofRange     key=IntIndex,ObjectIndex: GetのIndexが範囲外だった時の処理
+    [HashTable]OnSetIndexOutofRange     key=IntIndex,ObjectIndex: SetのIndexが範囲外だった時の処理
+    [HashTable]IndexRangeValidator      key=IntIndex,ObjectIndex: Indexの範囲チェック処理
 
-    [ScriptBlock]$GetEnumeratorBlock            SubjectからEnumeratorを取り出す処理
-    [HashTable]$WorkingSet                      各Blockに共通で渡される作業領域
+    [ScriptBlock]GetEnumeratorBlock     SubjectからEnumeratorを取り出す処理
+    [HashTable]WorkingSet               各Blockに共通で渡される作業領域
+
+    [int]Count                          GetSubstanceBlock.Enumerableをもとにした要素数        
 
 [メソッド]
     
@@ -268,12 +279,26 @@ Indexアクセスを実装していないオブジェクトにIndexアクセス�
         [int]CountFromEnumerable([Collections.Generic.IEnumerable[object]]$enumerable)  
 
         # GetCountBlockの実行結果を返す
-        [int]Count([string]$subjectType)    # $subjectType='IntIndex'|'ObjectIndex'
+        [int]CountFor([string]$subjectType)    # $subjectType='IntIndex'|'ObjectIndex'
 
 #>
 
 
-class IndexAdaptor : handjive.Collections.IndexableEnumerableBase{
+class IndexAdaptor : handjive.Collections.IndexableEnumerableBase,handjive.Collections.IIndexAdaptor{
+    static [IndexAdaptor]InstantAdaptForEnumerableSubstance([Collections.Generic.IEnumerable[object]]$enumerable){
+        $ixa = [IndexAdaptor]::new($enumerable)
+        $ixa.GetItemBlock.IntIndex = {
+            param($adaptor,$subject,$workingset,[int]$index) 
+            $adaptor.ElementAtIndexFromEnumerable($index,$subject) 
+        }
+        $ixa.GetCountBlock.IntIndex = { 
+            param($adaptor,$subject,$workingset) 
+            $adaptor.CountFromEnumerable($subject) 
+        }
+
+        return $ixa
+    }
+
     [object]$substance                          # Generic.IEnumerable[object]になれる何か
 
     [ScriptBlock]$GetEnumeratorBlock            # SubjectからEnumeratorを取り出す処理
@@ -359,9 +384,19 @@ class IndexAdaptor : handjive.Collections.IndexableEnumerableBase{
         return $result
     }
 
-    [int]Count([string]$subjectType){
+    [int]CountFor([string]$subjectType){
         $result = &($this.GetCountBlock[$subjectType]) $this $this.getSubject($subjectType) $this.WorkingSet
         return $result
+    }
+
+    [int]get_Count(){
+        $enumSubject = $this.getSubject('Enumerable')
+        if( $enumSubject -is [Collections.Generic.IEnumerable[object]] ){
+            return [Linq.Enumerable]::Count[object]($enumSubject)
+        }
+        else{
+            return 0
+        }
     }
 
     <#
