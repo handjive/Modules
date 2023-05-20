@@ -1,231 +1,302 @@
-class ConvertingFactory {
+using namespace handjive.Collections
+
+class QuoterInstaller : IQuoterInstaller {
+    [Type]$wpvQuoter
+    [Type]$wpvQuoteTo
+
+    QuoterInstaller([Type]$quoteTo,[Type]$quoter){
+        $this.QUoteTo = $quoteTo
+        $this.Quoter = $quoter
+    }
+
+    [System.Type]get_Quoter()
+    {
+        return $this.wpvQuoter
+    }
+    [System.Type]get_QuoteTo(){
+        return $this.wpvQuoteTo
+    }
+
+    <#InstallOn([IQuotable]$target){
+        $dict = $target.gettype()::QUOTERS
+        if( $null -eq $dict ){
+            $target.gettype()::QUOTERS = [Collections.Generic.Dictionary[Type,object]]::new()
+        }
+        if( $null -eq $dict[$this.substanece] ){
+            $dict.Add($this.substance::ConformanceType,$this.substance)
+        }
+    }#>
+}
+
+class ExtractorInstaller : IExtractorInstaller {
+    [Type]$wpvExtractor
+    [Type]$wpvExtractorTo
+
+    QuoterInstaller([Type]$quoteTo,[Type]$quoter){
+        $this.ExtractorTo = $quoteTo
+        $this.Extractor = $quoter
+    }
+
+    [System.Type]get_Extractor()
+    {
+        return $this.wpvExtractor
+    }
+    [System.Type]get_ExtractTo(){
+        return $this.wpvExtractorTo
+    }
+}
+
+class QuotingFactory : IQuoter{
     static [Type]$ConformanceType = $null
-    static InstallOn([Type]$type){
+    static [IQuoterInstaller]Installer(){
         throw "Subclass responsibility"
+        return $null
     }
 
     [object]$substance
 
-    ConvertingFactory([object]$substance){
+    QuotingFactory([object]$substance){
         $this.substance = $substance
     }
 }
 
-class BagToSomeConvertingFactory : ConvertingFactory{
-    static [ConvertingFactory]$PASSTHRU_FACTORY = [BagThruFactory]
+class ExtractingFactory : IExtractor{
+    static [Type]$ConformanceType = $null
+    static [IExtractorInstaller]Installer(){
+        throw "Subclass responsibility"
+        return $null
+    }
 
-    BagToSomeConvertingFactory([Bag2]$substance) : base($substance){}
+    [object]$substance
+
+    ExtractingFactory([object]$substance){
+        $this.substance = $substance
+    }
+}
+
+
+class BagToSomeConvertingFactory {
+    static [Type]$PASSTHRU_FACTORY_TYPE = [BagThruFactory]
+    [Bag]$substance
+
+    BagToSomeConvertingFactory([Bag]$substance){
+        $this.substance = $substance
+    }
     
     hidden [object]ThrowSubclassResponsibility(){
         throw([String]::Format('{0}: Subclass responsibility.',$this.name))
         return $null
     }
 
-    [object]WithSelection([ScriptBlock]$nominator){ return $null }
+    [Collections.Generic.IEnumerable[object]]AdjustResult([Collections.Generic.IEnumerable[object]]$result){
+        return $result
+    }
 
-    [object]WithIntersect([Bag2]$bag2){ return $this.ThrowSubclassResponsibility() }
-    [object]WithIntersect([Collections.Generic.IEnumerable[object]]$enumerable,[ScriptBlock]$keySelector){ return $this.ThrowSubclassResponsibility() }
-    [object]WithIntersectByValues([Collections.Generic.IEnumerable[object]]$enumerable){ return $this.ThrowSubclassResponsibility() }
+    <# Sublass responsibilities #>
+
+    [Collections.Generic.IEnumerable[object]]WithSelection([ScriptBlock]$nominator){ return $this.ThrowSubclassResponsibility() }
+
+    [Collections.Generic.IEnumerable[object]]WithIntersect([Bag]$bag2){ return $this.ThrowSubclassResponsibility() }
+    [Collections.Generic.IEnumerable[object]]WithIntersect([Collections.Generic.IEnumerable[object]]$enumerable,[ScriptBlock]$keySelector){ return $this.ThrowSubclassResponsibility() }
+    [Collections.Generic.IEnumerable[object]]WithIntersectByValues([Collections.Generic.IEnumerable[object]]$enumerable){ return $this.ThrowSubclassResponsibility() }
     
-    [object]WithExcept([Bag2]$bag2){ return $this.ThrowSubclassResponsibility() }
-    [object]WithExcept([Collections.Generic.IEnumerable[object]]$enumerable,[func[object,object]]$keySelector){ return $this.ThrowSubclassResponsibility() }
-    [object]WithExceptByValues([Collections.Generic.IEnumerable[object]]$enumerable){ return $this.ThrowSubclassResponsibility() }
+    [Collections.Generic.IEnumerable[object]]WithExcept([Bag]$bag2){ return $this.ThrowSubclassResponsibility() }
+    [Collections.Generic.IEnumerable[object]]WithExcept([Collections.Generic.IEnumerable[object]]$enumerable,[func[object,object]]$keySelector){ return $this.ThrowSubclassResponsibility() }
+    [Collections.Generic.IEnumerable[object]]WithExceptByValues([Collections.Generic.IEnumerable[object]]$enumerable){ return $this.ThrowSubclassResponsibility() }
     
-    [object]WithUnion([Bag2]$bag2){ return $this.ThrowSubclassResponsibility() }
-    [object]WithUnion([Collections.Generic.IEnumerable[object]]$enumerable){ return $this.ThrowSubclassResponsibility() }
-    [object]WithUnion([Collections.Generic.IEnumerable[object]]$enumerable,[Collections.Generic.IEqualityComparer[object]]$comparer){ return $this.ThrowSubclassResponsibility() }
+    [Collections.Generic.IEnumerable[object]]WithUnion([Bag]$bag2){ return $this.ThrowSubclassResponsibility() }
+    [Collections.Generic.IEnumerable[object]]WithUnion([Collections.Generic.IEnumerable[object]]$enumerable){ return $this.ThrowSubclassResponsibility() }
+    [Collections.Generic.IEnumerable[object]]WithUnion([Collections.Generic.IEnumerable[object]]$enumerable,[Collections.Generic.IEqualityComparer[object]]$comparer){ return $this.ThrowSubclassResponsibility() }
+
+    [Collections.Generic.IEnumerable[object]]WithMaxBy([Type]$aType,[ScriptBlock]$keySelector){ return return $this.ThrowSubclassResponsibility() }
+    [Collections.Generic.IEnumerable[object]]WithMaxBy([Type]$aType,[string]$aspectName){ return $this.ThrowSubclassResponsibility() }
+
+    [Collections.Generic.IEnumerable[object]]WithMinBy([Type]$aType,[ScriptBlock]$keySelector){ return $this.ThrowSubclassResponsibility() }
+    [Collections.Generic.IEnumerable[object]]WithMinBy([Type]$aType,[string]$aspectName){ return $this.ThrowSubclassResponsibility() }
+
+    <# May works as is... #>
+    [Collections.Generic.IEnumerable[object]]WithMaxBy([ScriptBlock]$keySelector){ return ($this.WithMaxBy([object],$keySelector))}
+    [Collections.Generic.IEnumerable[object]]WithMaxBy([string]$aspectName){ return ($this.WithMaxBy([object],$aspectName)) }
+
+    [Collections.Generic.IEnumerable[object]]WithMinBy([ScriptBlock]$keySelector){ return ($this.WithMinBy([object],$keySelector))}
+    [Collections.Generic.IEnumerable[object]]WithMinBy([string]$aspectName){ return ($this.WithMinBy([object],$aspectName)) }
 }
 
 class BagThruFactory : BagToSomeConvertingFactory{
-    BagThruFactory([Bag2]$substance) : base($substance){}
+    BagThruFactory([Bag]$substance) : base($substance){}
 
-    [object]WithSelectionBy([ScriptBlock]$nominator){ return $this.substance }
+    [Collections.Generic.IEnumerable[object]]WithSelectionBy([ScriptBlock]$nominator){ return $this.substance }
     
-    [object]WithIntersect([Bag2]$bag2){ return $this.substance }
-    [object]WithIntersect([Collections.Generic.IEnumerable[object]]$enumerable,[ScriptBlock]$keySelector){ return $this.substance }
-    [object]WithIntersectByValues([Collections.Generic.IEnumerable[object]]$enumerable){ return $this.substance }
+    [Collections.Generic.IEnumerable[object]]WithIntersect([Bag]$bag2){ return $this.substance }
+    [Collections.Generic.IEnumerable[object]]WithIntersect([Collections.Generic.IEnumerable[object]]$enumerable,[ScriptBlock]$keySelector){ return $this.substance }
+    [Collections.Generic.IEnumerable[object]]WithIntersectByValues([Collections.Generic.IEnumerable[object]]$enumerable){ return $this.substance }
     
-    [object]WithExcept([Bag2]$bag2){ return $this.substance }
-    [object]WithExcept([Collections.Generic.IEnumerable[object]]$enumerable,[func[object,object]]$keySelector){ return $this.substance }
-    [object]WithExceptByValues([Collections.Generic.IEnumerable[object]]$enumerable){ return $this.substance }
+    [Collections.Generic.IEnumerable[object]]WithExcept([Bag]$bag2){ return $this.substance }
+    [Collections.Generic.IEnumerable[object]]WithExcept([Collections.Generic.IEnumerable[object]]$enumerable,[func[object,object]]$keySelector){ return $this.substance }
+    [Collections.Generic.IEnumerable[object]]WithExceptByValues([Collections.Generic.IEnumerable[object]]$enumerable){ return $this.substance }
     
-    [object]WithUnion([Bag2]$bag2){ return $this.substance}
-    [object]WithUnion([Collections.Generic.IEnumerable[object]]$enumerable){ return $this.substance }
-    [object]WithUnion([Collections.Generic.IEnumerable[object]]$enumerable,[Collections.Generic.IEqualityComparer[object]]$comparer){ return $this.substance }
+    [Collections.Generic.IEnumerable[object]]WithUnion([Bag]$bag2){ return $this.substance}
+    [Collections.Generic.IEnumerable[object]]WithUnion([Collections.Generic.IEnumerable[object]]$enumerable){ return $this.substance }
+    [Collections.Generic.IEnumerable[object]]WithUnion([Collections.Generic.IEnumerable[object]]$enumerable,[Collections.Generic.IEqualityComparer[object]]$comparer){ return $this.substance }
+
+    [Collections.Generic.IEnumerable[object]]WithMinBy([ScriptBlock]$keySelector){ return $this.substance }
+    [Collections.Generic.IEnumerable[object]]WithMinBy([string]$aspectName){ return $this.substance }
 }
 
-class BagToSetFactory : ConvertingFactory{
-    static [Type]$ConformanceType = [Collections.Generic.HashSet[object]]
-    static InstallOn([Type]$type){
-        $type::InstallFactory([BagToSetFactory]::ConformanceType,[BagToSetFactory])
-    }
-
-    BagToSetFactory([Bag2]$substance) : base($substance){}
-
-    hidden [Collections.Generic.HashSet[object]]createNewInstance([Collections.Generic.IEnumerable[object]]$enumerable){
-        $newOne = [Collections.Generic.HashSet[object]]::new($enumerable,$this.substance.Comparer)
-        return $newOne
-    }
-
-    [Collections.Generic.HashSet[object]]WithAll(){
-        $aSet = $this.createNewInstance($this.substance)
-        return $aSet
-    }
-
-    [Collections.Generic.HashSet[object]]WithSelectionBy([ScriptBlock]$nominator){
-        $selection = $this.substance.Where($nominator)
-        $aSet = $this.createNewInstance($selection)
-        return $aSet
-    }
-
-    [Collections.Generic.HashSet[object]]SplitSelectionBy([ScriptBlock]$nominator){
-        $aSet = $this.WithSelectionBy($nominator)
-        $this.substance.RemoveAll($aSet)
-        return $aSet
-    }
-}
-
-class BagToEnumerableFactory : ConvertingFactory{
-    static [Type]$ConformanceType = [Collections.Generic.IEnumerable[object]]
-    static InstallOn([Type]$type){
-        $type::InstallFactory([BagToEnumerableFactory]::ConformanceType,[BagToEnumerableFactory])
-    }
-
-    BagToEnumerableFactory([Bag2]$substance) : base($substance){}
+class BagToEnumerableFactory : BagToSomeConvertingFactory{
+    BagToEnumerableFactory([Bag]$substance) : base($substance){}
  
     [Collections.Generic.IEnumerable[object]]WithSelectionBy([ScriptBlock]$nominator){
         $selection = [Linq.Enumerable]::Where[object]($this.substance,[func[object,bool]]$nominator)
-        return $selection
+        return $this.AdjustResult($selection)
     }
-    [Collections.Generic.IEnumerable[object]]WithIntersect([Bag2]$aBag){
-        $keys = [Linq.Enumerable]::Select[object,object]($enumerable,[func[object,object]]$keySelector)
-        $aBag = $this.Substance.Clone()
-        $aBag.Comparer = [PluggableComparer]::new($keySelector)
-        $selection = [Linq.Enumerable]::IntersectBy[object,object]($aBag.ValuesAndElements,$keys,[func[object,object]]{ $args[0].Value })
-        return $selection
+
+    [Collections.Generic.IEnumerable[object]]WithIntersect([Bag]$aBag){
+        $keys = [Linq.Enumerable]::Select[object,object]($aBag.ValuesAndElements,[func[object,object]]{ $args[0].Value })
+        $aClone = $this.Substance.Clone()
+        $aClone.Comparer = $aBag.Comparer
+        $intersect = [Linq.Enumerable]::IntersectBy[object,object]($this.substance.ValuesAndElements,$keys,[func[object,object]]{ $args[0].Value })
+        $elements = $intersect.foreach{ $_.Elements }
+       
+        return $this.AdjustResult($elements)
     }
     [Collections.Generic.IEnumerable[object]]WithIntersect([Collections.Generic.IEnumerable[object]]$enumerable,[ScriptBlock]$keySelector){
         $keys = [Linq.Enumerable]::Select[object,object]($enumerable,[func[object,object]]$keySelector)
-        $aBag = $this.Substance.Clone()
-        $aBag.Comparer = [PluggableComparer]::new($keySelector)
-        $selection = [Linq.Enumerable]::IntersectBy[object,object]($aBag.ValuesAndElements,$keys,[func[object,object]]{ $args[0].Value })
-        return $selection
+        $intersect = [Linq.Enumerable]::IntersectBy[object,object]($this.substance.ValuesAndElements,$keys,[func[object,object]]{ $args[0].Value })
+        $elements = $intersect.foreach{ $_.Elements }
+       
+        return $this.AdjustResult($elements)
     }
     [Collections.Generic.IEnumerable[object]]WithIntersectByValues([Collections.Generic.IEnumerable[object]]$enumerable){
-        $selection = [Linq.Enumerable]::IntersectBy[object,object]($this.substance.ValuesAndElements,$enumerable,[func[object,object]]{ $args[0].Value })
-        return $selection
+        <#$intersect = [Linq.Enumerable]::IntersectBy[object,object]($this.substance.ValuesAndElements,$enumerable,[func[object,object]]{ $args[0].Value })
+        $elements = $intersect.foreach{ 
+            $_.Elements 
+        }
+       
+        return $this.AdjustResult($elements)
+        #>
+        return $this.WithIntersect($enumerable,{ $args[0] })
     }
-    [Collections.Generic.IEnumerable[object]]WithExcept([Bag2]$enumerable,[ScriptBlock]$keySelector){
-        $keys = [Linq.Enumerable]::Select[object,object]($enumerable,[func[object,object]]$keySelector)
-        $aBag = $this.substance.Clone()
-        $aBag.Comparer = [PluggableComparer]::new($keySelector)
-        $selection = [Linq.Enumerable]::ExceptBy[object,object]($aBag.ValuesAndElements,$keys,[func[object,object]]{ $args[0].Value })
-        return $selection
+
+    [Collections.Generic.IEnumerable[object]]WithExcept([Bag]$aBag){
+        $keys = [Linq.Enumerable]::Select[object,object]($aBag.ValuesAndOccurrences,[func[object,object]]{ $args[0].Value })
+        $aClone = $this.substance.Clone()
+        $aClone.Comparer = $aBag.Comparer
+        $except = [Linq.Enumerable]::ExceptBy[object,object]($aBag.ValuesAndElements,$keys,[func[object,object]]{ $args[0].Value })
+        $elements = $except.foreach{ $_.Elements }
+       
+        return $this.AdjustResult($elements)
     }
     [Collections.Generic.IEnumerable[object]]WithExcept([Collections.Generic.IEnumerable[object]]$enumerable,[ScriptBlock]$keySelector){
         $keys = [Linq.Enumerable]::Select[object,object]($enumerable,[func[object,object]]$keySelector)
         $aBag = $this.substance.Clone()
         $aBag.Comparer = [PluggableComparer]::new($keySelector)
-        $selection = [Linq.Enumerable]::ExceptBy[object,object]($aBag.ValuesAndElements,$keys,[func[object,object]]{ $args[0].Value })
-        return $selection
+        $except = [Linq.Enumerable]::ExceptBy[object,object]($aBag.ValuesAndElements,$keys,[func[object,object]]{ $args[0].Value })
+        $elements = $except.foreach{ $_.Elements }
+       
+        return $this.AdjustResult($elements)
     }
     [Collections.Generic.IEnumerable[object]]ExceptByValues([Collections.Generic.IEnumerable[object]]$enumerable){
-        $selection = [Linq.Enumerable]::ExceptBy[object,object]($this.substance.ValuesAndElements,$enumerable,[func[object,object]]{ $args[0].Value })
-        return $selection
+        $except = [Linq.Enumerable]::ExceptBy[object,object]($this.substance.ValuesAndElements,$enumerable,[func[object,object]]{ $args[0].Value })
+        $elements = $except.foreach{ $_.Elements }
+       
+        return $this.AdjustResult($elements)
+    }
+
+    [object]WithMaxBy([Type]$aType,[ScriptBlock]$keySelector){
+        $execFrame = '[Linq.Enumerable]::MaxBy[object,{0}]($args[0],[func[object,{0}]]$args[1])'
+        $executer = [ScriptBlock]::create([String]::Format($execFrame,$aType))
+        $result = &$executer $this.substance.elements $keySelector
+        return $this.AdjustResult(@($result))
+    }
+    [object]WithMaxBy([Type]$aType,[string]$aspectName){ 
+        return $this.WithMaxBy($aType,[AspectComparer]::new($aspectName).GetSubjectBlock)
+    }
+
+    [object]WithMinBy([Type]$aType,[ScriptBlock]$keySelector){
+        $execFrame = '[Linq.Enumerable]::MinBy[object,{0}]($args[0],[func[object,{0}]]$args[1])'
+        $executer = [ScriptBlock]::create([String]::Format($execFrame,$aType))
+        $result = &$executer $this.substance.elements $keySelector
+        return $this.AdjustResult(@($result))
+    }
+    [object]WithMinBy([Type]$aType,[string]$aspectName){ 
+        return $this.WithMinBy($aType,[AspectComparer]::new($aspectName).GetSubjectBlock)
+    }
+
+}
+
+class BagToEnumerableQuoter : BagToEnumerableFactory, IQuoter{
+    static [IQuoterInstaller]Installer(){
+        return [QuoterInstaller]::new([Collections.Generic.IEnumerable[object]],[BagToEnumerableQuoter])
+    }
+    
+    BagToEnumerableQuoter([Bag]$substance) : base($substance){}
+}
+
+class BagToBagQuoter : BagToEnumerableQuoter{
+    static [IQuoterInstaller]Installer(){
+        return [QuoterInstaller]::new([Bag],[BagToBagQuoter])
+    }
+
+    BagToBagQuoter([Bag]$substance) : base($substance){}
+
+    [Collections.Generic.IEnumerable[object]]AdjustResult([Collections.Generic.IEnumerable[object]]$result){
+        $newOne = [Bag]::new($result,$this.substance.Comparer)
+        return $newOne
     }
 }
 
-class BagToBagFactory : ConvertingFactory{
-    static [Type]$ConformanceType = [Bag2]
-    static InstallOn([Type]$type){
-        $type::InstallFactory([BagToBagFactory]::ConformanceType,[BagToBagFactory])
+class BagToSetQuoter : BagToEnumerableQuoter{
+    static [IQuoterInstaller]Installer(){
+        return [IQuoterInstaller]::new([Bag],[BagToSetQuoter])
     }
 
-    hidden [ConvertingFactory]$helper
+    BagToSetQuoter([Bag]$substance) : base($substance){}
 
-    BagToBagFactory([Bag2]$substance) : base($substance){
-        $this.helper = [BagToEnumerableFactory]::new($substance)
-    }
-
-    hidden [Bag2]createNewInstance([Collections.Generic.IEnumerable[object]]$enumerable){
-        return ([Bag2]::new($enumerable,$this.substance.Comparer))
-    }
-    hidden [Bag2]createNewInstance(){
-        return ([Bag2]::new($this.substance.Comparer))
-    }
-
-    [Bag2]WithAll(){
-        return $this.substance.Clone()
-    }
-
-    [Bag2]WithSelectionBy([ScriptBlock]$nominator){
-        $selection = $this.helper.SelectionBy($nominator)
-        $newOne = $this.CreateNewInstance($selection)
-        return $newOne
-    }
-
-    [Bag2]SplitSelectionBy([ScriptBlock]$nominator){
-        $newOne = $this.WithSelectionBy($nominator)
-        $this.substance.RemoveAll($newOne)
-        return $newOne
-    }
-
-    [Bag2]WithIntersectBy([Collections.Generic.IEnumerable[object]]$enumerable,[ScriptBlock]$keySelector){
-        $selection = $this.helper.IntersectBy($enumerable,$keySelector)
-        $newOne = $this.createNewInstance()
-        $selection.foreach{
-            $newOne.AddAll($_.Elements)
-        }
-        return $newOne
-    }
-
-    [Bag2]WithIntersectByValues([Collections.Generic.IEnumerable[object]]$enumerable){
-        $selection = $this.helper.IntersectByValues($enumerable)
-        $newOne = $this.createNewInstance()
-        $selection.foreach{
-            $newOne.AddAll($_.Elements)
-        }
-        return $newOne
-    }
-
-    [Bag2]SplitIntersectBy([Collections.Generic.IEnumerable[object]]$enumerable,[func[object,object]]$keySelector){
-        $newOne = $this.WithIntersectBy($enumerable,$keySelector)
-        $this.substance.RemoveAll($newOne)
-        return $newOne
-    }
-
-    [Bag2]SplitIntersectByValues([Collections.Generic.IEnumerable[object]]$enumerable){
-        $newOne = $this.WithIntersectByValues($enumerable)
-        $this.substance.RemoveAll($newOne)
-        return $newOne
-    }
-
-    [Bag2]WithExceptBy([Collections.Generic.IEnumerable[object]]$enumerable,[ScriptBlock]$keySelector){
-        $selection = $this.helper.ExceptBy($enumerable,$keySelector)
-        $newOne = $this.createNewInstance()
-        $selection.foreach{
-            $newOne.AddAll($_.Elements)
-        }
-        return $newOne
-    }
-
-    [Bag2]WithExceptByValues([Collections.Generic.IEnumerable[object]]$enumerable){
-        $selection = $this.helper.ExceptByValues($enumerable)
-        $newOne = $this.creatNewInstance()
-        $selection.foreach{
-            $newOne.AddAll($_.Elements)
-        }
-        return $newOne
-    }
-
-    [Bag2]SplitExceptByValues([Collections.Generic.IEnumerable[object]]$enumerable){
-        $newOne = $this.WithExceptByValues($enumerable)
-        $this.substance.RemoveAll($newOne)
-        return $newOne
-    }
-    [Bag2]SplitExceptBy([Collections.Generic.IEnumerable[object]]$enumerable,[ScriptBlock]$keySelector){
-        $newOne = $this.WithExceptBy($enumerable,$keySelector)
-        $this.substance.RemoveAll($newOne)
+    [Collections.Generic.IEnumerable[object]]AdjustResult([Collections.Generic.IEnumerable[object]]$result){
+        $newOne = [Collections.Generic.HashSet[object]]::new($result)
         return $newOne
     }
 }
+
+class BagToEnumerableExtractor : BagToEnumerableFactory,IExtractor{
+    static [IExtractorInstaller]Installer(){
+        return [ExtractorInstaller]::new([Collections.Generic.IEnumerable[object]],[BagToEnumerableExtractor])
+    }
+
+    BagToEnumerableExtractor([Bag]$substance) : base($substance){}
+
+    [Collections.Generic.IEnumerable[object]]AdjustResult([Collections.Generic.IEnumerable[object]]$result){
+        return ($this.substance.RemoveAll($result))
+    }
+}
+
+class BagToBagExtractor: BagToEnumerableExtractor{
+    static [IExtractorInstaller]Installer(){
+        return [ExtractorInstaller]::new([Bag],[BagToSetExtractor])
+    }
+
+    BagToBagExtractor([Bag]$substance) : base($substance){}
+
+    [Collections.Generic.IEnumerable[object]]AdjustResult([Collections.Generic.IEnumerable[object]]$result){
+        $result = ([BagToEnumerableExtractor]$this).AdjustResult($result)
+        $newOne = [Bag]::new($result)
+        $this.substance.RemoveAll($result)
+        return $newOne
+    }
+}
+class BagToSetExtractor : BagToSetQuoter, IExtractor{
+    static [IExtractorInstaller]Installer(){
+        return [ExtractorInstaller]::new([Collections.Generic.HashSet[object]],[BagToSetExtractor])
+    }
+
+    BagToSetExtractor([Bag]$substance) : base($substance){}
+
+    [Collections.Generic.IEnumerable[object]]AdjustResult([Collections.Generic.IEnumerable[object]]$result){
+        $result = ([BagToSetQuoter]$this).AdjustResult($result)
+        $newOne = [Collections.Generic.HashSet[object]]::new($result)
+        $this.substance.RemoveAll($result)
+        return $newOne
+    }
+}
+

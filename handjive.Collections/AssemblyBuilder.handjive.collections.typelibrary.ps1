@@ -2,10 +2,44 @@ param([switch]$Build,[switch]$Load)
 import-module handjive.AssemblyBuilder -force
 
 $cscode = @"
+using SCG = System.Collections.Generic;
+using SC = System.Collections;
+
 namespace handjive{
+    public interface IErsatzClassInstanceVariable{
+        static SCG.Dictionary<System.Type,SCG.Dictionary<string,object>> _ErsatzClassInstanceVariables;
+        static protected SCG.Dictionary<System.Type,SCG.Dictionary<string,object>> CIVDictionary{
+            get{
+                if( IErsatzClassInstanceVariable._ErsatzClassInstanceVariables == null ){
+                    IErsatzClassInstanceVariable._ErsatzClassInstanceVariables = new SCG.Dictionary<System.Type,SCG.Dictionary<string,object>>();
+                }
+                return IErsatzClassInstanceVariable._ErsatzClassInstanceVariables;
+            }
+        }
+        
+        static SCG.Dictionary<string,object> ErsatzClassInstanceVariablesFor(System.Type owner){
+            SCG.Dictionary<string,object> dict;
+            if( !IErsatzClassInstanceVariable.CIVDictionary.TryGetValue(owner,out dict) ){
+                IErsatzClassInstanceVariable.CIVDictionary[owner] = new SCG.Dictionary<string,object>();
+            }
+            return(IErsatzClassInstanceVariable.CIVDictionary[owner]);
+        }
+
+        static object ErsatzClassInstanceVariableNamedFor(string name,System.Type owner){
+            object aValue;
+            SCG.Dictionary<string,object> dict = IErsatzClassInstanceVariable.ErsatzClassInstanceVariablesFor(owner);
+            if( dict.TryGetValue(name,out aValue) ){
+                return aValue;
+            }
+            else{
+                return null;
+            }
+        }        
+    }
+
     namespace Collections{
         public interface ICollectionAdaptor{
-            System.Collections.Generic.IEnumerable<object> Values{ get; }
+            SCG.IEnumerable<object> Values{ get; }
         }
 
         public interface IPluggableEnumerator {
@@ -21,30 +55,30 @@ namespace handjive{
             object CompareBlock{ get; set; }
         }
 
-        public class ComparerBase<T> : System.Collections.IEqualityComparer, System.Collections.IComparer,System.Collections.Generic.IEqualityComparer<T>,System.Collections.Generic.IComparer<T>{
+        public class ComparerBase<T> : SC.IEqualityComparer, SC.IComparer,SCG.IEqualityComparer<T>,SCG.IComparer<T>{
             // IEqualityComparer
-            bool System.Collections.IEqualityComparer.Equals(object left,object right){
+            bool SC.IEqualityComparer.Equals(object left,object right){
                 return(this.PSEquals(left,right));
             }
-            int System.Collections.IEqualityComparer.GetHashCode(object obj){
+            int SC.IEqualityComparer.GetHashCode(object obj){
                 return(this.PSGetHashCode(obj));
             }
 
             // Generic.IEqualityComparer<T>
-            bool System.Collections.Generic.IEqualityComparer<T>.Equals(T left,T right){
+            bool SCG.IEqualityComparer<T>.Equals(T left,T right){
                 return(this.PSEquals(left,right));
             }
-            int System.Collections.Generic.IEqualityComparer<T>.GetHashCode(T obj){
+            int SCG.IEqualityComparer<T>.GetHashCode(T obj){
                 return(this.PSGetHashCode(obj));
             }
 
             // IComparer
-            int System.Collections.IComparer.Compare(object left,object right){
+            int SC.IComparer.Compare(object left,object right){
                 return(this.PSCompare(left,right));
             }
 
             // Generic.IComparer<T>
-            int System.Collections.Generic.IComparer<T>.Compare(T left,T right){
+            int SCG.IComparer<T>.Compare(T left,T right){
                 return(this.PSCompare(left,right));
             }
 
@@ -62,58 +96,58 @@ namespace handjive{
         public class CombinedComparer : ComparerBase<object>{
         }
         
-        public interface IBag{
+        /* public interface IBag{
             int Count{ get; }
             handjive.Collections.CombinedComparer Comparer{ get; set; }
             object this[int index]{ get; }
-            System.Collections.Generic.IEnumerable<object> Values{ get; }
-            System.Collections.Generic.IEnumerable<object> ValuesSorted{ get; }
-            System.Collections.Generic.IEnumerable<object> ValuesOrdered{ get; }
-            System.Collections.Generic.IEnumerable<object> ElementsSorted{ get; }
-            System.Collections.Generic.IEnumerable<object> ElementsOrdered{ get; }
-        }
+            SCG.IEnumerable<object> Values{ get; }
+            SCG.IEnumerable<object> ValuesSorted{ get; }
+            SCG.IEnumerable<object> ValuesOrdered{ get; }
+            SCG.IEnumerable<object> ElementsSorted{ get; }
+            SCG.IEnumerable<object> ElementsOrdered{ get; }
+        } */
 
-        public interface IIndexedBag{
+        /* public interface IIndexedBag{
             object GetIndexBlock{ get; set; }
             object this[object index]{ get; }
-            System.Collections.Generic.IEnumerable<object> Indexes{ get; }
-            System.Collections.Generic.IEnumerable<object> ElementsSorted{ get; }
-            System.Collections.Generic.IEnumerable<object> ElementsOrdered{ get; }
+            SCG.IEnumerable<object> Indexes{ get; }
+            SCG.IEnumerable<object> ElementsSorted{ get; }
+            SCG.IEnumerable<object> ElementsOrdered{ get; }
 
-            //System.Collections.IEnumerator IndexesOrdered{ get; }
-            //System.Collections.IEnumerator Values{ get; }
+            //SC.IEnumerator IndexesOrdered{ get; }
+            //SC.IEnumerator Values{ get; }
             //int Count{ get; }
             //object[] this[int index]{ get; }
-            //System.Collections.IEnumerator ValuesAndOccurrences{ get; }
-            //System.Collections.IEnumerator IndexesAndValuesAndOccurrences{ get; }
-        }
+            //SC.IEnumerator ValuesAndOccurrences{ get; }
+            //SC.IEnumerator IndexesAndValuesAndOccurrences{ get; }
+        } */
 
-        public class EnumerableBase : System.Collections.Generic.IEnumerable<object>{
-            System.Collections.Generic.IEnumerator<object> System.Collections.Generic.IEnumerable<object>.GetEnumerator(){
+        public class EnumerableBase : SCG.IEnumerable<object>{
+            SCG.IEnumerator<object> SCG.IEnumerable<object>.GetEnumerator(){
                 return(this.PSGetEnumerator());
             }
-            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator(){
+            SC.IEnumerator SC.IEnumerable.GetEnumerator(){
                 return(this.PSGetEnumerator());
             }
-            protected virtual System.Collections.Generic.IEnumerator<object> PSGetEnumerator(){
+            protected virtual SCG.IEnumerator<object> PSGetEnumerator(){
                 return(null);
             }
         }
-        public class EnumerableBase<T> : System.Collections.Generic.IEnumerable<T>{
-            System.Collections.Generic.IEnumerator<T> System.Collections.Generic.IEnumerable<T>.GetEnumerator(){
+        public class EnumerableBase<T> : SCG.IEnumerable<T>{
+            SCG.IEnumerator<T> SCG.IEnumerable<T>.GetEnumerator(){
                 return(this.PSGetEnumerator());
             }
-            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator(){
+            SC.IEnumerator SC.IEnumerable.GetEnumerator(){
                 return(this.PSGetEnumerator());
             }
-            protected virtual System.Collections.Generic.IEnumerator<T> PSGetEnumerator(){
+            protected virtual SCG.IEnumerator<T> PSGetEnumerator(){
                 return(null);
             }
         }
 
 
-        public class EnumeratorBase : System.Collections.Generic.IEnumerator<object>{
-            object System.Collections.Generic.IEnumerator<object>.Current{ 
+        public class EnumeratorBase : SCG.IEnumerator<object>{
+            object SCG.IEnumerator<object>.Current{ 
                 get{ 
                     return(this.PSCurrent()); 
                 }
@@ -125,15 +159,15 @@ namespace handjive{
                 this.PSReset();
             }
 
-            object System.Collections.IEnumerator.Current{
+            object SC.IEnumerator.Current{
                 get{
                     return(this.PSCurrent());
                 }
             }
-            bool System.Collections.IEnumerator.MoveNext(){
+            bool SC.IEnumerator.MoveNext(){
                 return(this.PSMoveNext());
             }
-            void System.Collections.IEnumerator.Reset(){
+            void SC.IEnumerator.Reset(){
                 this.PSReset();
             }
 
@@ -164,11 +198,11 @@ namespace handjive{
             object this[object index]{ get; set; }
         }
 
-        public class IndexableEnumerableBase : IItemIndexer ,System.Collections.Generic.IEnumerable<object>{
-            System.Collections.Generic.IEnumerator<object> System.Collections.Generic.IEnumerable<object>.GetEnumerator(){
+        public class IndexableEnumerableBase : IItemIndexer ,SCG.IEnumerable<object>{
+            SCG.IEnumerator<object> SCG.IEnumerable<object>.GetEnumerator(){
                 return(this.PSGetEnumerator());
             }
-            System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator(){
+            SC.IEnumerator SC.IEnumerable.GetEnumerator(){
                 return(this.PSGetEnumerator());
             }
     
@@ -181,7 +215,7 @@ namespace handjive{
                 set{ PSSetItem_IntIndex(index,value); }
             }
     
-            protected virtual System.Collections.Generic.IEnumerator<object> PSGetEnumerator(){ return(null); }
+            protected virtual SCG.IEnumerator<object> PSGetEnumerator(){ return(null); }
             protected virtual object PSGetItem_ObjectIndex(object index){ return(null); }
             protected virtual void   PSSetItem_ObjectIndex(object index,object value){  }
             protected virtual object PSGetItem_IntIndex(int index){ return(null); }
@@ -192,7 +226,7 @@ namespace handjive{
             int Count { get; }
         }
         
-        public interface IBag2{
+        public interface IBag{
             int Count { get; }
             int CountOccurrences { get; }
             int CountWithoutDuplicate { get; }
@@ -204,20 +238,61 @@ namespace handjive{
             IndexableEnumerableBase ValuesAndElements{ get; }
         }
 
-        /*
-        public class ConvertingFactory<T> {
-            public static System.Type ConformacceType = null;
-            public static void InstallOn(System.Type aType){
-                ConvertingFactory<T>.ConformacceType = typeof(object);
-                throw new System.ApplicationException("Subclass responsibility");
+        public interface IQuoterInstaller{
+            public System.Type Quoter{ get;  }
+            public System.Type QuoteTo{ get;  }
+            public void InstallOn(System.Type target){
+                IQuotable.GetQUOTERS(target)[this.QuoteTo] = this.Quoter;
+            }
+        }
+        public interface IExtractorInstaller{
+            public System.Type Extractor{ get;  }
+            public System.Type ExtractTo{ get;  }
+            public void InstallOn(System.Type target){
+                IExtractable.GetEXTRACTORS(target)[this.ExtractTo] = this.Extractor;
+            }
+        }
+        
+        public interface IQuoter{
+            static IQuoterInstaller Installer{ get; set; }  // [QuoterInstaller]::new([Type]$quoter,
+        }
+        public interface IExtractor{
+            static IExtractorInstaller Installer{ get; set; }
+        }
+
+        public interface IQuotable {
+            public static SCG.Dictionary<System.Type,SCG.Dictionary<System.Type,System.Type>> QUOTERS_DICTIONARY;
+            
+            public static SCG.Dictionary<System.Type,System.Type> GetQUOTERS(System.Type target){
+                SCG.Dictionary<System.Type,System.Type> quoters;
+            
+                if( IQuotable.QUOTERS_DICTIONARY == null ){
+                    IQuotable.QUOTERS_DICTIONARY = new SCG.Dictionary<System.Type,SCG.Dictionary<System.Type,System.Type>>();
+                }
+                if( !IQuotable.QUOTERS_DICTIONARY.TryGetValue(target,out quoters) ){
+                    IQuotable.QUOTERS_DICTIONARY[target] = new SCG.Dictionary<System.Type,System.Type>();
+                }
+                return(IQuotable.QUOTERS_DICTIONARY[target]);
             }
 
-            protected T substance;
-
-            public ConvertingFactory(T aSubstance){
-                this.substance = aSubstance;
+            public object QuoteTo(System.Type aType);
+        }
+        public interface IExtractable { 
+            public static SCG.Dictionary<System.Type,SCG.Dictionary<System.Type,System.Type>> EXTRACTORS_DICTIONARY;
+            
+            public static SCG.Dictionary<System.Type,System.Type> GetEXTRACTORS(System.Type target){
+                SCG.Dictionary<System.Type,System.Type> quoters;
+            
+                if( IExtractable.EXTRACTORS_DICTIONARY == null ){
+                    IExtractable.EXTRACTORS_DICTIONARY = new SCG.Dictionary<System.Type,SCG.Dictionary<System.Type,System.Type>>();
+                }
+                if( !IExtractable.EXTRACTORS_DICTIONARY.TryGetValue(target,out quoters) ){
+                    IExtractable.EXTRACTORS_DICTIONARY[target] = new SCG.Dictionary<System.Type,System.Type>();
+                }
+                return(IExtractable.EXTRACTORS_DICTIONARY[target]);
             }
-        }*/
+            public object ExtractTo(System.Type aType);
+        }
 
         public interface ISortingComparerHolder{    // Obsolate
             CombinedComparer Elements { get; set; }

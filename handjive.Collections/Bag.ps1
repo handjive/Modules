@@ -1,359 +1,399 @@
-using module handjive.ValueHolder
-using module handjive.ChainScript
-
 using namespace handjive.Collections
 
-<# HashTableでよくね? #>
-class BagElement{
-    [object]$Value
-    [int]$Occurrence
+. "$PSScriptRoot\ConvertingFactory.ps1"
 
-    BagElement(){
+<#
+    $aBag[int] → $aBag.elements[int]
+    $aBag.Count→ $aBag.elements.Count
+    $aBag.GetEnumerator()→ $aBag.elements.GetEnumerator()
+    
+    $aBag.ValuesOrdered → IndexAdaptor
+    $aBag.ValuesOrdered[int] → $aBag.occurrences.keys[int]
+    $aBag.ValuesOrdered.GetEnumerator()
+    
+    $aBag.ValuesSorted → IndexAdaptor
+    $aBag.ValuesSorted[int]
+    $aBag.ValuesSorted.GetEnumerator()
+
+    $aBag.ValuesAndOccurrences → IndexAdaptor
+    $aBag.ValuesAndOccurrencesSorted → IndexAdaptor
+#>
+class Bag : IndexableEnumerableBase, IBag, ICloneable, IQuotable, IExtractable {
+    static $VALUE_COMPARER_CLASS = [PluggableComparer]                # ValuesSorted用のComparer
+
+    hidden [Collections.ArrayList]$wpvElements
+    hidden [Collections.Specialized.OrderedDictionary]$occurrences
+
+    [ValueHolder]$ComparerHolder
+    [HashTable]$Adaptors
+
+    <#
+    # Constructors
+    #>
+    Bag() : base(){
+        $this.initialize($null)
+    }
+    Bag([Collections.Generic.IEnumerable[object]]$elements) : base(){
+        $this.initialize($null)
+        $this.AddAll($elements)
+    }
+    Bag([CombinedComparer]$valueComparer):base(){
+        $this.initialize($valueComparer)
+    }
+    Bag([Collections.Generic.IEnumerable[object]]$elements,[CombinedComparer]$valueComparer):base(){
+        $this.initialize($valueComparer)
+        $this.AddAll($elements)
     }
 
-    BagElement([object]$value,[int]$Occurrence){
-        $this.Value = $value
-        $this.Occurrence = $Occurrence
+
+    <#
+    # Internal methods
+    #>
+    hidden initialize([CombinedComparer]$elementsComparer){
+        $this.wpvElements = [Collections.ArrayList]::new()
+        $this.occurrences = [Collections.Specialized.OrderedDictionary]::new()
+
+        $thisType = $this.gettype()
+        if( $null -eq $elementsComparer ){
+            $elementsComparer = $thisType::VALUE_COMPARER_CLASS::new()
+        }
+
+        $this.ComparerHolder = [ValueHolder]::new($elementsComparer)
+        $this.invalidateAdaptors()
+    }
+
+    <# 
+    # Dependency handlers 
+    #>
+    hidden invalidateAdaptors(){
+        $this.Adaptors = @{ ElementsOrdered=$null; 
+            ValuesAndOccurrencesOrdered=$null; 
+            ValuesAndElementsOrdered=$null;
+        }
+    }
+
+    hidden ValuesChanged(){
+        $this.Adaptors.Values.foreach{
+            if( $null -ne $_ ){
+                $_.InvalidateAllSubjects()
+            }
+        }
+    }
+
+    hidden rebuildOccurrences(){
+        if( $this.wpvElements.Count -eq 0 ){
+            return
+        }
+        
+        $this.occurrences = [Collections.Specialized.OrderedDictionary]::new()
+        $this.wpvElements.foreach{
+            $this.addOccurrencesOf($_)
+        }
+    }
+
+    hidden [object]GetSubjectUsingComparer([object]$value,[Collections.Generic.IComparer[object]]$comparer){
+        if( $comparer -is [PluggableComparer] ){
+            $subject = $comparer.GetSubject($value)
+        }
+        else{
+            $subject = $value
+        }
+
+        return $subject
+    }
+
+
+    <#
+    # Property implementations
+    #>
+    hidden [int]get_Count(){
+        return $this.wpvElements.Count
+    }
+
+    hidden [int]get_CountOccurrences(){
+        return $this.get_CountWithoutDuplicate()
+    }
+
+    hidden [int]get_CountWithoutDuplicate(){
+        return $this.occurrences.Count
+    }
+
+    hidden [CombinedComparer]get_Comparer(){
+        return $this.ComparerHolder.Value()
+    }
+
+    hidden [void]set_Comparer([CombinedComparer]$comparer){
+        $this.invalidateAdaptors()
+        $this.ComparerHolder.Value($comparer)
+        $this.rebuildOccurrences()
+        $this.ValuesChanged()
+    }
+
+    hidden [IndexableEnumerableBase]get_Elements(){ 
+        if( $null -eq $this.Adaptors.ElementsOrdered ){
+            $ixa = [IndexAdaptor]::new($this)
+            $ixa.GetSubjectBlock.Enumerable = { param($adaptor,$substance,$workingset) $substance.wpvElements }
+            $ixa.GetSubjectBlock.IntIndex   = { param($adaptor,$substance,$workingset) $substance.wpvElements }
+            $ixa.GetItemBlock.IntIndex = { 
+                param($adaptor,$subject,$workingset,$index) $subject[$index] }
+            $ixa.GetCountBlock.IntIndex = { param($adaptor,$subject,$workingset) $subject.Count }
+
+            $this.Adaptors.ElementsOrdered = $ixa
+        }
+        return $this.Adaptors.ElementsOrdered
+    }
+
+    hidden [Collections.Generic.IEnumerable[object]]valuesAndOccurrencesEnumerable(){
+        $enumerator = [PluggableEnumerator]::new($this)
+        $enumerator.WorkingSet.keys = $this.occurrences.keys.GetEnumerator()
+        $enumerator.OnMoveNextBlock = {
+            param($substance,$workingset)
+            $result =$workingset.keys.MoveNext()
+            return($result)
+        }
+        $enumerator.OnCurrentBlock = {
+            param($substance,$workingset)
+            $key = $workingset.keys.Current
+            if( $null -eq $key ){
+                return (@{ Value=$null; Occurrence=0 })
+            }
+            else{
+                $subject = $key
+                $result = @{ Value=$subject; Occurrence=($substance.occurrences[$subject].Count); }
+                return($result)
+            }
+        }
+        $enumerator.OnResetBlock = {
+            param($substance,$workingset)
+            $workingset.keys = $substance.occurrences.keys.GetEnumerator()
+        }
+
+        return($enumerator.ToEnumerable())
+    }
+
+    hidden [IndexableEnumerableBase]get_ValuesAndOccurrences(){
+        if( $null -eq $this.Adaptors.ValuesAndOccurrencesOrdered ){
+            $ixa = [IndexAdaptor]::new($this)
+            $ixa.GetSubjectBlock.Enumerable = { 
+                param($adaptor,$substance,$workingset)
+                $substance.valuesAndOccurrencesEnumerable() 
+            }
+            $ixa.GetSubjectBlock.IntIndex = { 
+                param($adaptor,$substance,$workingset)
+                $substance.valuesAndOccurrencesEnumerable() 
+            }
+            $ixa.GetItemBlock.IntIndex = { 
+                param($adaptor,$subject,$workingset,[int]$index) 
+                $adaptor.ElementAtIndexFromEnumerable($index,$subject) 
+            }
+            $ixa.GetCountBlock.IntIndex = { 
+                param($adaptor,$subject,$workingset) 
+                $adaptor.CountFromEnumerable($subject) 
+            }
+            $this.Adaptors.ValuesAndOccurrencesOrdered = $ixa
+        }
+        return $this.Adaptors.ValuesAndOccurrencesOrdered
+    }
+
+    hidden [Collections.Generic.IEnumerable[object]]valuesAndElementsEnumerable(){
+        $enumerator = [PluggableEnumerator]::new($this)
+        $enumerator.WorkingSet.keyEnumerator = $this.occurrences.keys.GetEnumerator()
+        $enumerator.OnMoveNextBlock = {
+            param($substance,$workingset)
+            $result = $workingset.keyEnumerator.MoveNext()
+            return $result
+        }
+        $enumerator.OnCurrentBlock = {
+            param($substance,$workingset)
+            $key = $workingset.keyEnumerator.Current
+            if( $null -eq $key ){
+                return @{ Value=$null; Elements=@(); }
+            }
+            return @{ Value=$key; Elements=($substance.occurrences[[object]$key]); }
+        }
+        $enumerator.OnResetBlock = {
+            param($substance,$workingset)
+            $workingset.keyEnumerator.Reset()
+        }
+
+        return($enumerator.ToEnumerable())
+    }
+
+    hidden [IndexableEnumerableBase]get_ValuesAndElements(){
+        if( $null -eq $this.Adaptors.ValuesAndElementsOrdered ){
+            $ixa = [IndexAdaptor]::new($this)
+            $ixa.GetSubjectBlock.Enumerable = { 
+                param($adaptor,$substance,$workingset)
+                $substance.valuesAndElementsEnumerable() 
+            }
+            $ixa.GetSubjectBlock.IntIndex = { 
+                param($adaptor,$substance,$workingset)
+                $substance.valuesAndElementsEnumerable() 
+            }
+            $ixa.GetItemBlock.IntIndex = { 
+                param($adaptor,$subject,$workingset,[int]$index) 
+                $adaptor.ElementAtIndexFromEnumerable($index,$subject) 
+            }
+            $ixa.GetCountBlock.IntIndex = { 
+                param($adaptor,$subject,$workingset) 
+                $adaptor.CountFromEnumerable($subject) 
+            }
+            $this.Adaptors.ValuesAndElementsOrdered = $ixa
+        }
+        return $this.Adaptors.ValuesAndElementsOrdered
+    }
+
+
+    <#
+    # Methods: 
+    #>
+    [int]OccurrencesOf([object]$elem){
+        return $this.occurrences[[object]$elem].Count
+    }
+    
+    [bool]Includes([object]$elem){
+        return ($null -ne $this.occurrences[[object]$elem])
+    }
+
+    [object[]]OccurrenceElementsOf([object]$value){
+        return($this.occurrences[[object]$value])
+    }
+
+
+    <#
+    # Methods: Add/Remove/Clear
+    #>
+    hidden addOccurrencesOf([object]$value){
+        $subject = $this.GetSubjectUsingComparer($value,$this.Comparer)
+        if( $null -eq ($this.occurrences[[object]$subject]) ){
+            $occurs = [Collections.ArrayList]::new()
+            $occurs.Add($value)
+            $this.occurrences.Add($subject,$occurs)
+        }
+        else{
+            ($this.occurrences[[object]$subject]).Add($value)
+        }
+    }
+    hidden removeOccurrencesOf([object]$value){
+        $subject = $this.GetSubjectUsingComparer($value,$this.Comparer)
+        if( $null -eq $this.occurrences[[object]$subject] ){
+            return
+        }
+        if( $this.occurrences[[object]$value].Count -eq 1 ){
+            $this.occurrences.Remove([object]$subject)
+        }
+        else{
+            $occur = $this.occurrences[[object]$subject]
+            $occur.Remove($value)
+        }
+    }
+
+    Add([object]$elem){
+        $this.wpvElements.Add($elem)
+        $this.addOccurrencesOf($elem)
+        $this.ValuesChanged()
+    }
+    AddAll([Collections.Generic.IEnumerable[object]]$elements){
+        $elements.foreach{
+            $this.Add([object]$_)
+        }
+        $this.invalidateAdaptors()
+    }
+    AddAll([Collections.IEnumerable]$elements){
+        $elements.foreach{
+            $this.Add([object]$_)
+        }
+        $this.invalidateAdaptors()
+    }
+
+    Remove([object]$elem){
+        $this.removeOccurrencesOf($elem)
+        $this.wpvElements.Remove($elem)
+        $this.ValuesChanged()
+    }
+    RemoveAll([Collections.Generic.IEnumerable[object]]$elements){
+        $elements.foreach{
+            $this.Remove($_)
+        }
+    }
+    RemoveAll([Collections.IEnumerable]$elements){
+        $elements.foreach{
+            $this.Remove($_)
+        }
+    }
+
+    Purge([object]$elem){
+        if( $null -ne $this.occurrences[$elem] ){
+            $this.occurrences[[object]$elem] = 1
+            $this.Remove($elem)
+            $this.ValuesChanged()
+        }
+    }
+    PurgeAll([Collections.Generic.IEnumerable[object]]$elements){
+        $elements.foreach{
+            $this.Purge($_)
+        }
+    }
+    PurgeAll([Collections.IEnumerable]$elements){
+        $elements.foreach{
+            $this.Purge($_)
+        }
+    }
+
+    Clear(){
+        $this.wpvElements.Clear()
+        $this.occurrences.Clear()
+    }
+
+    [object]Clone(){
+        $newOne = $this.gettype()::new()
+        $newOne.wpvElements = $this.wpvElements.Clone()
+        $newOne.Comparer = $this.Comparer
+        $newOne.rebuildOccurrences()
+        $newOne.ValuesChanged()
+
+        return $newOne
+    }
+
+    <#
+    # Subclass repsponsibilities about: IndexableEnumerableBase 
+    #>
+    hidden [Collections.Generic.IEnumerator[object]]PSGetEnumerator(){
+        return [PluggableEnumerator]::InstantWrapOn($this.wpvElements)
+    }
+
+    hidden [object]PSGetItem_IntIndex([int]$index){
+        return $this.wpvElements[$index]
+    }
+
+    hidden PSSetItem_IntIndex([int]$index,[object]$value){
+        $old = $this.wpvElements[$index]
+        $this.Remove($old)
+        $this.wpvElements[$index] = $value
+        $this.addOccurrencesOf($value)
+    }
+
+    <#
+    # Methods: Converting
+    #>
+    <#obsolete![object]To([Type]$aType){
+        $aFactory = ($this.gettype())::Factories[$aType]
+        return $aFactory::new($this)
+    }#>
+
+    [object]QuoteTo([Type]$aType){
+        $aFactory = $this.gettype()::QUOTERS[$aType]
+        return $aFactory
+    }
+
+    [object]ExtractTo([Type]$aType){
+        $aFactory = $this.gettype()::EXTRACTORS[$aType]
+        return $aFactory
     }
 }
 
 <#
-# TODO: SortingComparerが機能してない? 
-#
-#  重複を無視する(が、重複数は保持する)コレクション
-#　(格納対象オブジェクトはICompareable.CompareTo()に答える必要あり)
-#
-#   プロパティ
-#       SortingComparer         Collections.IComparer   { get; set }  ValuesSorted,ElementsSortedのソート順を決定するためのIComparer
-#       ValuesOrdered           Collections.IEnumerable { get; }    追加順で値を返すEnumerator
-#       ValuesSorted            Collections.IEnumerable { get; }    SortingComparer順で値を返すEnumerator。
-#                                                                   比較の結果同じ(-eq)と判定されたオブジェクトは集約されてしまう。ValueOrderdの結果と食い違う事になるので注意。
-#                                                                   (ValuesOrderdで返されるオブジェクトがValuesSortedには含まれない、という状況が起きる)
-#       ElementsOrdered         Collections.IEnumerable { get; }    追加順で値と重複数([Bag]::ELEMENT_CLASSのインスタンス)を返すEnumerator
-#       ElementsSorted          Collections.IEnumerable { get; }    SortingComparer順で値と重複数([Bag]::ELEMENT_CLASSのインスタンス)を返すEnumerator
-#       Count                   int { get; }                        値の数
-#       item[]                  int item[[int]$index]   { get; }    追加順で指定した値
-#
-#   メソッド
-#       Add             [void] ([object]$aValue)      $aValueを追加する
-#       AddAll          [void] ([object[]]$values)    $valuesを追加する
-#       Remove          [void] ([object]$aValue)      $aValueの重複数を減算する。重複が無くなれば値そのものを削除する(3度追加された値は3度Removeされないと無くならない)。
-#       RemoveAll       [void] ([object[]$values)     $valuesそれぞれをRemoveする
-#       Purge           [void] ([object]$aValue)      $aValueを削除する。Removeと違い、一度の操作でその値と重複数を削除する。
-#       PurgeAll        [void] ([object[]]$values)    $valuesそれぞれをPurgeする
-#
-#       OccurrencesOf   [int] ([object]$aValue)       $aValueの重複数を得る
-#       Includes        [bool]([object]$aValue)       $aValueが含まれるかの真偽値を返す
+[BagToEnumerableFactory]::InstallOn([Bag])
+[BagToBagFactory]::InstallOn([Bag])
+[BagToSetFactory]::InstallOn([Bag])
 #>
-class Bag : EnumerableBase,handjive.IWrapper,IBag{
-    static [Bag]Intersect([Collections.Generic.IEnumerable[object]]$left,[Collections.Generic.IEnumerable[object]]$right,[CombinedComparer]$comparer){
-        $aBag = [Bag]::new($left,$comparer)
-        $aBag.IntersectBy($right,$comparer)
-        return($aBag)
-    }
-    static [Bag]Except([Collections.Generic.IEnumerable[object]]$left,[Collections.Generic.IEnumerable[object]]$right,[CombinedComparer]$comparer){
-        $aBag = [Bag]::new($left,$comparer)
-        $aBag.ExceptWith($right,$comparer)
-        return($aBag)
-    }
-
-    static $ELEMENT_CLASS = [BagElement]
-    static $SUBSTANCE_CLASS = [Collections.Specialized.OrderedDictionary]
-    static $VALUESET_CLASS = [Collections.Generic.SortedSet[object]]
-    
-    hidden [ValueHolder]$wpvSubstanceHolder
-    hidden [ValueHolder]$wpvComparerHolder
-
-    hidden [Collections.Generic.SortedSet[object]]$wpvValueSet
-
-    Bag(){
-        $this.Initialize([PluggableComparer]::New())
-    }
-    Bag([CombinedComparer]$comparer){
-        $this.Initialize($comparer)
-    }
-    Bag([Bag]$aBag){
-        $this.Initialize([PluggableComparer]::New())
-        $this.Substance = $aBag.Substance
-    }
-    Bag([Bag]$aBag,[CombinedComparer]$comparer){
-        $this.Initialize($comparer)
-        $this.Substance = $aBag.Substance
-    }
-    Bag([Collections.Generic.IEnumerable[object]]$enumerable){
-        $this.Initialize([PluggableComparer]::New())
-        $this.AddAll($enumerable)
-    }
-    Bag([Collections.Generic.IEnumerable[object]]$enumerable,[CombinedComparer]$comparer){
-        $this.Initialize($comparer)
-        $this.AddAll($enumerable)
-    }
-
-    hidden initialize([CombinedComparer]$comparer){
-        $this.wpvSubstanceHolder = [ValueHolder]::new(([Bag]::SUBSTANCE_CLASS)::new($comparer))
-        $this.wpvSubstanceHolder.AddValueChangedListener($this,{
-            param($receiver,$args1,$args2,$workingset) 
-            $receiver.buildValueSet($args1[1],$receiver.Comparer)
-        })
-
-        $this.wpvComparerHolder = [ValueHolder]::new($comparer)
-        $this.wpvComparerHolder.AddValueChangedListener($this,{ 
-            param($receiver,$args1,$args2,$workingset) 
-            $receiver.rebuildSubstance($args1[0])
-            #$receiver.buildValueSet($args1[0])
-        })
-
-        $this.wpvValueSet = ([Bag]::VALUESET_CLASS)::new([Collections.Generic.IComparer[object]]$comparer)
-    }
-    hidden rebuildSubstance([CombinedComparer]$aComparer){
-        $newSubstance = ([Bag]::SUBSTANCE_CLASS)::new($aComparer)
-        $this.Substance.psbase.Keys.foreach{
-            $this.basicAdd($newSubstance,$_)
-        }
-        $this.Substance = $newSubstance
-    }
-    hidden buildValueSet([Collections.Specialized.OrderedDictionary]$dict,[CombinedComparer]$aComparer){
-        $this.wpvValueSet = ([Bag]::VALUESET_CLASS)::new($aComparer)
-        if( $this.Substance.psbase.Count -gt 0){
-            $this.Substance.psbase.Keys.foreach{ $this.wpvValueSet.Add($_) }
-        }
-    }
-
-    hidden [object]newElement(){
-        return(([Bag]::ELEMENT_CLASS)::new())
-    }
-
-    hidden [object]get_Substance(){
-        return($this.wpvSubstanceHolder.Value())
-    }
-    hidden set_Substance([object]$aSubstance){
-        $this.wpvSubstanceHolder.Value($aSubstance)
-    }
-
-    hidden [CombinedComparer]get_Comparer(){
-        return($this.wpvComparerHolder.Value())
-    }
-    hidden set_Comparer([CombinedComparer]$aComparer){
-        $this.wpvComparerHolder.Value($aComparer)
-    }
-    
-    hidden [Collections.Generic.IEnumerator[object]]basicValuesSorted(){
-        $enumerator = [PluggableEnumerator]::new($this)
-        $enumerator.workingset.valueEnumerator = [Collections.IEnumerator]$this.wpvValueSet.GetEnumerator()
-        $enumerator.OnMoveNextBlock = {
-            param($substance,$workingset)
-            return($workingset.valueEnumerator.MoveNext())
-        }
-        $enumerator.OnCurrentBlock = {
-            param($substance,$workingset)
-            return($workingset.valueEnumerator.Current)
-        }
-        $enumerator.OnResetBlock = {
-            param($substance,$workingset)
-            $workingset.valueEnumerator.Reset()
-        }
-        return($enumerator)
-    }
-
-    hidden [Collections.Generic.IEnumerator[object]]basicValuesOrdered(){
-        $enumerator = [PluggableEnumerator]::new($this)
-        $enumerator.workingset.valueEnumerator = $this.Substance.Keys.GetEnumerator()
-        $enumerator.OnMoveNextBlock = {
-            param($substance,$workingset)
-            return($workingset.valueEnumerator.MoveNext())            
-        }
-        $enumerator.OnCurrentBlock = {
-            param($substance,$workingset)
-            return($workingset.valueEnumerator.Current)
-        }
-        $enumerator.OnResetBlock = {
-            param($substance,$workingset)
-            $workingset.valueEnumerator.Reset()
-        }
-        return($enumerator)
-    }
-
-    hidden [Collections.Generic.IEnumerable[object]]get_ValuesOrdered(){
-        return ($this.basicValuesOrdered()).ToEnumerable()
-    }
-    hidden [Collections.Generic.IEnumerable[object]]get_ValuesSorted(){
-        return ($this.basicValuesSorted()).ToEnumerable()
-    }
-    hidden [Collections.Generic.IEnumerable[object]]get_Values(){
-        return($this.get_ValuesSorted())
-    }
-
-    hidden [Collections.Generic.IEnumerator[object]]create_ElementsEnumerator(){        
-        $enumerator = [PluggableEnumerator]::new($this)
-        $enumerator.OnResetBlock = {
-            param($substance,$workingset)
-            $workingset.valueEnumerator.Reset()
-        }
-        $enumerator.OnMoveNextBlock = {
-            param($substance,$workingset)
-            $stat = $workingset.valueEnumerator.MoveNext()
-            return($stat)
-       }
-       $enumerator.OnCurrentBlock = {
-            param($substance,$workingset)
-            $elem = $substance.newElement()
-            $elem.Value = $workingset.valueEnumerator.Current
-            $elem.Occurrence = $substance.Substance[[object]$elem.Value]
-            return($elem)
-       }
-       return($enumerator)
-    }
-
-    hidden [Collections.Generic.IEnumerator[object]]basicElementsSorted(){
-        $enumerator = $this.create_ElementsEnumerator()
-        $enumerator.WorkingSet.valueEnumerator = $this.basicValuesSorted()
-        $enumerator.PSReset()
-        return($enumerator)
-    }
-    [Collections.Generic.IEnumerable[object]]get_ElementsSorted(){
-        return($this.basicElementsSorted().ToEnumerable())
-    }
-
-    hidden [Collections.Generic.IEnumerator[object]]basicElementsOrdered(){
-        $enumerator = $this.create_ElementsEnumerator()
-        $enumerator.WorkingSet.valueEnumerator = $this.basicValuesOrdered()
-        $enumerator.PSReset()
-        return($enumerator)
-    }
-
-    [Collections.Generic.IEnumerable[object]]get_ElementsOrdered(){
-        return($this.basicElementsOrdered().ToEnumerable())
-    }
-
-    hidden [Collections.Generic.IEnumerator[object]]PSGetEnumerator(){
-        return($this.basicElementsSorted())
-    }
-    
-
-    hidden [int]get_Count(){
-        <# 
-        # なんだか全く釈然としないんだけど、単に$this.Substance.Count
-        # としただけではCountの結果が返ってこない…
-        # psbase介さないとプロパティのアクセスが出来ないっておかしくね?
-        # (それぞれ確認するためにステップ分解したまんま)
-        #>
-        $aDict = $this.Substance -as [Bag]::SUBSTANCE_CLASS
-        $count = $aDict.psbase.Count
-        return($count)
-    }
-
-    hidden [object]get_Item([int]$index){
-        $keys = $this.Substance.Keys
-        return($keys[$index])
-    }
-
-    hidden basicAdd([Collections.Specialized.OrderedDictionary]$dict,[object]$aValue){
-        if( $null -eq $dict[[object]$aValue] ){
-            $dict.Add([object]$aValue,0)
-        }
-        ($dict[[object]$aValue])++
-
-    }
-    Add([object]$aValue){
-        $this.basicAdd($this.Substance,$aValue)
-        $this.wpvValueSet.Add($aValue)
-    }
-    <#AddAll([object[]]$values){
-        $values.foreach{ $this.Add($_) }
-    }#>
-    AddAll([Collections.Generic.IEnumerator[object]]$enumr){
-        $enumr.foreach{
-            $this.Add($_)
-        }
-    }
-    AddAll([Collections.Generic.IEnumerable[object]]$enumerable){
-        $enumerable.foreach{
-            $this.Add($_)
-        }
-    }
-    
-    Remove([object]$aValue){
-        if( $null -eq $this.Substance[$aValue] )
-        {
-            return
-        }
-
-        if( $this.Substance[[object]$aValue] -eq 1 ){
-            $this.Substance.Remove($aValue)
-            $this.wpvValueSet.Remove($aValue)
-        }
-        else{
-            $this.Substance[[object]$aValue]--
-        }
-    }
-    RemoveAll([object[]]$values){
-        $values.foreach{ $this.Remove($_) }
-    }
-
-
-    hidden Set([BagElement]$element){
-        $this.Substance[[object]$element.Value] = $element.Occurrence
-        $this.wpvValueSet.Add($element.Value)
-    }
-    hidden SetAll([BagElement[]]$elements){
-        $elements.foreach{ $this.Set($_) }
-    }
-
-
-    Purge([object]$aValue){
-        $this.Substance.Remove($aValue)
-        $this.wpvValueSet.Remove($aValue)
-    }
-    PurgeAll([object[]]$values){
-        $values.foreach{ $this.Purge($_) }
-    }
-
-    [int]OccurrencesOf([object]$value){
-        return($this.Substance[[object]$value])
-    }
-
-    [bool]Includes([object]$aValue){
-        return($this.wpvValueSet.Contains($aValue))
-    }
-
-    [bool]Includes([ScriptBlock]$nominator){
-        $this.ValuesSorted.foreach{
-            if( &$nominator $_ ){
-                return $true
-            }
-        }
-
-        return $false
-    }
-
-    hidden [object]basicIntersectBy([Collections.Generic.IEnumerable[object]]$enumerable,[CombinedComparer]$comparer){
-        $newDict = ([Bag]::SUBSTANCE_CLASS)::new($comparer)
-        $values = @()
-        $enumerable.foreach{
-            $values += $comparer.GetSubject($_)
-        }
-        $result = [Linq.Enumerable]::IntersectBy[object,object]($this.ValuesSorted,$values,[Func[object,object]]$comparer.GetSubjectBlock)
-      
-        $result.foreach{
-            $this.basicAdd($newDict,$_)
-        }
-        return($newDict)
-    }
-
-    IntersectBy([Collections.Generic.IEnumerable[object]]$enumerable,[CombinedComparer]$comparer){
-        $this.Substance = $this.basicIntersectBy($enumerable,$comparer)
-    }
-
-    hidden [object]basicExceptWith([Collections.Generic.IEnumerable[object]]$enumerable,[CombinedComparer]$comparer){
-        $newDict = ([Bag]::SUBSTANCE_CLASS)::new($comparer)
-        $result = [Linq.Enumerable]::Except($this.ValuesSorted,$enumerable,$comparer)
-        $result.foreach{
-            $this.basicAdd($newDict,$_)
-        }
-        return($newDict)
-    }
-
-    ExceptWith([Collections.Generic.IEnumerable[object]]$enumerable,[CombinedComparer]$comparer){
-        $this.Substance = $this.basicExceptWith($enumerable,$comparer)
-    }
-}

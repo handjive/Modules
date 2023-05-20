@@ -9,6 +9,6 @@ using namespace handjive.Collections
 . "$PSScriptRoot\CollectionAdaptor.ps1"
 . "$PSScriptRoot\Interval.ps1"
 . "$PSScriptRoot\Bag.ps1"
-. "$PSScriptRoot\IndexedBag.ps1"
+. "$PSScriptRoot\ConvertingFactory.ps1"
 . "$PSScriptRoot\EnumerableSorter.ps1"
 
