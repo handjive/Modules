@@ -12,6 +12,8 @@ class DefaultProvider_IndexAdaptor{
     <#
     # SubstanceからEnumeration,Index[in],Index[object]の処理主体を取り出すためのデフォルトブロック
     # 処理を指定しない限り、Subject=Substance
+    #
+    # "$adaptor(引数として渡される一番目の変数).Subjects.対応する名前"にSubjectを格納する。
     #>
     # GetCountBlock,(Get|Set)IndexBlock,On(Get|Set)IndexOutofRange,IndexRangeValidatorに渡される処理対象を取り出す
     [HashTable]$GetSubjectBlock = @{
@@ -48,7 +50,7 @@ class DefaultProvider_IndexAdaptor{
     # Enumeratorを取得するブロック
     # ここで渡されるSubject(GetSubjectBlockForEnumの戻り値)がGeneric.IGetEnumerator[object]/IGetEnumerator
     # に応えられ、それが目的のEnumeratorる場合はこのデフォルト処理で充分。
-    # SubjectがGetEnumeratorに答えられない場合は、このブロックの上書きが必要。
+    # SubjectがGetEnumeratorに答えない場合は、このブロックの上書きが必要。
     # (デフォルトでは、空Enumeratorが返される)
     #>
     [ScriptBlock]$GetEnumeratorBlock = {
@@ -353,7 +355,8 @@ class IndexAdaptor : handjive.Collections.IndexableEnumerableBase,handjive.Colle
     hidden [object]getSubject([string]$subjectType){
         if( $null -eq $this.Subjects[$subjectType] ){
             $subs = $this.substance
-            $this.subjects[$subjectType] = &($this.GetSubjectBlock[$subjectType]) $this $subs $this.WorkingSet
+            #$this.subjects[$subjectType] = &($this.GetSubjectBlock[$subjectType]) $this $subs $this.WorkingSet
+            &($this.GetSubjectBlock[$subjectType]) $this $subs $this.WorkingSet | out-null
         }
         $result = $this.subjects[$subjectType]
            
@@ -369,9 +372,10 @@ class IndexAdaptor : handjive.Collections.IndexableEnumerableBase,handjive.Colle
     }
 
     [void]InvalidateAllSubjects(){
-        $this.subjects.keys.foreach{
+        $this.Subjects = @{ Enumerable=$null; IntIndex=$null; ObjectIndex=$null; }
+        <#$this.subjects.keys.foreach{
             $this.subjects[$_] = $null
-        }
+        }#>
     }
 
     [object]ElementAtIndexFromEnumerable([int]$index,[Collections.Generic.IEnumerable[object]]$enumerable){

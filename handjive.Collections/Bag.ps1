@@ -20,6 +20,7 @@ using namespace handjive.Collections
 #>
 class Bag : IndexableEnumerableBase, IBag, ICloneable, IQuotable, IExtractable {
     static $VALUE_COMPARER_CLASS = [PluggableComparer]                # ValuesSorted用のComparer
+    static $OCCURRENCES_VALUE_CLASS = [Collections.Generic.List[object]]
 
     hidden [Collections.ArrayList]$wpvElements
     hidden [Collections.Specialized.OrderedDictionary]$occurrences
@@ -132,14 +133,15 @@ class Bag : IndexableEnumerableBase, IBag, ICloneable, IQuotable, IExtractable {
     hidden [IndexableEnumerableBase]get_Elements(){ 
         if( $null -eq $this.Adaptors.ElementsOrdered ){
             $ixa = [IndexAdaptor]::new($this)
-            $ixa.GetSubjectBlock.Enumerable = { param($adaptor,$substance,$workingset) $substance.wpvElements }
-            $ixa.GetSubjectBlock.IntIndex   = { param($adaptor,$substance,$workingset) $substance.wpvElements }
+            $ixa.GetSubjectBlock.Enumerable = { param($adaptor,$substance,$workingset) $adaptor.Subjects.Enumerable = $substance.wpvElements }
+            $ixa.GetSubjectBlock.IntIndex   = { param($adaptor,$substance,$workingset) $adaptor.Subjects.IntIndex = $substance.wpvElements }
             $ixa.GetItemBlock.IntIndex = { 
                 param($adaptor,$subject,$workingset,$index) $subject[$index] }
             $ixa.GetCountBlock.IntIndex = { param($adaptor,$subject,$workingset) $subject.Count }
 
             $this.Adaptors.ElementsOrdered = $ixa
         }
+        $this.Adaptors.ElementsOrdered.InvalidateSubjects()
         return $this.Adaptors.ElementsOrdered
     }
 
@@ -176,11 +178,11 @@ class Bag : IndexableEnumerableBase, IBag, ICloneable, IQuotable, IExtractable {
             $ixa = [IndexAdaptor]::new($this)
             $ixa.GetSubjectBlock.Enumerable = { 
                 param($adaptor,$substance,$workingset)
-                $substance.valuesAndOccurrencesEnumerable() 
+                $adaptor.Subjects.Enumerable = $substance.valuesAndOccurrencesEnumerable() 
             }
             $ixa.GetSubjectBlock.IntIndex = { 
                 param($adaptor,$substance,$workingset)
-                $substance.valuesAndOccurrencesEnumerable() 
+                $adaptor.Subjects.IntIndex = $substance.valuesAndOccurrencesEnumerable() 
             }
             $ixa.GetItemBlock.IntIndex = { 
                 param($adaptor,$subject,$workingset,[int]$index) 
@@ -192,6 +194,7 @@ class Bag : IndexableEnumerableBase, IBag, ICloneable, IQuotable, IExtractable {
             }
             $this.Adaptors.ValuesAndOccurrencesOrdered = $ixa
         }
+        $this.Adaptors.ValuesAndOccurrencesOrdered.InvalidateAllSubjects()
         return $this.Adaptors.ValuesAndOccurrencesOrdered
     }
 
@@ -224,11 +227,11 @@ class Bag : IndexableEnumerableBase, IBag, ICloneable, IQuotable, IExtractable {
             $ixa = [IndexAdaptor]::new($this)
             $ixa.GetSubjectBlock.Enumerable = { 
                 param($adaptor,$substance,$workingset)
-                $substance.valuesAndElementsEnumerable() 
+                $adaptor.subjects.Enumerable = $substance.valuesAndElementsEnumerable() 
             }
             $ixa.GetSubjectBlock.IntIndex = { 
                 param($adaptor,$substance,$workingset)
-                $substance.valuesAndElementsEnumerable() 
+                $adaptor.subjects.IntIndex = $substance.valuesAndElementsEnumerable() 
             }
             $ixa.GetItemBlock.IntIndex = { 
                 param($adaptor,$subject,$workingset,[int]$index) 
@@ -240,6 +243,7 @@ class Bag : IndexableEnumerableBase, IBag, ICloneable, IQuotable, IExtractable {
             }
             $this.Adaptors.ValuesAndElementsOrdered = $ixa
         }
+        $this.Adaptors.ValuesAndElementsOrdered.InvalidateAllSubjects()
         return $this.Adaptors.ValuesAndElementsOrdered
     }
 
@@ -266,7 +270,7 @@ class Bag : IndexableEnumerableBase, IBag, ICloneable, IQuotable, IExtractable {
     hidden addOccurrencesOf([object]$value){
         $subject = $this.GetSubjectUsingComparer($value,$this.Comparer)
         if( $null -eq ($this.occurrences[[object]$subject]) ){
-            $occurs = [Collections.ArrayList]::new()
+            $occurs = [Bag]::OCCURRENCES_VALUE_CLASS::new()
             $occurs.Add($value)
             $this.occurrences.Add($subject,$occurs)
         }

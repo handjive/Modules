@@ -147,7 +147,8 @@ class BagToEnumerableFactory : BagToSomeConvertingFactory{
     BagToEnumerableFactory([Bag]$substance) : base($substance){}
  
     [Collections.Generic.IEnumerable[object]]WithSelectionBy([ScriptBlock]$nominator){
-        $selection = [Linq.Enumerable]::Where[object]($this.substance,[func[object,bool]]$nominator)
+        $aClone = $this.substance.Clone()
+        $selection = [Linq.Enumerable]::Where[object]($aClone,[func[object,bool]]$nominator)
         return $this.AdjustResult($selection)
     }
 
@@ -155,26 +156,20 @@ class BagToEnumerableFactory : BagToSomeConvertingFactory{
         $keys = [Linq.Enumerable]::Select[object,object]($aBag.ValuesAndElements,[func[object,object]]{ $args[0].Value })
         $aClone = $this.Substance.Clone()
         $aClone.Comparer = $aBag.Comparer
-        $intersect = [Linq.Enumerable]::IntersectBy[object,object]($this.substance.ValuesAndElements,$keys,[func[object,object]]{ $args[0].Value })
+        $intersect = [Linq.Enumerable]::IntersectBy[object,object]($aClone.ValuesAndElements,$keys,[func[object,object]]{ $args[0].Value })
         $elements = $intersect.foreach{ $_.Elements }
        
         return $this.AdjustResult($elements)
     }
     [Collections.Generic.IEnumerable[object]]WithIntersect([Collections.Generic.IEnumerable[object]]$enumerable,[ScriptBlock]$keySelector){
         $keys = [Linq.Enumerable]::Select[object,object]($enumerable,[func[object,object]]$keySelector)
-        $intersect = [Linq.Enumerable]::IntersectBy[object,object]($this.substance.ValuesAndElements,$keys,[func[object,object]]{ $args[0].Value })
+        $aClone = $this.substance.Clone()
+        $intersect = [Linq.Enumerable]::IntersectBy[object,object]($aClone.ValuesAndElements,$keys,[func[object,object]]{ $args[0].Value })
         $elements = $intersect.foreach{ $_.Elements }
        
         return $this.AdjustResult($elements)
     }
     [Collections.Generic.IEnumerable[object]]WithIntersectByValues([Collections.Generic.IEnumerable[object]]$enumerable){
-        <#$intersect = [Linq.Enumerable]::IntersectBy[object,object]($this.substance.ValuesAndElements,$enumerable,[func[object,object]]{ $args[0].Value })
-        $elements = $intersect.foreach{ 
-            $_.Elements 
-        }
-       
-        return $this.AdjustResult($elements)
-        #>
         return $this.WithIntersect($enumerable,{ $args[0] })
     }
 
@@ -182,31 +177,28 @@ class BagToEnumerableFactory : BagToSomeConvertingFactory{
         $keys = [Linq.Enumerable]::Select[object,object]($aBag.ValuesAndOccurrences,[func[object,object]]{ $args[0].Value })
         $aClone = $this.substance.Clone()
         $aClone.Comparer = $aBag.Comparer
-        $except = [Linq.Enumerable]::ExceptBy[object,object]($aBag.ValuesAndElements,$keys,[func[object,object]]{ $args[0].Value })
+        $except = [Linq.Enumerable]::ExceptBy[object,object]($aClone.ValuesAndElements,$keys,[func[object,object]]{ $args[0].Value })
         $elements = $except.foreach{ $_.Elements }
        
         return $this.AdjustResult($elements)
     }
     [Collections.Generic.IEnumerable[object]]WithExcept([Collections.Generic.IEnumerable[object]]$enumerable,[ScriptBlock]$keySelector){
         $keys = [Linq.Enumerable]::Select[object,object]($enumerable,[func[object,object]]$keySelector)
-        $aBag = $this.substance.Clone()
-        $aBag.Comparer = [PluggableComparer]::new($keySelector)
-        $except = [Linq.Enumerable]::ExceptBy[object,object]($aBag.ValuesAndElements,$keys,[func[object,object]]{ $args[0].Value })
+        $aClone = $this.substance.Clone()
+        $except = [Linq.Enumerable]::ExceptBy[object,object]($aClone.ValuesAndElements,$keys,[func[object,object]]{ $args[0].Value })
         $elements = $except.foreach{ $_.Elements }
        
         return $this.AdjustResult($elements)
     }
-    [Collections.Generic.IEnumerable[object]]ExceptByValues([Collections.Generic.IEnumerable[object]]$enumerable){
-        $except = [Linq.Enumerable]::ExceptBy[object,object]($this.substance.ValuesAndElements,$enumerable,[func[object,object]]{ $args[0].Value })
-        $elements = $except.foreach{ $_.Elements }
-       
-        return $this.AdjustResult($elements)
+    [Collections.Generic.IEnumerable[object]]WithExceptByValues([Collections.Generic.IEnumerable[object]]$enumerable){
+        return $this.WithExcept($enumerable,{ $args[0] })
     }
 
     [object]WithMaxBy([Type]$aType,[ScriptBlock]$keySelector){
         $execFrame = '[Linq.Enumerable]::MaxBy[object,{0}]($args[0],[func[object,{0}]]$args[1])'
         $executer = [ScriptBlock]::create([String]::Format($execFrame,$aType))
-        $result = &$executer $this.substance.elements $keySelector
+        $aClone = $this.substance.Clone()
+        $result = &$executer $aClone $keySelector
         return $this.AdjustResult(@($result))
     }
     [object]WithMaxBy([Type]$aType,[string]$aspectName){ 
@@ -216,7 +208,8 @@ class BagToEnumerableFactory : BagToSomeConvertingFactory{
     [object]WithMinBy([Type]$aType,[ScriptBlock]$keySelector){
         $execFrame = '[Linq.Enumerable]::MinBy[object,{0}]($args[0],[func[object,{0}]]$args[1])'
         $executer = [ScriptBlock]::create([String]::Format($execFrame,$aType))
-        $result = &$executer $this.substance.elements $keySelector
+        $aClone = $this.substance.Clone()
+        $result = &$executer $aClone $keySelector
         return $this.AdjustResult(@($result))
     }
     [object]WithMinBy([Type]$aType,[string]$aspectName){ 
@@ -267,7 +260,8 @@ class BagToEnumerableExtractor : BagToEnumerableFactory,IExtractor{
     BagToEnumerableExtractor([Bag]$substance) : base($substance){}
 
     [Collections.Generic.IEnumerable[object]]AdjustResult([Collections.Generic.IEnumerable[object]]$result){
-        return ($this.substance.RemoveAll($result))
+        $this.substance.RemoveAll($result)
+        return ($result)
     }
 }
 
@@ -281,7 +275,7 @@ class BagToBagExtractor: BagToEnumerableExtractor{
     [Collections.Generic.IEnumerable[object]]AdjustResult([Collections.Generic.IEnumerable[object]]$result){
         $result = ([BagToEnumerableExtractor]$this).AdjustResult($result)
         $newOne = [Bag]::new($result)
-        $this.substance.RemoveAll($result)
+        #$this.substance.RemoveAll($result)
         return $newOne
     }
 }
@@ -295,7 +289,7 @@ class BagToSetExtractor : BagToSetQuoter, IExtractor{
     [Collections.Generic.IEnumerable[object]]AdjustResult([Collections.Generic.IEnumerable[object]]$result){
         $result = ([BagToSetQuoter]$this).AdjustResult($result)
         $newOne = [Collections.Generic.HashSet[object]]::new($result)
-        $this.substance.RemoveAll($result)
+        #$this.substance.RemoveAll($result)
         return $newOne
     }
 }
