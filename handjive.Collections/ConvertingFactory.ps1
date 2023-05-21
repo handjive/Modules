@@ -1,3 +1,56 @@
+<#
+Bagの集合操作実装を動機とした変換オブジェクト生成クラス一式
+
+BagをLinq.Enumerable等の集合操作で変換する機能が欲しかったが、どの程度までを範囲(対象とする変換後オブジェクトの種類、変換操作)とするか決めきれなかった。
+そのためそれぞれを分離し、Bagの変更無しに後付け変更可能な構造を取ることにした。
+(当初、interfaceによる制約で必要な実装を規定しようと試みたものの、Powershellクラスがinterface明示メソッドを記述できないため上手くいかずその方法を放棄、
+お約束ベースになってしまった。本当に無理なのかね?)
+
+以下、お約束:
+
+・Bag(或いは、この方法を取る他のクラス)はstatic変数QUOTERS/EXTRACTORS(変換対象のTypeをKey、変換処理クラスのTypeをValueとする辞書)を持つ。
+・BagはメソッドQuoteTo([Type])でQuoterを、ExtractTo([Type])でExtractorを取り出すことができ、実行可能な変換操作はQuoter/Extractorの実装に分離する。
+・Quoter/Extractorは、Bagの辞書に自身をインストールするメソッド[QuoterInstaller]GetInstaller()/[ExtractorInstaller]GetInstaller()を実装する。
+(Bagの辞書構造はQuoterInstaller/ExtractorInstallerが知っている)
+
+Quoter/Extractorの違いは以下の通り。
+Quoter: 元オブジェクトに影響を与えずに何らかの処理を加えた結果で新しいオブジェクトを生成する処理の集合
+Extractor: 元オブジェクトに何らかの処理を加えた結果で新しいオブジェクトを生成し、元オブジェクトからその要素を取り除く処理の集合
+
+実装している集合操作は以下の通りで、それぞれIEnumerable[object],Bag,HashSet[object]に変換可能。
+("WithSelectionBy"→Whereを除いて、だいたいLinq.Enumerableと一緒)
+
+    using namespace System.Collections.Generic
+
+    [IEnumerable[object]]WithSelectionBy([ScriptBlock]$nominator)
+
+    [IEnumerable[object]]WithIntersect([Bag]$bag)
+    [IEnumerable[object]]WithIntersect([IEnumerable[object]]$enumerable,[ScriptBlock]$keySelector)
+    [IEnumerable[object]]WithIntersectByValues([IEnumerable[object]]$enumerable)
+    
+    [IEnumerable[object]]WithExcept([Bag]$bag)
+    [IEnumerable[object]]WithExcept([IEnumerable[object]]$enumerable,[func[object,object]]$keySelector)
+    [IEnumerable[object]]WithExceptByValues([IEnumerable[object]]$enumerable)
+    
+    [IEnumerable[object]]WithUnion([Bag]$bag)
+    [IEnumerable[object]]WithUnion([IEnumerable[object]]$enumerable)
+    [IEnumerable[object]]WithUnion([IEnumerable[object]]$enumerable,[ScriptBlock]$converter)
+
+    [IEnumerable[object]]WithMaxBy([Type]$aType,[ScriptBlock]$keySelector)
+    [IEnumerable[object]]WithMaxBy([Type]$aType,[string]$aspectName)
+
+    [IEnumerable[object]]WithMinBy([Type]$aType,[ScriptBlock]$keySelector)
+    [IEnumerable[object]]WithMinBy([Type]$aType,[string]$aspectName)
+
+    [IEnumerable[object]]WithMaxBy([ScriptBlock]$keySelector)
+    [IEnumerable[object]]WithMaxBy([string]$aspectName)
+
+    [IEnumerable[object]]WithMinBy([ScriptBlock]$keySelector)
+    [IEnumerable[object]]WithMinBy([string]$aspectName)
+
+#>
+
+
 using namespace handjive.Collections
 
 class ConvertingFactoryInstaller{
@@ -41,9 +94,9 @@ class ExtractorInstaller : ConvertingFactoryInstaller{
     }
 }
 
-class QuotingFactory : IQuoter{
+<#class QuotingFactory : IQuoter{
     static [Type]$ConformanceType = $null
-    static [ConvertingFactoryInstaller]Installer(){
+    static [ConvertingFactoryInstaller]GetInstaller(){
         throw "Subclass responsibility"
         return $null
     }
@@ -57,7 +110,7 @@ class QuotingFactory : IQuoter{
 
 class ExtractingFactory : IExtractor{
     static [Type]$ConformanceType = $null
-    static [ConvertingFactoryInstaller]Installer(){
+    static [ConvertingFactoryInstaller]GetInstaller(){
         throw "Subclass responsibility"
         return $null
     }
@@ -68,7 +121,7 @@ class ExtractingFactory : IExtractor{
         $this.substance = $substance
     }
 }
-
+#>
 
 class BagToSomeConvertingFactory {
     static [Type]$PASSTHRU_FACTORY_TYPE = [BagThruFactory]
@@ -89,7 +142,7 @@ class BagToSomeConvertingFactory {
 
     <# Sublass responsibilities #>
 
-    [Collections.Generic.IEnumerable[object]]WithSelection([ScriptBlock]$nominator){ return $this.ThrowSubclassResponsibility() }
+    [Collections.Generic.IEnumerable[object]]WithSelectionBy([ScriptBlock]$nominator){ return $this.ThrowSubclassResponsibility() }
 
     [Collections.Generic.IEnumerable[object]]WithIntersect([Bag]$bag2){ return $this.ThrowSubclassResponsibility() }
     [Collections.Generic.IEnumerable[object]]WithIntersect([Collections.Generic.IEnumerable[object]]$enumerable,[ScriptBlock]$keySelector){ return $this.ThrowSubclassResponsibility() }
