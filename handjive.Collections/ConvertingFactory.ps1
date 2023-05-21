@@ -1,54 +1,49 @@
 using namespace handjive.Collections
 
-class QuoterInstaller : IQuoterInstaller {
-    [Type]$wpvQuoter
-    [Type]$wpvQuoteTo
+class ConvertingFactoryInstaller{
+    [Type]$Factory
+    [Type]$ConvertTo
 
-    QuoterInstaller([Type]$quoteTo,[Type]$quoter){
-        $this.QUoteTo = $quoteTo
-        $this.Quoter = $quoter
+    ConvertingFactoryInstaller([Type]$convertTo,[Type]$factory){
+        $this.Factory = $factory
+        $this.ConvertTo = $convertTo
     }
 
-    [System.Type]get_Quoter()
-    {
-        return $this.wpvQuoter
-    }
-    [System.Type]get_QuoteTo(){
-        return $this.wpvQuoteTo
+    [Collections.Generic.Dictionary[Type,Type]]GetDictionary([Type]$target){
+        return $null
     }
 
-    <#InstallOn([IQuotable]$target){
-        $dict = $target.gettype()::QUOTERS
-        if( $null -eq $dict ){
-            $target.gettype()::QUOTERS = [Collections.Generic.Dictionary[Type,object]]::new()
+    InstallOn([Type]$target){
+        $dict = $this.GetDictionary($target)
+        if( $null -eq $dict[$this.ConvertTo] ){
+            $dict.Add($this.ConvertTo,$this.Factory)
         }
-        if( $null -eq $dict[$this.substanece] ){
-            $dict.Add($this.substance::ConformanceType,$this.substance)
+        else{
+            $dict[$this.ConvertTo] = $this.Factory
         }
-    }#>
+    }
+
 }
 
-class ExtractorInstaller : IExtractorInstaller {
-    [Type]$wpvExtractor
-    [Type]$wpvExtractorTo
+class QuoterInstaller : ConvertingFactoryInstaller {
+    QuoterInstaller([Type]$quoteTo,[Type]$quoter) : base($quoteTo,$quoter){  }
 
-    QuoterInstaller([Type]$quoteTo,[Type]$quoter){
-        $this.ExtractorTo = $quoteTo
-        $this.Extractor = $quoter
+    [Collections.Generic.Dictionary[Type,Type]]GetDictionary([Type]$target){
+        return $target::QUOTERS
     }
+}
 
-    [System.Type]get_Extractor()
-    {
-        return $this.wpvExtractor
-    }
-    [System.Type]get_ExtractTo(){
-        return $this.wpvExtractorTo
+class ExtractorInstaller : ConvertingFactoryInstaller{
+    ExtractorInstaller([Type]$quoteTo,[Type]$quoter) : base($quoteTo,$quoter) {  }
+
+    [Collections.Generic.Dictionary[Type,Type]]GetDictionary([Type]$target){
+        return $target::EXTRACTORS
     }
 }
 
 class QuotingFactory : IQuoter{
     static [Type]$ConformanceType = $null
-    static [IQuoterInstaller]Installer(){
+    static [ConvertingFactoryInstaller]Installer(){
         throw "Subclass responsibility"
         return $null
     }
@@ -62,7 +57,7 @@ class QuotingFactory : IQuoter{
 
 class ExtractingFactory : IExtractor{
     static [Type]$ConformanceType = $null
-    static [IExtractorInstaller]Installer(){
+    static [ConvertingFactoryInstaller]Installer(){
         throw "Subclass responsibility"
         return $null
     }
@@ -106,7 +101,7 @@ class BagToSomeConvertingFactory {
     
     [Collections.Generic.IEnumerable[object]]WithUnion([Bag]$bag2){ return $this.ThrowSubclassResponsibility() }
     [Collections.Generic.IEnumerable[object]]WithUnion([Collections.Generic.IEnumerable[object]]$enumerable){ return $this.ThrowSubclassResponsibility() }
-    [Collections.Generic.IEnumerable[object]]WithUnion([Collections.Generic.IEnumerable[object]]$enumerable,[Collections.Generic.IEqualityComparer[object]]$comparer){ return $this.ThrowSubclassResponsibility() }
+    [Collections.Generic.IEnumerable[object]]WithUnion([Collections.Generic.IEnumerable[object]]$enumerable,[ScriptBlock]$converter){ return $this.ThrowSubclassResponsibility() }
 
     [Collections.Generic.IEnumerable[object]]WithMaxBy([Type]$aType,[ScriptBlock]$keySelector){ return return $this.ThrowSubclassResponsibility() }
     [Collections.Generic.IEnumerable[object]]WithMaxBy([Type]$aType,[string]$aspectName){ return $this.ThrowSubclassResponsibility() }
@@ -137,8 +132,10 @@ class BagThruFactory : BagToSomeConvertingFactory{
     
     [Collections.Generic.IEnumerable[object]]WithUnion([Bag]$bag2){ return $this.substance}
     [Collections.Generic.IEnumerable[object]]WithUnion([Collections.Generic.IEnumerable[object]]$enumerable){ return $this.substance }
-    [Collections.Generic.IEnumerable[object]]WithUnion([Collections.Generic.IEnumerable[object]]$enumerable,[Collections.Generic.IEqualityComparer[object]]$comparer){ return $this.substance }
+    [Collections.Generic.IEnumerable[object]]WithUnion([Collections.Generic.IEnumerable[object]]$enumerable,[ScriptBlock]$converter){ return $this.substance }
 
+    [Collections.Generic.IEnumerable[object]]WithMaxBy([ScriptBlock]$keySelector){ return $this.substance }
+    [Collections.Generic.IEnumerable[object]]WithMaxBy([string]$aspectName){ return $this.substance }
     [Collections.Generic.IEnumerable[object]]WithMinBy([ScriptBlock]$keySelector){ return $this.substance }
     [Collections.Generic.IEnumerable[object]]WithMinBy([string]$aspectName){ return $this.substance }
 }
@@ -194,6 +191,21 @@ class BagToEnumerableFactory : BagToSomeConvertingFactory{
         return $this.WithExcept($enumerable,{ $args[0] })
     }
 
+    [Collections.Generic.IEnumerable[object]]WithUnion([Bag]$bag){
+        $aClone = $this.substance.Clone()
+        $union = [Linq.Enumerable]::Union[object]($aClone,$bag)
+        return $this.AdjustResult($union)
+    }
+    [Collections.Generic.IEnumerable[object]]WithUnion([Collections.Generic.IEnumerable[object]]$enumerable){
+        return $this.WithUnion($enumerable,{ $args[0] })
+    }
+    [Collections.Generic.IEnumerable[object]]WithUnion([Collections.Generic.IEnumerable[object]]$enumerable,[ScriptBlock]$converter){
+        $aClone = $this.substance.Clone()
+        $converted = [Linq.Enumerable]::Select[object,object]($enumerable,[func[object,object]]$converter)
+        $union = [Linq.Enumerable]::Union[object]($aClone,$converted)
+        return $this.AdjustResult($union)
+    }
+
     [object]WithMaxBy([Type]$aType,[ScriptBlock]$keySelector){
         $execFrame = '[Linq.Enumerable]::MaxBy[object,{0}]($args[0],[func[object,{0}]]$args[1])'
         $executer = [ScriptBlock]::create([String]::Format($execFrame,$aType))
@@ -218,16 +230,19 @@ class BagToEnumerableFactory : BagToSomeConvertingFactory{
 
 }
 
-class BagToEnumerableQuoter : BagToEnumerableFactory, IQuoter{
-    static [IQuoterInstaller]Installer(){
+class BagToEnumerableQuoter : BagToEnumerableFactory<#, IQuoter#>{
+    static [ConvertingFactoryInstaller]GetInstaller(){
         return [QuoterInstaller]::new([Collections.Generic.IEnumerable[object]],[BagToEnumerableQuoter])
     }
+    <#static [IQuoterInstaller]Installer(){
+        return [QuoterInstaller]::new([Collections.Generic.IEnumerable[object]],[BagToEnumerableQuoter])
+    }#>
     
     BagToEnumerableQuoter([Bag]$substance) : base($substance){}
 }
 
 class BagToBagQuoter : BagToEnumerableQuoter{
-    static [IQuoterInstaller]Installer(){
+    static [ConvertingFactoryInstaller]GetInstaller(){
         return [QuoterInstaller]::new([Bag],[BagToBagQuoter])
     }
 
@@ -240,8 +255,8 @@ class BagToBagQuoter : BagToEnumerableQuoter{
 }
 
 class BagToSetQuoter : BagToEnumerableQuoter{
-    static [IQuoterInstaller]Installer(){
-        return [IQuoterInstaller]::new([Bag],[BagToSetQuoter])
+    static [ConvertingFactoryInstaller]GetInstaller(){
+        return [QuoterInstaller]::new([Bag],[BagToSetQuoter])
     }
 
     BagToSetQuoter([Bag]$substance) : base($substance){}
@@ -252,8 +267,8 @@ class BagToSetQuoter : BagToEnumerableQuoter{
     }
 }
 
-class BagToEnumerableExtractor : BagToEnumerableFactory,IExtractor{
-    static [IExtractorInstaller]Installer(){
+class BagToEnumerableExtractor : BagToEnumerableFactory<#,IExtractor#>{
+    static [ConvertingFactoryInstaller]GetInstaller(){
         return [ExtractorInstaller]::new([Collections.Generic.IEnumerable[object]],[BagToEnumerableExtractor])
     }
 
@@ -266,7 +281,7 @@ class BagToEnumerableExtractor : BagToEnumerableFactory,IExtractor{
 }
 
 class BagToBagExtractor: BagToEnumerableExtractor{
-    static [IExtractorInstaller]Installer(){
+    static [ConvertingFactoryInstaller]GetInstaller(){
         return [ExtractorInstaller]::new([Bag],[BagToSetExtractor])
     }
 
@@ -279,15 +294,15 @@ class BagToBagExtractor: BagToEnumerableExtractor{
         return $newOne
     }
 }
-class BagToSetExtractor : BagToSetQuoter, IExtractor{
-    static [IExtractorInstaller]Installer(){
+class BagToSetExtractor : BagToEnumerableExtractor{
+    static [ConvertingFactoryInstaller]GetInstaller(){
         return [ExtractorInstaller]::new([Collections.Generic.HashSet[object]],[BagToSetExtractor])
     }
 
     BagToSetExtractor([Bag]$substance) : base($substance){}
 
     [Collections.Generic.IEnumerable[object]]AdjustResult([Collections.Generic.IEnumerable[object]]$result){
-        $result = ([BagToSetQuoter]$this).AdjustResult($result)
+        $result = ([BagToEnumerableExtractor]$this).AdjustResult($result)
         $newOne = [Collections.Generic.HashSet[object]]::new($result)
         #$this.substance.RemoveAll($result)
         return $newOne

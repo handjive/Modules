@@ -12,3 +12,9 @@ using namespace handjive.Collections
 . "$PSScriptRoot\ConvertingFactory.ps1"
 . "$PSScriptRoot\EnumerableSorter.ps1"
 
+[BagToEnumerableQuoter]::GetInstaller().InstallOn([Bag])
+[BagToBagQuoter]::GetInstaller().InstallOn([Bag])
+[BagToSetQuoter]::GetInstaller().InstallOn([Bag])
+[BagToEnumerableExtractor]::GetInstaller().InstallOn([Bag])
+[BagToBagExtractor]::GetInstaller().InstallOn([Bag])
+[BagToSetExtractor]::GetInstaller().InstallOn([Bag])

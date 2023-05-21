@@ -166,6 +166,32 @@ switch($args[0]){
             Print -Subject $result -Builder $mb
         }
     }
+    1.C { # Quoter: WithUnion([Bag])
+        $files = Get-ChildItem -Path . -File -Recurse
+        $bag1 = [Bag]::new($files,[AspectComparer]::new('PSParentPath'))
+        $bag2 = [BagToBagQuoter]::new($bag1).WithSelectionBy({ $args[0].Extension -eq '.dll' })
+        $bag3 = [BagToBagQuoter]::new($bag1).WithSelectionBy({ $args[0].Extension -eq '.json' })
+
+        @( [BagToEnumerableQuoter],[BagToBagQuoter],[BagToSetQuoter] ).foreach{
+            $quoter = $_::new($bag2)
+            '----- WithUnion([Bag]) {0} -----' | InjectMessage $mb -FormatByStream $_.Name -Flush -ForegroundColor Green -Bold
+            $result = $quoter.WithUnion($bag3)     # .dllを含まないフォルダの内容
+            Print -Subject $result -Builder $mb
+        }
+    }
+    1.D { # Quoter: WithUnion([Bag])
+        $files = Get-ChildItem -Path . -File -Recurse
+        $bag1 = [Bag]::new($files,[AspectComparer]::new('PSParentPath'))
+        $enumerable = [BagToEnumerableQuoter]::new($bag1).WithSelectionBy({ $args[0].Extension -eq '.dll' })
+        $bag3 = [BagToBagQuoter]::new($bag1).WithSelectionBy({ $args[0].Extension -eq '.json' })
+
+        @( [BagToEnumerableQuoter],[BagToBagQuoter],[BagToSetQuoter] ).foreach{
+            $quoter = $_::new($bag3)
+            '----- WithUnion([IEnumerable[object]]) {0} -----' | InjectMessage $mb -FormatByStream $_.Name -Flush -ForegroundColor Green -Bold
+            $result = $quoter.WithUnion($enumerable)     # .dllを含まないフォルダの内容
+            Print -Subject $result -Builder $mb
+        }
+    }
     2.1 { # Extractor: WithSelectionBy
         $files = Get-ChildItem -Path . -File -Recurse
         $bag = [Bag]::new($files,[AspectComparer]::new('Extension'))
@@ -208,5 +234,18 @@ switch($args[0]){
             '{0}' | InjectMessage $mb -FormatByStream $_.Name -Flush
         }
         write-host ''
+    }
+    3 {
+        [BagToEnumerableQuoter]::GetInstaller().InstallOn([Bag])
+        [BagToBagQuoter]::GetInstaller().InstallOn([Bag])
+        [BagToSetQuoter]::GetInstaller().InstallOn([Bag])
+        [BagToEnumerableExtractor]::GetInstaller().InstallOn([Bag])
+        [BagToBagExtractor]::GetInstaller().InstallOn([Bag])
+        [BagToSetExtractor]::GetInstaller().InstallOn([Bag])
+    }
+    4 {
+        $files = Get-ChildItem -Path . -File -Recurse
+        $bag = [Bag]::new($files,[AspectComparer]::new('Extension'))
+        $bag.QuoteTo([Bag]).WithSelectionBy({ $args[0].Extension -eq '.dll' })
     }
 }

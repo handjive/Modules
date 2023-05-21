@@ -238,14 +238,14 @@ namespace handjive{
             IndexableEnumerableBase ValuesAndElements{ get; }
         }
 
-        public interface IQuoterInstaller{
+        public interface IQuoterInstaller{  // Obsolete: インターフェース明示メソッドが実装できないので、あれこれやってみたけど役立たず
             public System.Type Quoter{ get;  }
             public System.Type QuoteTo{ get;  }
             public void InstallOn(System.Type target){
                 IQuotable.GetQUOTERS(target)[this.QuoteTo] = this.Quoter;
             }
         }
-        public interface IExtractorInstaller{
+        public interface IExtractorInstaller{   // Obsolete: インターフェース明示メソッドが実装できないので、あれこれやってみたけど役立たず
             public System.Type Extractor{ get;  }
             public System.Type ExtractTo{ get;  }
             public void InstallOn(System.Type target){
@@ -253,15 +253,17 @@ namespace handjive{
             }
         }
         
-        public interface IQuoter{
-            static IQuoterInstaller Installer{ get; set; }  // [QuoterInstaller]::new([Type]$quoter,
+        public interface IQuoter{   // Obsolete: インターフェース明示メソッドが実装できないので、あれこれやってみたけど役立たず
+            //static IQuoterInstaller Installer{ get{ return IQuoter.Get_Installer(); } }
+            static IQuoterInstaller Installer{ get; }
         }
-        public interface IExtractor{
-            static IExtractorInstaller Installer{ get; set; }
+        public interface IExtractor{    // Obsolete: インターフェース明示メソッドが実装できないので、あれこれやってみたけど役立たず
+            static IExtractorInstaller Installer{ get; }
+            //static IExtractorInstaller Installer{ get{ return IExtractor.get_Installer(); } }
         }
 
-        public interface IQuotable {
-            public static SCG.Dictionary<System.Type,SCG.Dictionary<System.Type,System.Type>> QUOTERS_DICTIONARY;
+        public interface IQuotable {    // Obsolete: インターフェース明示メソッドが実装できないので、あれこれやってみたけど役立たず
+            public static SCG.Dictionary<System.Type,SCG.Dictionary<System.Type,System.Type>> QUOTERS_DICTIONARY;   // key=Target type, Value=Converter
             
             public static SCG.Dictionary<System.Type,System.Type> GetQUOTERS(System.Type target){
                 SCG.Dictionary<System.Type,System.Type> quoters;
@@ -277,7 +279,7 @@ namespace handjive{
 
             public object QuoteTo(System.Type aType);
         }
-        public interface IExtractable { 
+        public interface IExtractable { // Obsolete: インターフェース明示メソッドが実装できないので、あれこれやってみたけど役立たず
             public static SCG.Dictionary<System.Type,SCG.Dictionary<System.Type,System.Type>> EXTRACTORS_DICTIONARY;
             
             public static SCG.Dictionary<System.Type,System.Type> GetEXTRACTORS(System.Type target){

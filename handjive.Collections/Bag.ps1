@@ -19,6 +19,9 @@ using namespace handjive.Collections
     $aBag.ValuesAndOccurrencesSorted → IndexAdaptor
 #>
 class Bag : IndexableEnumerableBase, IBag, ICloneable, IQuotable, IExtractable {
+    static [Collections.Generic.Dictionary[Type,Type]]$QUOTERS = [Collections.Generic.Dictionary[Type,Type]]::new()
+    static [Collections.Generic.Dictionary[Type,Type]]$EXTRACTORS = [Collections.Generic.Dictionary[Type,Type]]::new()
+
     static $VALUE_COMPARER_CLASS = [PluggableComparer]                # ValuesSorted用のComparer
     static $OCCURRENCES_VALUE_CLASS = [Collections.Generic.List[object]]
 
@@ -384,15 +387,22 @@ class Bag : IndexableEnumerableBase, IBag, ICloneable, IQuotable, IExtractable {
         $aFactory = ($this.gettype())::Factories[$aType]
         return $aFactory::new($this)
     }#>
+    hidden [Type]GetFactoryClass([Type]$aTarget,[Collections.Generic.Dictionary[Type,Type]]$dict){
+        if( $null -eq ($aFactory = $dict[$aTarget]) ){
+            throw ([String]::Format('{0}: Quoter/Extractor for the type [{1}] does not installed.',$this.gettype().Name,$aTarget.Name))
+        }
 
-    [object]QuoteTo([Type]$aType){
-        $aFactory = $this.gettype()::QUOTERS[$aType]
         return $aFactory
     }
 
+    [object]QuoteTo([Type]$aType){
+        $aFactory = $this.GetFactoryClass($aType,$this.gettype()::QUOTERS)
+        return $aFactory::new($this)
+    }
+
     [object]ExtractTo([Type]$aType){
-        $aFactory = $this.gettype()::EXTRACTORS[$aType]
-        return $aFactory
+        $aFactory = $this.GetFactoryClass($aType,$this.gettype()::EXTRACTORS)
+        return $aFactory::new($this)
     }
 }
 
