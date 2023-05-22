@@ -337,13 +337,26 @@ class BagToBagQuoter : BagToEnumerableQuoter{
 
 class BagToSetQuoter : BagToEnumerableQuoter{
     static [ConvertingFactoryInstaller]GetInstaller(){
-        return [QuoterInstaller]::new([Bag],[BagToSetQuoter])
+        return [QuoterInstaller]::new([HashSet[object]],[BagToSetQuoter])
     }
 
     BagToSetQuoter([Bag]$substance) : base($substance){}
 
     [IEnumerable[object]]AdjustResult([IEnumerable[object]]$result){
         $newOne = [HashSet[object]]::new($result)
+        return $newOne
+    }
+}
+
+class BagToListQuoter : BagToEnumerableQuoter{
+    static [ConvertingFactoryInstaller]GetInstaller(){
+        return [QuoterInstaller]::new([List[object]],[BagToListQuoter])
+    }
+
+    BagToListQuoter([Bag]$substance) : base($substance){}
+
+    [IEnumerable[object]]AdjustResult([IEnumerable[object]]$result){
+        $newOne = [List[object]]::new($result)
         return $newOne
     }
 }
@@ -390,3 +403,16 @@ class BagToSetExtractor : BagToEnumerableExtractor{
     }
 }
 
+class BagToListExtractor : BagToEnumerableExtractor{
+    static [ConvertingFactoryInstaller]GetInstaller(){
+        return [ExtractorInstaller]::new([List[object]],[BagToListExtractor])
+    }
+
+    BagToListExtractor([Bag]$substance) : base($substance){}
+
+    [IEnumerable[object]]AdjustResult([IEnumerable[object]]$result){
+        $result = ([BagToEnumerableExtractor]$this).AdjustResult($result)
+        $newOne = [List[object]]::new($result)
+        return $newOne
+    }
+}
