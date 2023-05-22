@@ -18,11 +18,15 @@ Quoter: 元オブジェクトに影響を与えずに何らかの処理を加え
 Extractor: 元オブジェクトに何らかの処理を加えた結果で新しいオブジェクトを生成し、元オブジェクトからその要素を取り除く処理の集合
 
 実装している集合操作は以下の通りで、それぞれIEnumerable[object],Bag,HashSet[object]に変換可能。
-("WithSelectionBy"→Whereを除いて、だいたいLinq.Enumerableと一緒)
+("WithSelectWhere"→Whereを除いて、だいたいLinq.Enumerableと一緒)
 
     using namespace System.Collections.Generic
 
-    [IEnumerable[object]]WithSelectionBy([ScriptBlock]$nominator)
+    [IEnumerable[object]]WithSelectWhere([ScriptBlock]$nominator)
+    [IEnumerable[object]]WithSelect([ScriptBlock]$operator)
+
+    [IEnumerable[object]]WithSelectMany([ScriptBlock]$operator)
+    [IEnumerable[object]]WithSelectMany([ScriptBlock]$colectionSelector,[ScriptBlock]$resultSelector)
 
     [IEnumerable[object]]WithIntersect([Bag]$bag)
     [IEnumerable[object]]WithIntersect([IEnumerable[object]]$enumerable,[ScriptBlock]$keySelector)
@@ -51,7 +55,7 @@ Extractor: 元オブジェクトに何らかの処理を加えた結果で新し
 #>
 
 
-using namespace handjive.Collections
+using namespace System.Collections.Generic
 
 class ConvertingFactoryInstaller{
     [Type]$Factory
@@ -62,7 +66,7 @@ class ConvertingFactoryInstaller{
         $this.ConvertTo = $convertTo
     }
 
-    [Collections.Generic.Dictionary[Type,Type]]GetDictionary([Type]$target){
+    [Dictionary[Type,Type]]GetDictionary([Type]$target){
         return $null
     }
 
@@ -81,7 +85,7 @@ class ConvertingFactoryInstaller{
 class QuoterInstaller : ConvertingFactoryInstaller {
     QuoterInstaller([Type]$quoteTo,[Type]$quoter) : base($quoteTo,$quoter){  }
 
-    [Collections.Generic.Dictionary[Type,Type]]GetDictionary([Type]$target){
+    [Dictionary[Type,Type]]GetDictionary([Type]$target){
         return $target::QUOTERS
     }
 }
@@ -89,7 +93,7 @@ class QuoterInstaller : ConvertingFactoryInstaller {
 class ExtractorInstaller : ConvertingFactoryInstaller{
     ExtractorInstaller([Type]$quoteTo,[Type]$quoter) : base($quoteTo,$quoter) {  }
 
-    [Collections.Generic.Dictionary[Type,Type]]GetDictionary([Type]$target){
+    [Dictionary[Type,Type]]GetDictionary([Type]$target){
         return $target::EXTRACTORS
     }
 }
@@ -136,73 +140,97 @@ class BagToSomeConvertingFactory {
         return $null
     }
 
-    [Collections.Generic.IEnumerable[object]]AdjustResult([Collections.Generic.IEnumerable[object]]$result){
+    [IEnumerable[object]]AdjustResult([IEnumerable[object]]$result){
         return $result
     }
 
     <# Sublass responsibilities #>
 
-    [Collections.Generic.IEnumerable[object]]WithSelectionBy([ScriptBlock]$nominator){ return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithSelectWhere([ScriptBlock]$nominator){ return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithSelect([ScriptBlock]$operator){ return $this.ThrowSubclassResponsibility() }
 
-    [Collections.Generic.IEnumerable[object]]WithIntersect([Bag]$bag2){ return $this.ThrowSubclassResponsibility() }
-    [Collections.Generic.IEnumerable[object]]WithIntersect([Collections.Generic.IEnumerable[object]]$enumerable,[ScriptBlock]$keySelector){ return $this.ThrowSubclassResponsibility() }
-    [Collections.Generic.IEnumerable[object]]WithIntersectByValues([Collections.Generic.IEnumerable[object]]$enumerable){ return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithSelectMany([ScriptBlock]$operator){ return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithSelectMany([ScriptBlock]$colectionSelector,[ScriptBlock]$resultSelector){ return $this.ThrowSubclassResponsibility() }
+
+    [IEnumerable[object]]WithIntersect([Bag]$bag2){ return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithIntersect([IEnumerable[object]]$enumerable,[ScriptBlock]$keySelector){ return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithIntersectByValues([IEnumerable[object]]$enumerable){ return $this.ThrowSubclassResponsibility() }
     
-    [Collections.Generic.IEnumerable[object]]WithExcept([Bag]$bag2){ return $this.ThrowSubclassResponsibility() }
-    [Collections.Generic.IEnumerable[object]]WithExcept([Collections.Generic.IEnumerable[object]]$enumerable,[func[object,object]]$keySelector){ return $this.ThrowSubclassResponsibility() }
-    [Collections.Generic.IEnumerable[object]]WithExceptByValues([Collections.Generic.IEnumerable[object]]$enumerable){ return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithExcept([Bag]$bag2){ return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithExcept([IEnumerable[object]]$enumerable,[func[object,object]]$keySelector){ return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithExceptByValues([IEnumerable[object]]$enumerable){ return $this.ThrowSubclassResponsibility() }
     
-    [Collections.Generic.IEnumerable[object]]WithUnion([Bag]$bag2){ return $this.ThrowSubclassResponsibility() }
-    [Collections.Generic.IEnumerable[object]]WithUnion([Collections.Generic.IEnumerable[object]]$enumerable){ return $this.ThrowSubclassResponsibility() }
-    [Collections.Generic.IEnumerable[object]]WithUnion([Collections.Generic.IEnumerable[object]]$enumerable,[ScriptBlock]$converter){ return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithUnion([Bag]$bag2){ return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithUnion([IEnumerable[object]]$enumerable){ return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithUnion([IEnumerable[object]]$enumerable,[ScriptBlock]$converter){ return $this.ThrowSubclassResponsibility() }
 
-    [Collections.Generic.IEnumerable[object]]WithMaxBy([Type]$aType,[ScriptBlock]$keySelector){ return return $this.ThrowSubclassResponsibility() }
-    [Collections.Generic.IEnumerable[object]]WithMaxBy([Type]$aType,[string]$aspectName){ return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithMaxBy([Type]$aType,[ScriptBlock]$keySelector){ return return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithMaxBy([Type]$aType,[string]$aspectName){ return $this.ThrowSubclassResponsibility() }
 
-    [Collections.Generic.IEnumerable[object]]WithMinBy([Type]$aType,[ScriptBlock]$keySelector){ return $this.ThrowSubclassResponsibility() }
-    [Collections.Generic.IEnumerable[object]]WithMinBy([Type]$aType,[string]$aspectName){ return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithMinBy([Type]$aType,[ScriptBlock]$keySelector){ return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithMinBy([Type]$aType,[string]$aspectName){ return $this.ThrowSubclassResponsibility() }
 
     <# May works as is... #>
-    [Collections.Generic.IEnumerable[object]]WithMaxBy([ScriptBlock]$keySelector){ return ($this.WithMaxBy([object],$keySelector))}
-    [Collections.Generic.IEnumerable[object]]WithMaxBy([string]$aspectName){ return ($this.WithMaxBy([object],$aspectName)) }
+    [IEnumerable[object]]WithMaxBy([ScriptBlock]$keySelector){ return ($this.WithMaxBy([object],$keySelector))}
+    [IEnumerable[object]]WithMaxBy([string]$aspectName){ return ($this.WithMaxBy([object],$aspectName)) }
 
-    [Collections.Generic.IEnumerable[object]]WithMinBy([ScriptBlock]$keySelector){ return ($this.WithMinBy([object],$keySelector))}
-    [Collections.Generic.IEnumerable[object]]WithMinBy([string]$aspectName){ return ($this.WithMinBy([object],$aspectName)) }
+    [IEnumerable[object]]WithMinBy([ScriptBlock]$keySelector){ return ($this.WithMinBy([object],$keySelector))}
+    [IEnumerable[object]]WithMinBy([string]$aspectName){ return ($this.WithMinBy([object],$aspectName)) }
 }
 
 class BagThruFactory : BagToSomeConvertingFactory{
     BagThruFactory([Bag]$substance) : base($substance){}
 
-    [Collections.Generic.IEnumerable[object]]WithSelectionBy([ScriptBlock]$nominator){ return $this.substance }
-    
-    [Collections.Generic.IEnumerable[object]]WithIntersect([Bag]$bag2){ return $this.substance }
-    [Collections.Generic.IEnumerable[object]]WithIntersect([Collections.Generic.IEnumerable[object]]$enumerable,[ScriptBlock]$keySelector){ return $this.substance }
-    [Collections.Generic.IEnumerable[object]]WithIntersectByValues([Collections.Generic.IEnumerable[object]]$enumerable){ return $this.substance }
-    
-    [Collections.Generic.IEnumerable[object]]WithExcept([Bag]$bag2){ return $this.substance }
-    [Collections.Generic.IEnumerable[object]]WithExcept([Collections.Generic.IEnumerable[object]]$enumerable,[func[object,object]]$keySelector){ return $this.substance }
-    [Collections.Generic.IEnumerable[object]]WithExceptByValues([Collections.Generic.IEnumerable[object]]$enumerable){ return $this.substance }
-    
-    [Collections.Generic.IEnumerable[object]]WithUnion([Bag]$bag2){ return $this.substance}
-    [Collections.Generic.IEnumerable[object]]WithUnion([Collections.Generic.IEnumerable[object]]$enumerable){ return $this.substance }
-    [Collections.Generic.IEnumerable[object]]WithUnion([Collections.Generic.IEnumerable[object]]$enumerable,[ScriptBlock]$converter){ return $this.substance }
+    [IEnumerable[object]]WithSelectWhere([ScriptBlock]$nominator){ return $this.substance }
+    [IEnumerable[object]]WithSelect([ScriptBlock]$operator){ return $this.substance }
 
-    [Collections.Generic.IEnumerable[object]]WithMaxBy([ScriptBlock]$keySelector){ return $this.substance }
-    [Collections.Generic.IEnumerable[object]]WithMaxBy([string]$aspectName){ return $this.substance }
-    [Collections.Generic.IEnumerable[object]]WithMinBy([ScriptBlock]$keySelector){ return $this.substance }
-    [Collections.Generic.IEnumerable[object]]WithMinBy([string]$aspectName){ return $this.substance }
+    [IEnumerable[object]]WithSelectMany([ScriptBlock]$operator){ return $this.substance }
+    [IEnumerable[object]]WithSelectMany([ScriptBlock]$colectionSelector,[ScriptBlock]$resultSelector){ return $this.substance }
+    
+    [IEnumerable[object]]WithIntersect([Bag]$bag2){ return $this.substance }
+    [IEnumerable[object]]WithIntersect([IEnumerable[object]]$enumerable,[ScriptBlock]$keySelector){ return $this.substance }
+    [IEnumerable[object]]WithIntersectByValues([IEnumerable[object]]$enumerable){ return $this.substance }
+    
+    [IEnumerable[object]]WithExcept([Bag]$bag2){ return $this.substance }
+    [IEnumerable[object]]WithExcept([IEnumerable[object]]$enumerable,[func[object,object]]$keySelector){ return $this.substance }
+    [IEnumerable[object]]WithExceptByValues([IEnumerable[object]]$enumerable){ return $this.substance }
+    
+    [IEnumerable[object]]WithUnion([Bag]$bag2){ return $this.substance}
+    [IEnumerable[object]]WithUnion([IEnumerable[object]]$enumerable){ return $this.substance }
+    [IEnumerable[object]]WithUnion([IEnumerable[object]]$enumerable,[ScriptBlock]$converter){ return $this.substance }
+
+    [IEnumerable[object]]WithMaxBy([ScriptBlock]$keySelector){ return $this.substance }
+    [IEnumerable[object]]WithMaxBy([string]$aspectName){ return $this.substance }
+    [IEnumerable[object]]WithMinBy([ScriptBlock]$keySelector){ return $this.substance }
+    [IEnumerable[object]]WithMinBy([string]$aspectName){ return $this.substance }
 }
 
 class BagToEnumerableFactory : BagToSomeConvertingFactory{
     BagToEnumerableFactory([Bag]$substance) : base($substance){}
  
-    [Collections.Generic.IEnumerable[object]]WithSelectionBy([ScriptBlock]$nominator){
+    [IEnumerable[object]]WithSelectWhere([ScriptBlock]$nominator){
         $aClone = $this.substance.Clone()
         $selection = [Linq.Enumerable]::Where[object]($aClone,[func[object,bool]]$nominator)
         return $this.AdjustResult($selection)
     }
+    [IEnumerable[object]]WithSelect([ScriptBlock]$operator){
+        $aClone = $this.substance.Clone()
+        $selection = [Linq.Enumerable]::Select[object,object]($aClone,[func[object,object]]$operator)
+        return $this.AdjustResult($selection)
+    }
 
-    [Collections.Generic.IEnumerable[object]]WithIntersect([Bag]$aBag){
+    [IEnumerable[object]]WithSelectMany([ScriptBlock]$collectionSelector){
+        $aClone = $this.substance.Clone()
+        $selection = [Linq.Enumerable]::SelectMany[object,object]($aClone,[func[object,IEnumerable[object]]]$collectionSelector)
+        return $this.AdjustResult($selection)
+    }
+    [IEnumerable[object]]WithSelectMany([ScriptBlock]$collectionSelector,[ScriptBlock]$resultSelector){
+        $aClone = $this.substance.Clone()
+        $selection = [Linq.Enumerable]::SelectMany[object,object,object]($aClone,[func[object,IEnumerable[object]]]$collectionSelector,[func[object,object,object]]$resultSelector)
+        return $this.AdjustResult($selection)
+    }
+
+    [IEnumerable[object]]WithIntersect([Bag]$aBag){
         $keys = [Linq.Enumerable]::Select[object,object]($aBag.ValuesAndElements,[func[object,object]]{ $args[0].Value })
         $aClone = $this.Substance.Clone()
         $aClone.Comparer = $aBag.Comparer
@@ -211,7 +239,7 @@ class BagToEnumerableFactory : BagToSomeConvertingFactory{
        
         return $this.AdjustResult($elements)
     }
-    [Collections.Generic.IEnumerable[object]]WithIntersect([Collections.Generic.IEnumerable[object]]$enumerable,[ScriptBlock]$keySelector){
+    [IEnumerable[object]]WithIntersect([IEnumerable[object]]$enumerable,[ScriptBlock]$keySelector){
         $keys = [Linq.Enumerable]::Select[object,object]($enumerable,[func[object,object]]$keySelector)
         $aClone = $this.substance.Clone()
         $intersect = [Linq.Enumerable]::IntersectBy[object,object]($aClone.ValuesAndElements,$keys,[func[object,object]]{ $args[0].Value })
@@ -219,11 +247,11 @@ class BagToEnumerableFactory : BagToSomeConvertingFactory{
        
         return $this.AdjustResult($elements)
     }
-    [Collections.Generic.IEnumerable[object]]WithIntersectByValues([Collections.Generic.IEnumerable[object]]$enumerable){
+    [IEnumerable[object]]WithIntersectByValues([IEnumerable[object]]$enumerable){
         return $this.WithIntersect($enumerable,{ $args[0] })
     }
 
-    [Collections.Generic.IEnumerable[object]]WithExcept([Bag]$aBag){
+    [IEnumerable[object]]WithExcept([Bag]$aBag){
         $keys = [Linq.Enumerable]::Select[object,object]($aBag.ValuesAndOccurrences,[func[object,object]]{ $args[0].Value })
         $aClone = $this.substance.Clone()
         $aClone.Comparer = $aBag.Comparer
@@ -232,7 +260,7 @@ class BagToEnumerableFactory : BagToSomeConvertingFactory{
        
         return $this.AdjustResult($elements)
     }
-    [Collections.Generic.IEnumerable[object]]WithExcept([Collections.Generic.IEnumerable[object]]$enumerable,[ScriptBlock]$keySelector){
+    [IEnumerable[object]]WithExcept([IEnumerable[object]]$enumerable,[ScriptBlock]$keySelector){
         $keys = [Linq.Enumerable]::Select[object,object]($enumerable,[func[object,object]]$keySelector)
         $aClone = $this.substance.Clone()
         $except = [Linq.Enumerable]::ExceptBy[object,object]($aClone.ValuesAndElements,$keys,[func[object,object]]{ $args[0].Value })
@@ -240,19 +268,19 @@ class BagToEnumerableFactory : BagToSomeConvertingFactory{
        
         return $this.AdjustResult($elements)
     }
-    [Collections.Generic.IEnumerable[object]]WithExceptByValues([Collections.Generic.IEnumerable[object]]$enumerable){
+    [IEnumerable[object]]WithExceptByValues([IEnumerable[object]]$enumerable){
         return $this.WithExcept($enumerable,{ $args[0] })
     }
 
-    [Collections.Generic.IEnumerable[object]]WithUnion([Bag]$bag){
+    [IEnumerable[object]]WithUnion([Bag]$bag){
         $aClone = $this.substance.Clone()
         $union = [Linq.Enumerable]::Union[object]($aClone,$bag)
         return $this.AdjustResult($union)
     }
-    [Collections.Generic.IEnumerable[object]]WithUnion([Collections.Generic.IEnumerable[object]]$enumerable){
+    [IEnumerable[object]]WithUnion([IEnumerable[object]]$enumerable){
         return $this.WithUnion($enumerable,{ $args[0] })
     }
-    [Collections.Generic.IEnumerable[object]]WithUnion([Collections.Generic.IEnumerable[object]]$enumerable,[ScriptBlock]$converter){
+    [IEnumerable[object]]WithUnion([IEnumerable[object]]$enumerable,[ScriptBlock]$converter){
         $aClone = $this.substance.Clone()
         $converted = [Linq.Enumerable]::Select[object,object]($enumerable,[func[object,object]]$converter)
         $union = [Linq.Enumerable]::Union[object]($aClone,$converted)
@@ -285,10 +313,10 @@ class BagToEnumerableFactory : BagToSomeConvertingFactory{
 
 class BagToEnumerableQuoter : BagToEnumerableFactory<#, IQuoter#>{
     static [ConvertingFactoryInstaller]GetInstaller(){
-        return [QuoterInstaller]::new([Collections.Generic.IEnumerable[object]],[BagToEnumerableQuoter])
+        return [QuoterInstaller]::new([IEnumerable[object]],[BagToEnumerableQuoter])
     }
     <#static [IQuoterInstaller]Installer(){
-        return [QuoterInstaller]::new([Collections.Generic.IEnumerable[object]],[BagToEnumerableQuoter])
+        return [QuoterInstaller]::new([IEnumerable[object]],[BagToEnumerableQuoter])
     }#>
     
     BagToEnumerableQuoter([Bag]$substance) : base($substance){}
@@ -301,7 +329,7 @@ class BagToBagQuoter : BagToEnumerableQuoter{
 
     BagToBagQuoter([Bag]$substance) : base($substance){}
 
-    [Collections.Generic.IEnumerable[object]]AdjustResult([Collections.Generic.IEnumerable[object]]$result){
+    [IEnumerable[object]]AdjustResult([IEnumerable[object]]$result){
         $newOne = [Bag]::new($result,$this.substance.Comparer)
         return $newOne
     }
@@ -314,20 +342,20 @@ class BagToSetQuoter : BagToEnumerableQuoter{
 
     BagToSetQuoter([Bag]$substance) : base($substance){}
 
-    [Collections.Generic.IEnumerable[object]]AdjustResult([Collections.Generic.IEnumerable[object]]$result){
-        $newOne = [Collections.Generic.HashSet[object]]::new($result)
+    [IEnumerable[object]]AdjustResult([IEnumerable[object]]$result){
+        $newOne = [HashSet[object]]::new($result)
         return $newOne
     }
 }
 
 class BagToEnumerableExtractor : BagToEnumerableFactory<#,IExtractor#>{
     static [ConvertingFactoryInstaller]GetInstaller(){
-        return [ExtractorInstaller]::new([Collections.Generic.IEnumerable[object]],[BagToEnumerableExtractor])
+        return [ExtractorInstaller]::new([IEnumerable[object]],[BagToEnumerableExtractor])
     }
 
     BagToEnumerableExtractor([Bag]$substance) : base($substance){}
 
-    [Collections.Generic.IEnumerable[object]]AdjustResult([Collections.Generic.IEnumerable[object]]$result){
+    [IEnumerable[object]]AdjustResult([IEnumerable[object]]$result){
         $this.substance.RemoveAll($result)
         return ($result)
     }
@@ -340,7 +368,7 @@ class BagToBagExtractor: BagToEnumerableExtractor{
 
     BagToBagExtractor([Bag]$substance) : base($substance){}
 
-    [Collections.Generic.IEnumerable[object]]AdjustResult([Collections.Generic.IEnumerable[object]]$result){
+    [IEnumerable[object]]AdjustResult([IEnumerable[object]]$result){
         $result = ([BagToEnumerableExtractor]$this).AdjustResult($result)
         $newOne = [Bag]::new($result)
         #$this.substance.RemoveAll($result)
@@ -349,14 +377,14 @@ class BagToBagExtractor: BagToEnumerableExtractor{
 }
 class BagToSetExtractor : BagToEnumerableExtractor{
     static [ConvertingFactoryInstaller]GetInstaller(){
-        return [ExtractorInstaller]::new([Collections.Generic.HashSet[object]],[BagToSetExtractor])
+        return [ExtractorInstaller]::new([HashSet[object]],[BagToSetExtractor])
     }
 
     BagToSetExtractor([Bag]$substance) : base($substance){}
 
-    [Collections.Generic.IEnumerable[object]]AdjustResult([Collections.Generic.IEnumerable[object]]$result){
+    [IEnumerable[object]]AdjustResult([IEnumerable[object]]$result){
         $result = ([BagToEnumerableExtractor]$this).AdjustResult($result)
-        $newOne = [Collections.Generic.HashSet[object]]::new($result)
+        $newOne = [HashSet[object]]::new($result)
         #$this.substance.RemoveAll($result)
         return $newOne
     }

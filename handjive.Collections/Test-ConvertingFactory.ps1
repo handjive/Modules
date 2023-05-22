@@ -235,7 +235,49 @@ switch($args[0]){
         }
         write-host ''
     }
-    3 {
+    3.1 { # WIthSelect
+        $files = Get-ChildItem -Path . -File -Recurse
+        $bag = [Bag]::new($files)
+
+        @( [BagToEnumerableQuoter],[BagToBagQuoter],[BagToSetQuoter] ).foreach{
+            $quoter = $_::new($bag)    
+            '----- WithSelect([ScriptBlock]) {0} -----' | InjectMessage $mb -FormatByStream $_.Name -Flush -ForegroundColor Green -Bold
+            $result = $quoter.WithSelect({ $args[0].Length })  # .dllを含むフォルダの内容
+            Print -Subject $result -Builder $mb
+        }
+
+    }
+    3.2 { # WithSelectMany
+#        [IEnumerable[object]]WithSelectMany([ScriptBlock]$collectionSelector){
+#        [IEnumerable[object]]WithSelectMany([ScriptBlock]$collectionSelector,[ScriptBlock]$resultSelector){
+        class TestData{
+            [string]$Name
+            [Collections.Generic.List[object]]$DataList
+            TestData([string]$name,[Collections.Generic.List[object]]$dataList){
+                $this.Name = $name
+                $this.DataList = $dataList
+            }
+        }
+        $bag = [Bag]::new()
+        $bag.Add([TestData]::new('a',@(10,20,30)))
+        $bag.Add([TestData]::new('b',@(40,50,60)))
+        $bag.Add([TestData]::new('c',@(70,80,90)))
+
+        @( [BagToEnumerableQuoter],[BagToBagQuoter],[BagToSetQuoter] ).foreach{
+            $quoter = $_::new($bag)    
+            '----- WithSelectMany([ScriptBlock]) {0} -----' | InjectMessage $mb -FormatByStream $_.Name -Flush -ForegroundColor Green -Bold
+            $result = $quoter.WithSelectMany({ $args[0].DataList })  # メンバDataListの要素を列挙
+            Print -Subject $result -Builder $mb
+        }
+        @( [BagToEnumerableQuoter],[BagToBagQuoter],[BagToSetQuoter] ).foreach{
+            $quoter = $_::new($bag)    
+            '----- WithSelectMany([ScriptBlock],[ScriptBlock]) {0} -----' | InjectMessage $mb -FormatByStream $_.Name -Flush -ForegroundColor Green -Bold
+            $result = $quoter.WithSelectMany({ $args[0].DataList },{ @{$args[0].Name=$args[1]} })  # メンバDataListの要素を列挙
+            Print -Subject $result -Builder $mb
+        }
+    }
+
+    9.1 {
         [BagToEnumerableQuoter]::GetInstaller().InstallOn([Bag])
         [BagToBagQuoter]::GetInstaller().InstallOn([Bag])
         [BagToSetQuoter]::GetInstaller().InstallOn([Bag])
@@ -243,7 +285,7 @@ switch($args[0]){
         [BagToBagExtractor]::GetInstaller().InstallOn([Bag])
         [BagToSetExtractor]::GetInstaller().InstallOn([Bag])
     }
-    4 {
+    9.2 {
         $files = Get-ChildItem -Path . -File -Recurse
         $bag = [Bag]::new($files,[AspectComparer]::new('Extension'))
         $bag.QuoteTo([Bag]).WithSelectionBy({ $args[0].Extension -eq '.dll' })

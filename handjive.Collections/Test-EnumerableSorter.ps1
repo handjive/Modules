@@ -52,7 +52,7 @@ switch($args){
             '{0} {1} {2}' | InjectMessage $mb -FormatByStream $_.LastWriteTime $_.Length $_.Name -Flush
         }
     }
-    3 { # EnumerableSorterのテスト
+    3.1 { # EnumerableSorterのテスト
         $aList = [Collections.Generic.List[object]]::new()
         @(1..10).foreach{
             $a = $_
@@ -66,9 +66,22 @@ switch($args){
         }
         $sorter = [EnumerableSorter]::new($aList)
         $sorted1 = $sorter.Sort(([SortCondition]::Descending('a'),[SortCondition]::Ascending({ $args[0].b }),[SortCondition]::Descending('c')))
-
+        [Linq.Enumerable]::Count[object]($sorted1)
+    }
+    3.2 {
+        $aList = [Collections.Generic.List[object]]::new()
+        @(1..10).foreach{
+            $a = $_
+            @(1..10).foreach{
+                $b = $_
+                @(1..10).foreach{
+                    $td = [TestData]::new($a,$b,$_)
+                    $aList.Add($td)
+                }
+            }
+        }
         $sorter = [EnumerableSorter]::new($aList)
-        $sorted2 = $sorter.Sort(('a:a','a:{ $args[0].b }','d:c'))
-        $sorted2.Count
+        $sorted2 = $sorter.Sort(@('a:a','a:{ $args[0].b }','d:c'))
+        [Linq.Enumerable]::Count[object]($sorted2)
     }
 }

@@ -1,4 +1,4 @@
-using namespace handjive.Collections
+using namespace System.Collections.Generic
 
 class SortCondition{
     static [string]$CONDITION_FORMAT = '([adAD])(:)(.+)' 
@@ -61,7 +61,6 @@ class EnumerableSorter : handjive.IWrapper {
     hidden [System.Linq.IOrderedEnumerable[object]]$sorted
     
     [Collections.Generic.IEnumerable[object]]$Subject
-    [Collections.Generic.IComparer[object]]$Comparer
     [ScriptBlock]$GetSubjectBlock = { $args[0] }    # Substance -eq Subject
 
     EnumerableSorter([object]$substance){
@@ -103,11 +102,6 @@ class EnumerableSorter : handjive.IWrapper {
         return $result
     }
 
-    hidden [Collections.Generic.IComparer[object]]comparerForDirection([String]$direction){
-        $adjusted = &$this.ComparerAdjustBlock $direction $this.Comparer
-        return $adjusted
-    }
-
     <# Public Methods#>
 
     <# 
@@ -136,12 +130,13 @@ class EnumerableSorter : handjive.IWrapper {
     # ex.
     # $sorted2 = $sorter.Sort(('a:a','a:{ $args[0].b }','d:c'))
     #>
-    [System.Linq.IOrderedEnumerable[object]]Sort([string[]]$condition){
-        $scArray = $condition | StreamAdaptor -Inject ([Collections.ArrayList]::new()) -into { 
-                                                    param([Collections.ArrayList]$result,$elem) 
-                                                    $result.Add([SortCondition]::FromString($elem))|out-null
-                                                    $result }
-        return $this.Sort([SortCondition[]]$scArray)
+    [System.Linq.IOrderedEnumerable[object]]Sort([String[]]$stringCondition){
+        $conditions = [Linq.Enumerable]::Select[object,SortCondition]($stringCondition,[func[object,SortCondition]]{ [SortCondition]::FromString($args[0]) })
+        return $this.Sort([SortCondition[]]$conditions)
     }
+
+    <#
+    AspectSorter? SortAspect([string],@(conditions...))?
+    #>
 
 }
