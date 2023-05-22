@@ -15,6 +15,8 @@ using namespace handjive.Collections
 [BagToEnumerableQuoter]::GetInstaller().InstallOn([Bag])
 [BagToBagQuoter]::GetInstaller().InstallOn([Bag])
 [BagToSetQuoter]::GetInstaller().InstallOn([Bag])
+[BagToListQuoter]::GetInstaller().InstallOn([Bag])
 [BagToEnumerableExtractor]::GetInstaller().InstallOn([Bag])
 [BagToBagExtractor]::GetInstaller().InstallOn([Bag])
 [BagToSetExtractor]::GetInstaller().InstallOn([Bag])
+[BagToListExtractor]::GetInstaller().InstallOn([Bag])
