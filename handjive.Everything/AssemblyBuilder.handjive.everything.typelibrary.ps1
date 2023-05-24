@@ -12,7 +12,7 @@ namespace handjive{
        }
        public interface IEverything{
             System.Collections.Generic.IEnumerable<object> ResultsEnumerable{ get; }
-            object[] Results{ get; }
+            object Results{ get; }
             string QueryBase{ get; set; }
             string SearchString{ get; set; }
             object LastError{ get; }

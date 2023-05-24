@@ -87,24 +87,25 @@ class EverythingSearchResultElement : ISearchResultElement,IComparable {
         return ($this.Comparer.PSCompare($this,$left))
     }
 
-    [string]get_QueryBase(){
+    <# Property Accessors #>
+    hidden [string]get_QueryBase(){
         return ($this.wpvQueryBase)
     }
-    set_QueryBase([string]$value){
+    hidden set_QueryBase([string]$value){
         $this.wpvQueryBase = $value
     }
 
-    [int]get_Number(){
+    hidden [int]get_Number(){
         return ($this.wpvNumber)
     }
-    set_Number([int]$value){
+    hidden set_Number([int]$value){
         $this.wpvNumber = $value
     }
 
-    [string]get_Name(){
+    hidden [string]get_Name(){
         return ($this.wpvName)
     }
-    set_Name([string]$value){
+    hidden set_Name([string]$value){
         $this.wpvName = $value
     }
 
@@ -115,6 +116,12 @@ class EverythingSearchResultElement : ISearchResultElement,IComparable {
         $this.wpvContainerPath = $value
     }
 
+    [string]get_FullName(){
+        return $this.AsFullPath()
+    }
+
+
+    <# Public Methods #>
     [string]AsFullPath()
     {
         return (Join-Path -Path $this.ContainerPath -ChildPath $this.Name)
@@ -124,10 +131,6 @@ class EverythingSearchResultElement : ISearchResultElement,IComparable {
         return Get-Item -literalPath $this.AsFullPath()
     }
 
-    [string]get_FullName(){
-        return $this.AsFullPath()
-    }
-    
     OnInjectionComplete([object]$elem)
     {
     }
@@ -136,21 +139,28 @@ class EverythingSearchResultElement : ISearchResultElement,IComparable {
 class Everything : IEverything {
     static [object]$DefaultElementClass = [EverythingSearchResultElement]
 
-    static [object[]]Search([string]$queryString){
-        return ([Everything]::Search('',$queryString))
+    static [void]Search([string]$queryString){
+        [Everything]::Search('',$queryString)
     }
-    static [object[]]Search([string]$queryBase,[string]$queryString){
+    static [void]Search([string]$queryBase,[string]$queryString){
         $es = [Everything]::new()
         $es.QueryBase = $queryBase
         $es.PerformQuery($queryString)
         Write-Host ([String]::Format('Status: {0}',$es.LastError))
         Write-Host ([String]::Format('Number of results: {0}',$es.NumberOfResults))
-        return $es.Results
+        Write-Host ''
+
+        $es.Results.foreach{
+            write-host $_.FullName
+        }
+        <#for( $i=0; $i -lt $es.NumberOfResults; $i++ ){
+            write-host ($es.Results[$i]).FullName
+        }#>
     }
 
     [object]$ElementClass
     [object]$esapi
-    hidden [object[]]$wpvResults = @()
+    hidden [object]$wpvResults = @()
     hidden [ValueHolder]$SearchStringHolder
     hidden [ValueHolder]$QueryBaseHolder
     hidden [bool]$isSearchStringDirty
@@ -205,12 +215,17 @@ class Everything : IEverything {
         return $this.QueryBaseHolder.Value()
     }
     set_QueryBase([string]$value){
-        $dirinfo = EnsureSubstancePath -LiteralPath $value -ifLink {
-            Param($substanceOrLink,$substanceFileInfo)
-            [String]::Format('[Everything]:Target path changed to "{0}" cause it is a link',$substanceFileInfo.FullName) | write-warning
+        if( $value -eq '' ){
+            $this.QueryBaseHolder.Value($value)
         }
-        
-        $this.QueryBaseHolder.Value($dirinfo.FullName)
+        else{
+            $dirinfo = EnsureSubstancePath -LiteralPath $value -ifLink {
+                Param($substanceOrLink,$substanceFileInfo)
+                [String]::Format('[Everything]:Target path changed to "{0}" cause it is a link',$substanceFileInfo.FullName) | write-warning
+            }
+            
+            $this.QueryBaseHolder.Value($dirinfo.FullName)
+        }
     }
 
     [string]get_SearchString()
@@ -284,9 +299,24 @@ class Everything : IEverything {
         }
     }
 
-    [object[]]get_Results(){
+    [object]get_Results(){
         if( $null -eq $this.wpvResults ){
-            $this.BuildResultSet()
+            $ixa = [IndexAdaptor]::new($this)
+            $ixa.GetSubjectBlock.Enumerable = {
+                param($adaptor,$substance,$workingset)
+                $adaptor.Subjects.Enumerable = $substance.ResultsEnumerator().ToEnumerable()
+            }
+            $ixa.GetItemBlock.IntIndex = {
+                param($adaptor,$subject,$workingset,$index)
+                $elem = $subject.createElement($subject,$index)
+                return $elem
+            }
+            $ixa.GetCountBlock.IntIndex = {
+                param($adaptor,$subject,$workingset)
+                $subject.NumberOfResults
+            }
+   
+            $this.wpvResults = $ixa
         }
         return($this.wpvResults)
     }
@@ -295,6 +325,17 @@ class Everything : IEverything {
     }
     [int]get_NumberOfResults(){
         return ($this.esapi::Everything_GetNumResults())
+    }
+
+    hidden [EverythingSearchResultElement]createElement([Everything]$substance,[int]$index){
+        $elem = $substance.NewElement()
+        $elem.Number = ($substance.NumberingOffset+$index)
+        $elem.Name = $substance.ResultFileNameAt($index)
+        $elem.ContainerPath = $substance.ResultPathAt($index)
+        $elem.QueryBase = $substance.QueryBase
+        $elem.OnInjectionComplete($elem) | out-null
+        $substance.PostBuildElementListeners.Perform($elem,@{}) | out-null
+        return $elem
     }
 
     hidden [Collections.Generic.IEnumerator[object]]ResultsEnumerator(){
@@ -306,13 +347,7 @@ class Everything : IEverything {
         }
         $enumr.OnCurrentBlock = {
             param($substance,$workingset)
-            $elem = $substance.NewElement()
-            $elem.Number = ($substance.NumberingOffset+$workingset.Locator)
-            $elem.Name = $substance.ResultFileNameAt($workingset.Locator)
-            $elem.ContainerPath = $substance.ResultPathAt($workingset.Locator)
-            $elem.QueryBase = $substance.QueryBase
-            $elem.OnInjectionComplete($elem) | out-null
-            $substance.PostBuildElementListeners.Perform($elem,@{}) | out-null
+            $elem = $substance.createElement($substance,$workingset.Locator)
             $workingset.Locator++
             return $elem
         }
@@ -328,28 +363,6 @@ class Everything : IEverything {
     [Collections.Generic.IEnumerable[object]]get_ResultsEnumerable(){
         return $this.ResultsEnumerator().ToEnumerable()
     }
-
-    BuildResultSet(){
-        $this.wpvResults = @()
-        $this.ResultsEnumerable.foreach{
-            $this.wpvResults += $_
-        }
-        <#
-        for($i =0;$i -lt $this.esapi::Everything_GetNumResults();$i++)
-        {
-            $anElement = $this.NewElement()
-            $anElement.Number = ($this.NumberingOffset+$i)
-            $anElement.Name =$this.ResultFileNameAt($i)
-            $anElement.ContainerPath = $this.ResultPathAt($i)
-            $anElement.QueryBase = $this.QueryBase
-    
-            $anElement.OnInjectionComplete($anElement)
-            $this.PostBuildElementListeners.Perform($anElement,@{})
-            $this.wpvResults += $anElement
-        }
-        #>
-    }
-
 
     PerformQuery()
     {
