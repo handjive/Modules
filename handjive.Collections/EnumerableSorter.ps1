@@ -64,7 +64,11 @@ class EnumerableSorter : handjive.IWrapper {
     [ScriptBlock]$GetSubjectBlock = { $args[0] }    # Substance -eq Subject
 
     EnumerableSorter([object]$substance){
+        $this.gettype()::new($substance,{ $args[0] })
+    }
+    EnumerableSorter([object]$substance,[ScriptBlock]$getSubjectBlock){
         $this.wpvSubstance = $substance
+        $this.GetSubjectBlock = $getSubjectBlock
     }
 
     <# Property accessors #>
@@ -111,6 +115,11 @@ class EnumerableSorter : handjive.IWrapper {
     # $sorted = $sorter.Sort(([SortCondition]::Descending('a'),[SortCondition]::Ascending({ $args[0].b }),[SortCondition]::Descending('c')))
     #>
     [System.Linq.IOrderedEnumerable[object]]Sort([SortCondition[]]$condition){
+        return $this.Sort($condition,{ $args[0] })
+    }
+
+    [System.Linq.IOrderedEnumerable[object]]Sort([SortCondition[]]$condition,[ScriptBlock]$getSubjectBlock){
+        $this.GetSubjectBlock = $getSubjectBlock
         $conditionList = [Collections.Generic.List[SortCondition]]::new($condition)
         $aCondition = $conditionList[0]
         $conditionList.RemoveAt(0)
@@ -131,6 +140,11 @@ class EnumerableSorter : handjive.IWrapper {
     # $sorted2 = $sorter.Sort(('a:a','a:{ $args[0].b }','d:c'))
     #>
     [System.Linq.IOrderedEnumerable[object]]Sort([String[]]$stringCondition){
+        return $this.Sort($stringCondition,{ $args[0] })
+    }
+
+    [System.Linq.IOrderedEnumerable[object]]Sort([String[]]$stringCondition,[ScriptBlock]$getSubjectBlock){
+        $this.GetSubjectBlock = $getSubjectBlock
         $conditions = [Linq.Enumerable]::Select[object,SortCondition]($stringCondition,[func[object,SortCondition]]{ [SortCondition]::FromString($args[0]) })
         return $this.Sort([SortCondition[]]$conditions)
     }
