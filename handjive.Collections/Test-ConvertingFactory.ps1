@@ -290,4 +290,118 @@ switch($args[0]){
         $bag = [Bag]::new($files,[AspectComparer]::new('Extension'))
         $bag.QuoteTo([Bag]).WithSelectionBy({ $args[0].Extension -eq '.dll' })
     }
+
+    <#
+    # WithWhere拡張の確認
+    #>
+    10.1 { # WithWhere拡張の確認(空のBag)
+        $bag = [Bag]::new([AspectComparer]::new('Extension'))
+        'Bag has {0} elements, ValuesAndOccurrenes = {1}' | InjectMessage $mb -FormatByStream $bag.Count $bag.ValuesAndOccurrences.Count -Flush
+        $bag2 = $bag.QuoteTo([Bag]).WithWhere([BagEnumerableType]::ValuesAndOccurrences,{ $args[0].Occurrences -ge 2})
+        'There are {0} Extensions occurrences >= 2' | InjectMessage $mb $bag2.Count -Flush
+        $bag2 = $bag.QuoteTo([Bag]).WithWhere([BagEnumerableType]::ValuesAndElements,{ $args[0].Occurrences -ge 2})
+        'There are {0} Extensions occurrences >= 2' | InjectMessage $mb $bag2.Count -Flush
+        $bag2 = $bag.QuoteTo([Bag]).WithWhere([BagEnumerableType]::Elements,{ $args[0].Occurrences -ge 2})
+        'There are {0} Extensions occurrences >= 2' | InjectMessage $mb $bag2.Count -Flush
+        $bag2 = $bag.QuoteTo([Bag]).WithWhere({ $args[0].Occurrences -ge 2})
+        'There are {0} Extensions occurrences >= 2' | InjectMessage $mb $bag2.Count -Flush
+
+    }
+    10.2 { # WithWhere拡張の確認(ValuesAndOccurrences指定)
+        $files = Get-ChildItem -Path . -File -Recurse
+        $bag = [Bag]::new($files,[AspectComparer]::new('Extension'))
+        'Bag has {0} elements, ValuesAndOccurrenes = {1}' | InjectMessage $mb -FormatByStream $bag.Count $bag.ValuesAndOccurrences.Count -Flush
+        $bag.ValuesAndOccurrences.foreach{
+            $value,$occur = $_.value,$_.Occurrence
+            if( $occur -ge 2 ){
+                write-host $value,$occur
+            }
+        }
+        $bag2 = $bag.QuoteTo([Bag]).WithWhere([BagEnumerableType]::ValuesAndOccurrences,{ $args[0].Occurrence -ge 2})
+        'There are {0} Extensions occurrences >= 2' | InjectMessage $mb -FormatByStream $bag2.Count -Flush
+        $bag.ValuesAndOccurrences.foreach{
+            $value,$occur = $_.value,$_.Occurrence
+            if( $occur -eq 1 ){
+                write-host $value,$occur
+            }
+        }
+        $bag2.ValuesAndOccurrences.foreach{
+            $value,$occur = $_.value,$_.Occurrence
+            if( $occur -ge 2 ){
+                write-host $value,$occur
+            }
+        }
+    }
+    10.3 { # WithWhere拡張の確認(ValuesAndElements指定)
+        $files = Get-ChildItem -Path . -File -Recurse
+        $bag = [Bag]::new($files,[AspectComparer]::new('Extension'))
+        'Bag has {0} elements, ValuesAndElements = {1}' | InjectMessage $mb -FormatByStream $bag.Count $bag.ValuesAndElements.Count -Flush
+        $bag.ValuesAndElements.foreach{
+            $value,$elem = $_.value,$_.Elements
+            if( $elem.Count -ge 2 ){
+                write-host $value,$elem.Count
+            }
+        }
+        $bag2 = $bag.QuoteTo([Bag]).WithWhere([BagEnumerableType]::ValuesAndElements,{ $args[0].Elements.Count -ge 2})
+        'There are {0} Extensions occurrences >= 2' | InjectMessage $mb -FormatByStream $bag2.Count -Flush
+        $bag.ValuesAndElements.foreach{
+            $value,$elem = $_.value,$_.Elements
+            if( $elem.Count -eq 1 ){
+                write-host $value,$elem.Count
+            }
+        }
+        $bag2.ValuesAndElements.foreach{
+            $value,$elem = $_.value,$_.Elements
+            if( $elem.Count -ge 2 ){
+                write-host $value,$elem.Count
+            }
+        }
+    }
+    10.4 { # WithWhere拡張の確認(Elements指定)
+        $files = Get-ChildItem -Path . -File -Recurse
+        $bag = [Bag]::new($files,[AspectComparer]::new('Extension'))
+        'Bag has {0} elements, Elements = {1}' | InjectMessage $mb -FormatByStream $bag.Count $bag.Elements.Count -Flush
+        $bag.ValuesAndElements.foreach{
+            $elem = $_
+            if( $bag.OccurrencesOf($elem) -ge 2 ){
+                write-host $elem
+            }
+        }
+        $bag2 = $bag.QuoteTo([Bag]).WithWhere([BagEnumerableType]::Elements,{
+            write-host $args[0].gettype(),$args[0],$bag.OccurrencesOf($args[0].Extension)
+            $bag.OccurrencesOf($args[0].Extension) -ge 2
+        })
+        'There are {0} Extensions occurrences >= 2' | InjectMessage $mb -FormatByStream $bag2.Count -Flush
+        $bag.Elements.foreach{
+            $elem = $_
+            if( $bag.OccurrencesOf($elem) -eq 1 ){
+                write-host $elem
+            }
+        }
+        $bag2.Elements.foreach{
+            $elem = $_
+            if( $bag2.OccurrencesOf($elem) -ge 2 ){
+                write-host $elem
+            }
+        }
+    }
+    10.5 { # WithSelect
+        $files = Get-ChildItem -Path . -Recurse -File
+        $bag = [Bag]::new($files,[AspectComparer]::new('Extension'))
+        $quoted = $bag.QuoteTo([Bag]).WithSelect([BagEnumerableType]::Elements,{ $args[0].Name })
+        $quoted
+        $quoted = $bag.QuoteTo([Bag]).WithSelect([BagEnumerableType]::ValuesAndOccurrences,{ $args[0].Occurrence -ge 2 })
+        $quoted
+        $quoted = $bag.QuoteTo([Bag]).WithSelect([BagEnumerableType]::ValuesAndElements,{ $args[0].Elements[0] })
+        $quoted
+    }
+    10.6 { # WithSelectMany
+        $files = Get-ChildItem -Path . -Recurse -File
+        $bag = [Bag]::new($files,[AspectComparer]::new('Extension'))
+        $quoted = $bag.QuoteTo([Bag]).WithSelect([BagEnumerableType]::ValuesAndElements,{ $args[0].Elements.gettype() })
+        $quoted
+        #$quoted = $bag.QuoteTo([Bag]).WithSelectMany([BagEnumerableType]::ValuesAndElements,{ $args[0].Elements })
+        $quoted = $bag.QuoteTo([Bag]).WithSelectMany({ $args[0].Elements })
+        $quoted
+    }
 }

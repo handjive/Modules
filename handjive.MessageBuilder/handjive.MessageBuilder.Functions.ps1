@@ -48,9 +48,13 @@ function InjectMessage{
         ,[parameter()][switch]$Strike
         ,[parameter()][switch]$Normal
         ,[parameter()][switch]$ResetModify
-        ,[parameter()][switch]$Flush
         ,[parameter()][switch]$NewLine
         ,[parameter()][int]$NewLines
+
+        ,[parameter()][switch]$Flush
+        ,[parameter()][switch]$FlushIfDebug
+        ,[parameter()][switch]$FlushIfVerbose
+        ,[parameter()][boolean]$FlushIf
 
         ,[parameter(ValueFromRemainingArguments=$true)]$Lefts
     )
@@ -177,6 +181,22 @@ function InjectMessage{
 
         if( $Flush ){
             $Builder.Flush()
+        }
+        if( $FlushIfDebug ){
+            if( $DebugPreference -ne 'SilentlyContinue' ){
+                $Builder.Flush()
+            }
+            $Builder.Clear()
+        }
+        if( $FlushIfVerbose ){
+            #if( $VerbosePreference -ne 'SilentlyContinue' ){
+            Write-Verbose $Builder.ToString()
+            #}
+            $Builder.Clear()
+        }
+        if( $FlushIf ){
+            $Builder.Flush()
+            $Builder.Clear()
         }
     }
 }

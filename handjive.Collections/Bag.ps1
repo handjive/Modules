@@ -18,6 +18,11 @@ using namespace handjive.Collections
     $aBag.ValuesAndOccurrences → IndexAdaptor
     $aBag.ValuesAndOccurrencesSorted → IndexAdaptor
 #>
+enum BagEnumerableType{
+    Elements
+    ValuesAndOccurrences
+    ValuesANdElements
+}
 class Bag : IndexableEnumerableBase, IBag, ICloneable, IQuotable, IExtractable {
     static [Collections.Generic.Dictionary[Type,Type]]$QUOTERS = [Collections.Generic.Dictionary[Type,Type]]::new()
     static [Collections.Generic.Dictionary[Type,Type]]$EXTRACTORS = [Collections.Generic.Dictionary[Type,Type]]::new()
@@ -25,8 +30,8 @@ class Bag : IndexableEnumerableBase, IBag, ICloneable, IQuotable, IExtractable {
     static $VALUE_COMPARER_CLASS = [PluggableComparer]                # ValuesSorted用のComparer
     static $OCCURRENCES_VALUE_CLASS = [Collections.Generic.List[object]]
 
-    hidden [Collections.ArrayList]$wpvElements
-    hidden [Collections.Specialized.OrderedDictionary]$occurrences
+    hidden [Collections.Generic.List[object]]$wpvElements
+    hidden [Collections.Generic.Dictionary[object,object]]$occurrences
 
     [ValueHolder]$ComparerHolder
     [HashTable]$Adaptors
@@ -54,8 +59,8 @@ class Bag : IndexableEnumerableBase, IBag, ICloneable, IQuotable, IExtractable {
     # Internal methods
     #>
     hidden initialize([CombinedComparer]$elementsComparer){
-        $this.wpvElements = [Collections.ArrayList]::new()
-        $this.occurrences = [Collections.Specialized.OrderedDictionary]::new()
+        $this.wpvElements = [Collections.Generic.List[object]]::new()
+        $this.occurrences = [Collections.Generic.Dictionary[object,object]]::new()
 
         $thisType = $this.gettype()
         if( $null -eq $elementsComparer ){
@@ -89,15 +94,18 @@ class Bag : IndexableEnumerableBase, IBag, ICloneable, IQuotable, IExtractable {
             return
         }
         
-        $this.occurrences = [Collections.Specialized.OrderedDictionary]::new()
+        $this.occurrences = [Collections.Generic.Dictionary[object,object]]::new()
         $this.wpvElements.foreach{
-            $this.addOccurrencesOf($_)
+            $this.addOccurrencesOf($args[0])
         }
     }
 
     hidden [object]GetSubjectUsingComparer([object]$value,[Collections.Generic.IComparer[object]]$comparer){
         if( $comparer -is [PluggableComparer] ){
             $subject = $comparer.GetSubject($value)
+            if( $null -eq $subject ){ # 指定されているAspectを持たないオブジェクトの対策なんだけど、ほんとにこれでいいのかね?
+                return $value   
+            }
         }
         else{
             $subject = $value
@@ -133,19 +141,8 @@ class Bag : IndexableEnumerableBase, IBag, ICloneable, IQuotable, IExtractable {
         $this.ValuesChanged()
     }
 
-    hidden [IndexableEnumerableBase]get_Elements(){ 
-        if( $null -eq $this.Adaptors.ElementsOrdered ){
-            $ixa = [IndexAdaptor]::new($this)
-            $ixa.GetSubjectBlock.Enumerable = { param($adaptor,$substance,$workingset) $adaptor.Subjects.Enumerable = $substance.wpvElements }
-            $ixa.GetSubjectBlock.IntIndex   = { param($adaptor,$substance,$workingset) $adaptor.Subjects.IntIndex = $substance.wpvElements }
-            $ixa.GetItemBlock.IntIndex = { 
-                param($adaptor,$subject,$workingset,$index) $subject[$index] }
-            $ixa.GetCountBlock.IntIndex = { param($adaptor,$subject,$workingset) $subject.Count }
-
-            $this.Adaptors.ElementsOrdered = $ixa
-        }
-        $this.Adaptors.ElementsOrdered.InvalidateSubjects()
-        return $this.Adaptors.ElementsOrdered
+    hidden [Collections.Generic.List[object]]get_Elements(){ 
+        return $this.wpvElements
     }
 
     hidden [Collections.Generic.IEnumerable[object]]valuesAndOccurrencesEnumerable(){
@@ -191,9 +188,9 @@ class Bag : IndexableEnumerableBase, IBag, ICloneable, IQuotable, IExtractable {
                 param($adaptor,$subject,$workingset,[int]$index) 
                 $adaptor.ElementAtIndexFromEnumerable($index,$subject) 
             }
-            $ixa.GetCountBlock.IntIndex = { 
-                param($adaptor,$subject,$workingset) 
-                $adaptor.CountFromEnumerable($subject) 
+            $ixa.GetCountBlock = { 
+                param($adaptor,$workingset) 
+                $adaptor.CountFromEnumerable($adaptor.GetSubject('Enumerable')) 
             }
             $this.Adaptors.ValuesAndOccurrencesOrdered = $ixa
         }
@@ -240,9 +237,9 @@ class Bag : IndexableEnumerableBase, IBag, ICloneable, IQuotable, IExtractable {
                 param($adaptor,$subject,$workingset,[int]$index) 
                 $adaptor.ElementAtIndexFromEnumerable($index,$subject) 
             }
-            $ixa.GetCountBlock.IntIndex = { 
-                param($adaptor,$subject,$workingset) 
-                $adaptor.CountFromEnumerable($subject) 
+            $ixa.GetCountBlock = { 
+                param($adaptor,$workingset) 
+                $adaptor.CountFromEnumerable($adaptor.GetSubject('Enumerable')) 
             }
             $this.Adaptors.ValuesAndElementsOrdered = $ixa
         }
@@ -254,6 +251,15 @@ class Bag : IndexableEnumerableBase, IBag, ICloneable, IQuotable, IExtractable {
     <#
     # Methods: 
     #>
+    [Collections.Generic.IEnumerable[object]]GetEnumerable([BagEnumerableType]$type){
+        switch($type){
+            ValuesAndOccurrences { return $this.ValuesAndOccurrences }
+            ValuesAndElements { return $this.ValuesAndElements }
+            default { return $this }
+        }
+        throw "Something wrong..."
+    }
+
     [int]OccurrencesOf([object]$elem){
         return $this.occurrences[[object]$elem].Count
     }
@@ -331,7 +337,7 @@ class Bag : IndexableEnumerableBase, IBag, ICloneable, IQuotable, IExtractable {
 
     Purge([object]$elem){
         if( $null -ne $this.occurrences[$elem] ){
-            $this.occurrences[[object]$elem] = 1
+            $this.occurrences.Remove($elem)
             $this.Remove($elem)
             $this.ValuesChanged()
         }
@@ -354,7 +360,7 @@ class Bag : IndexableEnumerableBase, IBag, ICloneable, IQuotable, IExtractable {
 
     [object]Clone(){
         $newOne = $this.gettype()::new()
-        $newOne.wpvElements = $this.wpvElements.Clone()
+        $newOne.wpvElements = [Collections.Generic.List[object]]::new($this.wpvElements)
         $newOne.Comparer = $this.Comparer
         $newOne.rebuildOccurrences()
         $newOne.ValuesChanged()
@@ -366,7 +372,7 @@ class Bag : IndexableEnumerableBase, IBag, ICloneable, IQuotable, IExtractable {
     # Subclass repsponsibilities about: IndexableEnumerableBase 
     #>
     hidden [Collections.Generic.IEnumerator[object]]PSGetEnumerator(){
-        return [PluggableEnumerator]::InstantWrapOn($this.wpvElements)
+        return $this.Elements.GetEnumerator()
     }
 
     hidden [object]PSGetItem_IntIndex([int]$index){

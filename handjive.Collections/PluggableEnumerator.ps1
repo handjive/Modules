@@ -1,5 +1,4 @@
 using module handjive.ValueHolder
-using module handjive.ChainScript
 
 using namespace handjive.Collections
 

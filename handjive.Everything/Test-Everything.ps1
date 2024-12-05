@@ -99,4 +99,32 @@ switch($args){
     4 {
         [Everything]::Search('c:\users\handjive\Documents\書架\BooksArchive','ダンジョン')
     }
+
+    5 {
+        # ResultIndexDo
+        $es = [Everything]::new()
+        $es.QueryBase = '.'
+        $es.SearchString = '*.psd1'
+        $es.PerformQuery()
+
+        Write-Host $es.NumberOfResults
+        Write-Host '-------------'
+
+        $es.ResultIndexDo({
+            param($index)
+            Write-Host $es.ResultFullpathAt($index)
+        })
+
+        $es.SearchString = '*.psd1m' #存在しないファイル、検索結果0
+        $es.PerformQuery()
+
+        Write-Host $es.NumberOfResults
+        Write-Host '-------------'
+
+        $es.ResultIndexDo({
+            param($index)
+            Write-Host $es.ResultFullpathAt($index)
+        })
+
+    }
 }

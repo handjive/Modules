@@ -1,456 +1,212 @@
-using module handjive.Collections
-using module handjive.ChainScript
-using module handjive.Everything
+using namespace System.Collecitons
+
+$mb = [MessageBuilder]::new()
+
+function BagPrinter{
+    param([object[]]$bags)
+    $bags.foreach{
+        '$bag has {0} elements (count without occurrences = {1}) below:' | InjectMessage $mb -FormatByStream $_.Count() $_.CountWithoutDuplicate -ForegroundColor Green -Bold -Flush 
+        $mb.Helper.Line(80) | InjectMessage $mb -Flush
+        $_.ValuesAndOccurrences().foreach{
+            '(Occurrence={0}) [{1}] "{2}"' | InjectMessage $mb -FormatByStream $_.Occurrence $_.Value.Extension $_.Value.FullName -Flush
+        }
+        '' | InjectMessage $mb -Flush
+    }
+
+}
+
 
 switch($args){
-    1{
-        # Sort-order: Ascending
-        $mb = [MessageBuilder]::new()
+    1 { # 単純なオブジェクトによるテスト
+        $bag1 = [Bag]::new()
 
-        # デフォルト(ソート: Ascending)
+        $adder = {
+            param($aBag)
+            $aBag.AddAll(@(1..10))
+            $aBag.AddAll(@(2,4,6,8,10))
+            $aBag.AddAll(@(1,3,5,7,9))
+            $aBag.AddAll(@(1,3,5,7,9))
+        }
+
+        &$adder $bag1
+
+        '$aBag1 has {0} elements (count without occurrences = {1}) below:' | InjectMessage $mb -FormatByStream $bag1.Count $bag1.CountWithoutDuplicate -ForegroundColor Green -Bold -Flush 
+        $bag1 | InjectMessage $mb -OneLine -Delimiter ',' -Flush
+        $bag1.Elements.foreach{
+            write-host $_ ' ' -NoNewline
+        }
+
+        write-host ''
+        'ValuesAndElements.foreach' | InjectMessage $mb -Flush
+        $bag1.ValuesAndElements.foreach{
+            '"{0}": [' | InjectMessage $mb -FormatByStream $_.Value -NoNewLine
+            $_.Elements | InjectMessage $mb -OneLine -NoNewLine
+            ']' | InjectMessage $mb -Flush
+        }
+
+        write-host ''
+        'ValuesAndElements by Index' | InjectMessage $mb -Flush
+        for($i=0; $i -lt $bag1.ValuesAndElements.Count; $i++){
+            '"{0}": [' | InjectMessage $mb -FormatByStream $bag1.ValuesAndElements[$i].Value -NoNewLine
+            $bag1.ValuesAndElements[$i].Elements | InjectMessage $mb -OneLine -NoNewLine
+            ']' | InjectMessage $mb -Flush
+        }
+
+        'Values and Occurrences are:' | InjectMessage $mb -ForegroundColor Green -Bold -Flush
+        $bag1.ValuesAndOccurrences | Select-Object Value,Occurrence | write-host
+        write-host ''
+
+
+        '----- Elements -----' | write-host
+        $bag1.Elements | write-host
+
+        '----- Remove 1 -----' | write-host
+        $bag1.Remove(1)
+        $bag1.ValuesAndOccurrences | Select-Object Value,Occurrence | write-host
+        '----- Remove 1,1 -----' | write-host
+        $bag1.RemoveAll(@(1,1))
+        $bag1.ValuesAndOccurrences | Select-Object Value,Occurrence | write-host
+
+        '----- Purge 3 -----' | write-host
+        $bag1.Purge(3)
+        $bag1.ValuesAndOccurrences | Select-Object Value,Occurrence | write-host
+
+        '----- Purge 5,7 -----' | write-host
+        $bag1.PurgeAll((5,7))
+        $bag1.ValuesAndOccurrences | Select-Object Value,Occurrence | write-host
+
+        '----- Includes and Occurrences of 1-10 ? -----' | write-host
+        @(1..10).foreach{
+            'Value {0}: Includes={1}, Occurrences={2}' | InjectMessage $mb -FormatByStream $_ $bag1.Includes($_) $bag1.OccurrencesOf($_) -Flush
+        }
+    }
+    2 { # メンバを持つオブジェクトでのテスト
+        $children = Get-ChildItem -Path . -Recurse
+        $bag1 = [Bag]::new()
+        $bag1.AddAll($children)
+
+        '$bag1 has {0} elements, CountWithoutDuplicate={1}' | InjectMessage $mb -FormatByStream $bag1.Count $bag1.CountWithoutDuplicate -Flush
+        write-host ''
+
+        $bag1.Comparer = [AspectComparer]::new('Extension')
+        'Set comparer by "Extension"' | InjectMessage $mb -Flush
+        '$bag1 has {0} elements, CountWithoutDuplicate={1}' | InjectMessage $mb -FormatByStream $bag1.Count $bag1.CountWithoutDuplicate -Flush
+        $mb.Helper.Line(80) | InjectMessage $mb -Flush
+        $bag1.ValuesAndOccurrences.foreach{
+            '"{0}" ({1})' | InjectMessage $mb -FormatByStream $_.Value $_.Occurrence -Flush
+        }
+        write-host ''
+        $bag1.Comparer = [AspectComparer]::new('PSParentPath')
+        'Set comparer by "PSParentPath"' | InjectMessage $mb -Flush
+        '$bag1 has {0} elements, CountWithoutDuplicate={1}' | InjectMessage $mb -FormatByStream $bag1.Count $bag1.CountWithoutDuplicate -Flush
+        $mb.Helper.Line(80) | InjectMessage $mb -Flush
+        $bag1.ValuesAndOccurrences.foreach{
+            '"{0}" ({1})' | InjectMessage $mb -FormatByStream $_.Value $_.Occurrence -Flush
+        }
+        write-host ''
+    }
+    4.1 { # 23/05/05 - 追加・修正部分の動作確認 OccurrencesOf,Includes,OccurrenceValuesOf
+        $var1 = '-----1-----'
+        $var2 = '-----2-----'
         $aBag = [Bag]::new()
-        [Interval]::new(9,1,2).ForEach{ 
-            $_ | InjectMessage $mb -format 'Adding {0}' -Flush
-            $aBag.Add($_) 
-        }
-        '----- Ordered -----' | InjectMessage $mb -Flush
-        $aBag.ValuesOrdered | InjectMessage $mb -Flush -Oneline
-
-        '----- Sorted by Default(Ascending) -----' | InjectMessage $mb -Flush
-        $aBag.ValuesSorted | InjectMessage $mb -Flush -OneLine
-
-        '----- Changing Comparer to Desending -----' | InjectMessage $mb -Flush
-        $aBag.Comparer = [PluggableComparer]::DefaultDescending()
-        $aBag.ValuesSorted | InjectMessage $mb -Flush -oneline
-
-    }
-    1.1{
-        # Sort-order: Ascending
-        $mb = [MessageBuilder]::new()
-
-        # 明示的ソート指定: Ascending
-        $aBag = [Bag]::new([PluggableComparer]::DefaultAscending())
-        [Interval]::new(9,1,2).ForEach{ 
-            $_ | InjectMessage $mb -format 'Adding {0}' -Flush
-            $aBag.Add($_) 
-        }
-        '----- Ordered -----' | InjectMessage $mb -Flush
-        $aBag.ValuesOrdered | InjectMessage $mb -Flush -Oneline
-
-        '----- Sorted by Default(Ascending) -----' | InjectMessage $mb -Flush
-        $aBag.ValuesSorted | InjectMessage $mb -Flush -OneLine
-
-        '----- Changing Comparer to Asending -----' | InjectMessage $mb -Flush
-        $aBag.Comparer = [PluggableComparer]::DefaultDescending()
-        $aBag.ValuesSorted | InjectMessage $mb -Flush -oneline
-    }
-    1.2 {
-        # a Bag from the Bag & デフォルトソート
-        $mb = [MessageBuilder]::new()
-
-        $aBag1 = [Bag]::new()
-        $aBag1.AddAll([Interval]::new(20,1,2))
-        $elementsOrdered = $aBag1.ElementsOrdered
-        $elementsSorted = $aBag1.ElementsSorted
-        '----- ElementsOrdered -----' | InjectMessage $mb -Flush
-        $aBag1.ElementsOrdered.foreach{ $_.Value,$_.Occurrence | InjectMessage $mb -OneLine -Flush }
-        '----- Enumerate Bag directory -----' | InjectMessage $mb -Flush
-        $aBag1.foreach{ $_.Value,$_.Occurrence | InjectMessage $mb -OneLine -Flush }
-        '----- ElementsSorted -----' | InjectMessage $mb -Flush
-        $aBag1.ElementsSorted.foreach{ $_.Value,$_.Occurrence | InjectMessage $mb -OneLine -Flush }
-
-        $aBag1.foreach{ $_.Value,$_.Occurrence | InjectMessage $mb -OneLine -Flush }
-
-        $aBag2 = [Bag]::new($aBag1)
-        $aBag3 = [Bag]::new([Interval]::new(1,100,9))
-
-        '----- ValuesOrdered -----' | InjectMessage $mb -Flush
-        $aBag2.ValuesOrdered | InjectMessage $mb -Flush -Oneline
-
-        '----- ValuesSorted by Default(Ascending) -----' | InjectMessage $mb -Flush
-        $aBag2.ValuesSorted | InjectMessage $mb -Flush -OneLine
-
-        '----- Changing Comparer to Desending -----' | InjectMessage $mb -Flush
-        $aBag2.Comparer = [PluggableComparer]::DefaultDescending()
-        $aBag2.ValuesSorted | InjectMessage $mb -Flush -oneline
-
-        
-    }
-    1.3 {
-        $mb = [MessageBuilder]::new()
-        $aBag = [Bag]::new([interval]::new(1,10,1))
-        $aBag.AddAll([interval]::new(1,10,2))
-        $aValue = $aBag[[int]3]
-        '$aBag[[int]{0}] is "{1}"' | InjectMessage $mb -FormatByStream 3 $aValue -Flush
         @(1..10).foreach{
-            '$aBag[[object]{0}] is "{1}"' | InjectMessage $mb -FormatByStream $_ $aBag[[object]$_] -Flush
+            $aBag.Add($var1)
         }
-        @(-5..15).foreach{
-            '$aBag.Includes({0}) => {1}' | InjectMessage $mb -FormatByStream $_ $aBag.Includes([object]$_) -Flush
-        }
-    }
-
-    2 {
-        $mb = [MessageBuilder]::new()
-        $autherAndTitles = [Bag]::new() # key=auther, occurrence=number of title
-        $autherAndTitles.AddAll((Get-Content -path .\Authers.txt))
-        '{0} authers listed.' | InjectMessage $mb -FormatByStream $autherAndTitles.Keys.Count -Flush
-        $autherIndex = [Bag]::new() # key = Initial letter, value = auther name
-        $autherIndex.GetKeyBlock = { ($args[0])[0] }
-        $autherIndex.AddAll($autherAndTitles.Keys)
-        $autherIndex.Keys.foreach{
-            "[{0}]`t" | InjectMessage $mb -FormatByStream $_ -Flush -Bold -NoNewLine
-           (StreamAdaptor $autherIndex.ValueAtKey($_) -collect{ [String]::Format('{0}({1})',$args[0],$autherAndTitles.ValueAtKey($args[0]).Count)} )| InjectMessage $mb  -OneLine -Delimiter ',' -Flush
+        @(1..5).foreach{
+            $aBag.Add($var2)
         }
 
-        #'Occurrences of "{0}" is {1}' | InjectMessage $mb -FormatByStream $key $aBag.OccurrencesOf($key) -Flush
-    }
-    3 { 
-        $xh = [xhashtable]::new()
-        $mb = [MessageBuilder]::new()
-
-        @(1,3,5,7,9).foreach{ $xh.Add($_) }
-        @(3,7).foreach{ $xh.Add($_) }
-
-        $xh.Keys.foreach{
-            'Occuerrences of "{0}" is "{1}"' | InjectMessage $mb -FormatByStream $_ $xh.OccurrencesOf($_) -Flush
-        }
-        @(1..10).foreach{
-            'Is includes {0}? => {1}' | InjectMessage $mb -FormatByStream $_ $xh.Includes($_) -Flush
-        }
-        $xh[1] | write-host
-        $xh.3 | write-host
-        '----- keys -----' | InjectMessage $mb
-        $xh.Keys | InjectMessage $mb -NewLine -Flush
-
-        '----- Values -----' | InjectMessage $mb
-        $xh.Values | InjectMessage $mb -NewLine -Flush
-        
-        '----- Set GetKeyBlock -----' | InjectMessage $mb
-        $xh.GetKeyBlock = { ($args[0])[0] }     # 
-        $xh.Keys | InjectMessage $mb -NewLine -Flush
-        $xh.Values | InjectMessage $mb -NewLine -Flush
-
-        '----- After set GetKeyBlock -----' | InjectMessage $mb
-        $xh.GetKeyBlock | InjectMessage $mb -NewLine -Flush
-
-        '----- Set dictionay value, same name -----' | InjectMessage $mb
-        $xh['GetKeyBlock'] = 10
-        $xh.Keys | InjectMessage $mb -NewLine -Flush
-        $xh['GetKeyBlock'] | InjectMessage $mb -NewLine -Flush
-        $xh.GetKeyBlock | InjectMessage $mb -NewLine -Flush
-        $xh.Values | InjectMessage $mb -NewLine -Flush
-    }
-    3.1 { 
-        $dht = [DerivedHT]::new()
-
-        @(1,3,5,7,9).foreach{ $dht.Add($_) }
-        @(3,7).foreach{ $dht.Add($_) }
-
-        '----- keys -----' | Write-Host
-        $dht.Keys | Write-Host
-
-        '----- Values -----' | Write-Host
-        $dht.Values | Write-Host
-
-        <#$dht.Keys.foreach{
-            [String]::Format('Occuerrences of "{0}" is "{1}"',$_,$dht.OccurrencesOf($_)) | Write-Host
-        }
-        @(1..10).foreach{
-            [String]::Format('Is includes {0}? => {1}',$_ ,$dht.Includes($_)) | Write-Host
-        }#>
-
-        <#
-        $xh.Keys.foreach{
-            [String]::Format('Occuerrences of "{0}" is "{1}"',$_,$xh.OccurrencesOf($_)) | Write-Host
-        }
-        @(1..10).foreach{
-            [String]::Format('Is includes {0}? => {1}',$_ ,$xh.Includes($_)) | Write-Host
-        }
-        $xh.GetKeyBlock = { ($args[0])[0] }
-        $xh.Keys | InjectMessage $mb -NewLine -Flush
-        $xh.Values | InjectMessage $mb -NewLine -Flush
-
-        $xh.GetKeyBlock | InjectMessage $mb -NewLine -Flush
-        $xh['GetKeyBlock'] = 10
-        $xh.Keys | InjectMessage $mb -NewLine -Flush
-        $xh['GetKeyBlock'] | InjectMessage $mb -NewLine -Flush
-        $xh.GetKeyBlock | InjectMessage $mb -NewLine -Flush
-        $xh.Values | InjectMessage $mb -NewLine -Flush
-        #>
-    }
-    4 {
-        $mb = [MessageBuilder]::new()
-        $aBag = [Bag]::new()
-        $aBag.Add('Hoge')
-        $aBag.HOGE | write-host
-    }
-    5 {
-        $dht = [DelivedHT]::new()
-        $dht.Add(1,'one')
-        $dht.Keys | write-host
-    }
-    6 {
-        <#  Values
-            Includes
-            OccurrencesOf
-            [[int]$index] (keys[$index]を返す)
-            Add
-            AddAll
-            Remove
-            RemoveAll
-            Count
-        #>
-        $aBag = [Bag]::new()
-        $mb = [MessageBuilder]::new()
-
-        @( 1,3,5,7,9 ).foreach{ $aBag.Add($_) }
-        $aBag.AddAll(@(1,5,9))
-        '----- Values -----' | InjectMessage $mb
-        $aBag.Values | InjectMessage $mb -NewLine -Flush
-
-        '----- Includes -----' | InjectMessage $mb
-        @(1..10).foreach{
-            '$aBag includes {0} => {1}' | InjectMessage $mb -FormatByStream $_ $aBag.Includes($_) -Flush
-        }
-
-        '----- OccurrencesOf -----' | InjectMessage $mb
-        $aBag.Values.foreach{
-            'Occurrences of "{0}" => {1}' | InjectMessage $mb -FormatByStream $_ $aBag.OccurrencesOf($_) -Flush
-        }
-
-        '----- Remove -----' | InjectMessage $mb
-        $aBag.Remove(1)
-        $aBag.Values | InjectMessage $mb -Flush
-
-        '----- RemoveAll -----' | InjectMessage $mb
-        $aBag.RemoveAll(@(3,5))
-        $aBag.Values | InjectMessage $mb -Flush
-
-        '----- Count and Index accessing -----' | InjectMessage $mb
-        $aBag.Count | InjectMessage $mb -Format '$aBag has {0} elemnts' -Flush -NewLine
-        for( $i=0; $i -le $aBag.Count-1; $i++ ){
-            '$aBag[{0}] => {1}' | InjectMessage $mb -FormatByStream $i $aBag[$i] -Flush
-        }
-
-        '----- ValueAndOccurrences -----' | InjectMessage $mb -Flush
+        '$aBag has {0} elements' | InjectMessage $mb -FormatByStream $aBag.Count -Flush
+        '$aBag includes "{0}"={1}' | InjectMessage $mb -FormatByStream $var1 $aBag.Includes($var1) -Flush
+        '"{0}" has {1} occcurrences' | InjectMessage $mb -FormatByStream $var1 $aBag.OccurrencesOf($var1) -Flush
+        $aBag.OccurrenceElementsOf($var1) | write-host
         $aBag.ValuesAndOccurrences.foreach{
-            'Value: "{0}" has {1} occurrences' | InjectMessage $mb -FormatByStream $_.value $_.Occurrences -Flush
+            write-host $_
         }
     }
-    7 {
-        $mb = [MessageBuilder]::new()
-        $ixb = [IndexedBag]::new()
-        $ixb.GetIndexBlock = { ($args[0])[0] } # 最初の一文字がキー
-        $ixb.AddAll((Get-Content -path .\Authers.txt))
-        '----- keys -----' | InjectMessage $mb -Flush
-        $keys = $ixb.Keys
-        $keys.count | InjectMessage $mb -Flush
-        $keys.foreach{
-            'Key [{0}] has {1} occurrences' | InjectMessage $mb -FormatByStream $_ $ixb.keysOccurrencesOf($_) -Flush
-        }
-        '----- values -----' | InjectMessage $mb -Flush
-        $ixb.Values.Count | InjectMessage $mb -Flush
-
-        $a = $ixb['六']
-        $a.gettype() | Write-Output
-        $a[0].gettype()| Write-Output
-        $a | write-Output
-        $b = $ixb[0]
-        $b.gettype() | Write-Output
-        $b[0].gettype()|write-output
-        $b | write-output
-
-        '----- keys and values -----' | InjectMessage $mb -Flush
-        $ixb.IndicesAndValues.Count | InjectMessage $mb -Flush
-        $ixb.IndicesAndValues.foreach{
-            'Key={0} Value={1}' | InjectMessage $mb -FormatByStream $_.Key $_.Value -Flush
-        }
-
-        '----- key, value, occurrences -----' | InjectMessage $mb -Flush
-        $ixb.IndicesAndValuesAndOccurrences.foreach{
-            'Key="{0,-5}" Value="{1,-40}" Occurrences={2}' | InjectMessage $mb -FormatByStream $_.Key $_.Value $_.Occurrences -Flush
-        }
-    }
-    8 {
-        $ab = [OrderedBag]::new()
-        @(1..100).foreach{ $ab.Add(([String]::Format('Value{0}',$_))) }
-        [Interval]::new(1,100,2).foreach{ $ab.Add(([String]::Format('Value{0}',$_))) }
-        $od = $ab.Substance
-        $keyEnum = $od.Keys.GetEnumerator()
-        $keyEnum.foreach{ Write-Host $_ }
-        $ab.Values.foreach{ write-host $_ }
-        $ab.ValuesAndOccurrences.foreach{ 
-            Write-Host $_.Value $_.Occurrences }
-        $ab[18] | write-host
-        $ab['Value18'] | Write-Host
-        $ab.Value18 | Write-host
-
-        [Interval]::new(10,100,10).foreach{ $ab.Remove(([String]::Format('Value{0}',$_)))}
-        $ab.ValuesAndOccurrences.foreach{
-             Write-Host $_.Value $_.Occurrence }
-
-        #[Linq.Enumerable]::OrderBy([Linq.Enumerable]::Where($inputCollection, ...), ...)
-        #while( $ab.MoveNext() ){
-            #$ab.Current | write-host
-        #}
-        
-        $aCollection = $ab.ValuesAndOccurrences.ToArray()
-        #$aCollection = $ab.Substance.Keys
-        #$aCollection = 1..100
-        $sorted = [System.Linq.Enumerable]::OrderByDescending($ab, [Func[object,object]]{ $args[0].Occurrence })
-        $enum = $sorted.GetEnumerator()
-        while($enum.MoveNext()){
-            write-host $enum.Current.Value $enum.Current.Occurrence
-        }
-
-        StreamAdaptor -FindLast {$args[0].Occurrence -eq 1 } -Subject $ab | Select-Object -Property Value,Occurrence
-        $ab | StreamAdaptor -Find { $args[0].Occurrence -eq 2 } | Select-Object -Property Value,Occurrence
-        
-
-        $ab | StreamAdaptor -FindLast { $args[0].Occurrence -eq 3 } -ifAbsent { ([BagElement]::new('hoge',0)) } | Select-Object -Property Value,Occurrence
-        $ab | StreamAdaptor -Find { $args[0].Occurrence -eq 3 } -ifAbsent { ([BagElement]::new('hoge',0)) } | Select-Object -Property Value,Occurrence
-    }
-    9 {
-        $ixb  = [IndexedBag]::new()
-
-        $ixb.GetIndexBlock = { $args[0].Substring(0,1) }
-        $ixb.AddAll((Get-Content -path .\Authers.txt))
-        #$ixb.Values 
-        #$ixb.ValuesAndOccurrences.foreach{ Write-Host $_.Value $_.Occurrence }
-
-        $ixb.Count 
-        $ixb[752].foreach{ write-host $_.Value $_.Occurrence }
-        $ixb.IndexesAndValuesAndOccurrences.foreach{ Write-Host $_.index $_.Value $_.Occurrence }
+    4.2 {
         <#
-        $ixb.GetIndexBlock = { ($args[0])[0] }
-        $ixb.Add("あんぱん")
-        $ixb.Add("あんぽんたん")
-        $ixb.Add("あんぽんたん")
-        $ixb.Add("あんぽんたん")
-        $ixb.Add("あんかけ")
-        $ixb.Add("あんちょび")
-        $ixb.Add("あんちょび")
-        $ixb
-        野 野間与太郎 1
-野 野々村朔 1
-野 野崎まど 1
-野 野崎つばた 1
-野 野人 1
-野 野口芽衣 1
-野 野田彩子 1
-野 野営地 1
-野 野宮けい 1
-野 野上武志 1
-野 野山歩 1
-野 野良おばけ 1
-野 野呂俊介 1
-野 野村宗弘 1
-野 野口賢 1
-
-野 野々村朔 1
-野 野上武志 1
-野 野人 1
-野 野口芽衣 1
-野 野口賢 1
-野 野呂俊介 1
-野 野営地 1
-野 野宮けい 1
-野 野山歩 1
-野 野崎つばた 1
-野 野崎まど 1
-野 野村宗弘 1
-野 野田彩子 1
-野 野良おばけ 1
-野 野間与太郎 1
-
-野 野間与太郎 1
-野 野良おばけ 1
-野 野田彩子 1
-野 野村宗弘 1
-野 野崎まど 1
-野 野崎つばた 1
-野 野山歩 1
-野 野宮けい 1
-野 野営地 1
-野 野呂俊介 1
-野 野口賢 1
-野 野口芽衣 1
-野 野人 1
-野 野上武志 1
-野 野々村朔 1
-
-
+        # AspectComparerを指定したBagがOccurrenceにどう振る舞うのが妥当なんだろ…?
+        # ｷﾓﾁとしては↓こういう感じに書きたいんだけど、これでIncludes=true,OccurrencesOf = 54が返るようにするのはちとﾔﾔｺｼｲ。
+        #
+        # (・∀・) ちょっと整理したら上手くいった!! これでいくw!
         #>
+        $filesAndDirectories = Get-ChildItem -Path . -Recurse
+        $aBag = [Bag]::new($filesAndDirectories,[AspectComparer]::new('Extension'))
+        $var1 = '.dll'
+        '$aBag has {0} elements' | InjectMessage $mb -FormatByStream $aBag.Count -Flush
+        '$aBag includes "{0}"={1}' | InjectMessage $mb -FormatByStream $var1 $aBag.Includes($var1) -Flush
+        '"{0}" has {1} occcurrences' | InjectMessage $mb -FormatByStream $var1 $aBag.OccurrencesOf($var1) -Flush
+        $aBag.OccurrenceElementsOf($var1) | write-host
+        $aBag.ValuesAndOccurrences.foreach{
+            write-host $_
+        }
     }
-    10 {
-        $mb = [MessageBuilder]::new()
-        $testdata = @( '花沢健吾','花沢健吾','花沢健吾','若木民喜','荒井春太郎','荒井春太郎','莉ジャンヒュン','菅原キク','萩埜まこと','萩尾望都','藤間麗','西義之','ナイーブタ','西餅' )
-        $ixb = [IndexedBag]::new()
-        $ixb.GetIndexBlock = { [string]($args[0][0]) }  # 先頭一文字でインデックス
-        $testdata.foreach{ $ixb.Add($_) }
 
-        $ixb.Count | InjectMessage $mb -Format 'Bag.Count = {0}' -Flush
-
-        '----- Values Ordered -----' | InjectMessage $mb -Flush
-        $ixb.ValuesOrdered | InjectMessage $mb -Flush
-        '----- Values Sorted -----' | InjectMessage $mb -Flush
-        $ixb.ValuesSorted | InjectMessage $mb -Flush
-
-        '----- Indexes -----' | InjectMessage $mb -Flush
-        $ixb.Indexes | InjectMessage $mb -Flush
-
-        $sorted = $ixb.ElementsSorted
-        while($sorted.MoveNext()){
-            $elem = $sorted.Current
-            'Index={0}, Value={1}, Occurrence={2}' | InjectMessage $mb -FormatByStream $elem.Index $elem.Value $elem.Occurrence -Flush
+    5.0 { # EnumerationとIndexing
+        $files = Get-ChildItem -Path . -Recurse -File
+        $aBag = [Bag]::new($files,[AspectComparer]::new('Extension'))
+        '----- $aBag.foreach -----' | InjectMessage $mb -Flush
+        $aBag.foreach{
+            $_ | write-host
         }
-        $ordered = $ixb.ElementsOrdered
-        while($ordered.MoveNext()){
-            $elem = $ordered.Current
-            'Index={0}, Value={1}, Occurrence={2}' | InjectMessage $mb -FormatByStream $elem.Index $elem.Value $elem.Occurrence -Flush
+        '----- $aBag[] -----' | InjectMessage $mb -Flush
+        '($aBag has {0} elements)' | InjectMessage $mb -FormatByStream $aBag.Count -Flush
+        for($i=0; $i -lt $aBag.Count; $i++ ){
+            '[{0,3}] "{1}"' | InjectMessage $mb -FormatByStream $i $aBag[$i] -Flush
         }
-
-        for($i=0; $i -lt $ixb.Count; $i++){
-            '$ixb[{0}] => "{1}"' | InjectMessage $mb -FormatByStream $i $ixb[$i] -Flush
-        }
-
-        (1..5).foreach{ 
-            $ixb.OccurrencesOf('花沢健吾') | InjectMessage $mb -Flush
-            $ixb.Remove('花沢健吾')
-        }
-        $testdata.foreach{
-             '$ixb.Includes({0}) => {1}' | InjectMessage $mb -FormatByStream $_ $ixb.Includes($_) -Flush
-        }
-        for($i=0; $i -lt $ixb.Count; $i++){
-            '$ixb[{0}] => "{1}"' | InjectMessage $mb -FormatByStream $i $ixb[$i] -Flush
-        }
-
-        '----- Indexes -----' | InjectMessage $mb -Flush
-        $ixb.Indexes | InjectMessage $mb -Flush
-
-        $aBag = $ixb['西']
-        $ixb.Purge('西義之')
-        $ixb.Purge('西餅')
-        $ixb.PurgeIndex('荒')
-        $od = $ixb.Substance
-        $od
-
-        # Comparer差し替えでインデックスが正しく再構成されるか?
     }
-    11 {
-        $mb = [MessageBuilder]::new()
-        $testdata = @( '花沢健吾','花沢健吾','花沢健吾','若木民喜','荒井春太郎','荒井春太郎','莉ジャンヒュン','菅原キク','萩埜まこと','萩尾望都','藤間麗','西義之','ナイーブタ','西餅' )
-        $aBag = [Bag]::new()
-        $testdata.foreach{ $aBag.Add($_) }
-        '----- ValuesSorted -----' | InjectMessage $mb -Flush
-        $aBag.ValuesSorted.foreach{
-            $_
+    5.1 { # ElementsOrdered,ElementsSorted
+        $directories = Get-ChildItem -Path . -Recurse -Directory
+        $aBag = [Bag]::new($directories,[AspectComparer]::new('Extension'))
+
+        '----- Elements -----' | InjectMessage $mb -Flush
+        $aBag.Elements.foreach{
+            $args[0].Extension | InjectMessage $mb -Flush
         }
-        '----- ValuesOrdered -----' | InjectMessage $mb -Flush
-        $aBag.ValuesOrdered.foreach{
-            $_
+        '----- Elements by Index -----' | InjectMessage $mb -Flush
+        '($aBag has {0} elements)' | InjectMessage $mb -FormatByStream $aBag.Count -Flush
+        for( $i=0; $i -lt $aBag.Count; $i++ ){
+            '[{0,2}]=>[{1}][{2}]' | InjectMessage $mb -FormatByStream $i $aBag.Elements[$i].Extension $aBag.Elements[$i].Name -Flush
         }
-        $aBag
+    }
+    5.2 {  # ValuesAndOccurrencesOrdere,ValuesAnOccurrencesSorted
+        $directories = Get-ChildItem -Path . -Recurse -Directory
+        $aBag = [Bag]::new($directories,[AspectComparer]::new('Extension'))
+
+        '----- ValuesAndOccurrences -----' | InjectMessage $mb -Flush
+        $aBag.ValuesAndOccurrences.foreach{
+            '[{0,-30}],[{1,3}]' | InjectMessage $mb -FormatByStream $_.Value $_.Occurrence -Flush
+        }
+        '----- ValuesAndOccurrencesOrdered by Index-----' | InjectMessage $mb -Flush
+        '($aBag has {0} elements without duplicate)' | InjectMessage $mb -FormatByStream $aBag.CountWithoutDuplicate -Flush
+        for( $i=0; $i -lt $aBag.CountWithoutDuplicate; $i++ ){
+            $elem = $aBag.ValuesAndOccurrences[$i]
+            '[{0,2}]=>[{1}],{2}' | InjectMessage $mb -FormatByStream $i $elem.Value $elem.Occurrence -Flush
+        }
+    }
+    5.3 { # ValuesAndElements
+        $files = Get-ChildItem -Path . -Recurse -File
+        $aBag = [Bag]::new($files,[AspectComparer]::new('Extension'))
+
+        '----- ValuesAndElements -----' | InjectMessage $mb -Flush -ForegroundColor Green -Bold
+        $aBag.ValuesAndElements.foreach{
+            '.' | write-host
+            '[{0,-30}],[{1,3}]' | InjectMessage $mb -FormatByStream $_.Value $_.Elements.Count -Flush
+            $mb.PushIndentLevel(1)
+            $_.Elements | InjectMessage $mb -Format '>> {0}' -Flush
+            $mb.PopIndentLevel()
+        }
+
+        '----- ValuesAndElements by Index-----' | InjectMessage $mb -Flush -ForegroundColor Green -Bold
+        '($aBag has {0} elements without duplicate)' | InjectMessage $mb -FormatByStream $aBag.CountWithoutDuplicate -Flush
+        for( $i=0; $i -lt $aBag.CountWithoutDuplicate; $i++ ){
+            $value = $aBag.ValuesAndElements[$i]
+            '[{0,2}]=>[{1}],{2}' | InjectMessage $mb -FormatByStream $i $value.Value $value.Elements.Count -Flush
+            $mb.PushIndentLevel(1)
+            $value.Elements | InjectMessage $mb -Format '{0}' -Flush
+            $mb.PopIndentLevel()
+        }
     }
 }
+

@@ -18,15 +18,34 @@ Quoter: 元オブジェクトに影響を与えずに何らかの処理を加え
 Extractor: 元オブジェクトに何らかの処理を加えた結果で新しいオブジェクトを生成し、元オブジェクトからその要素を取り除く処理の集合
 
 実装している集合操作は以下の通りで、それぞれIEnumerable[object],Bag,HashSet[object]に変換可能。
-("WithSelectWhere"→Whereを除いて、だいたいLinq.Enumerableと一緒)
+(だいたいLinq.Enumerableと一緒)
+WithWhere,WithSelect,WithSelectMany,WithMax,WithMinの処理対象はElements。
+必要があればgetSubjectBlockを指定する。
+
+WithIntersect,WithExcept,WithUnionの処理対象はValuesAndOccurrences。
+これにgetSubjectBlocを指定可能なオーバーライドは用意していない(多分意味がないと思うんで…)
 
     using namespace System.Collections.Generic
 
-    [IEnumerable[object]]WithSelectWhere([ScriptBlock]$nominator)
+    [IEnumerable[object]]WithWhere([ScriptBlock]$nominator)
+    [IEnumerable[object]]WithWhere([ScriptBlock]$getSubjectBlock,[ScriptBlock]$nominator)
     [IEnumerable[object]]WithSelect([ScriptBlock]$operator)
+    [IEnumerable[object]]WithSelect([ScriptBlock]$getSubjectBlock,[ScriptBlock]$operator)
 
     [IEnumerable[object]]WithSelectMany([ScriptBlock]$operator)
-    [IEnumerable[object]]WithSelectMany([ScriptBlock]$colectionSelector,[ScriptBlock]$resultSelector)
+    [IEnumerable[object]]WithSelectMany([ScriptBlock]$getSubjectBlock,[ScriptBlock]$operator)
+    [IEnumerable[object]]WithSelectMany([ScriptBlock]$getSubjectBlock,[ScriptBlock]$colectionSelector,[ScriptBlock]$resultSelector)
+    
+    [IEnumerable[object]]WithMaxBy([Type]$aType,[ScriptBlock]$keySelector)
+    [IEnumerable[object]]WithMaxBy([ScriptBlock]$getSubjectBlock,[Type]$aType,[ScriptBlock]$keySelector)
+    [IEnumerable[object]]WithMaxBy([ScriptBlock]$keySelector)
+    [IEnumerable[object]]WithMaxBy([Type]$aType,[string]$aspectName)
+    [IEnumerable[object]]WithMaxBy([string]$aspectName)
+
+    [IEnumerable[object]]WithMinBy([Type]$aType,[ScriptBlock]$keySelector)
+    [IEnumerable[object]]WithMinBy([ScriptBlock]$keySelector)
+    [IEnumerable[object]]WithMinBy([Type]$aType,[string]$aspectName)
+    [IEnumerable[object]]WithMinBy([string]$aspectName)
 
     [IEnumerable[object]]WithIntersect([Bag]$bag)
     [IEnumerable[object]]WithIntersect([IEnumerable[object]]$enumerable,[ScriptBlock]$keySelector)
@@ -39,21 +58,7 @@ Extractor: 元オブジェクトに何らかの処理を加えた結果で新し
     [IEnumerable[object]]WithUnion([Bag]$bag)
     [IEnumerable[object]]WithUnion([IEnumerable[object]]$enumerable)
     [IEnumerable[object]]WithUnion([IEnumerable[object]]$enumerable,[ScriptBlock]$converter)
-
-    [IEnumerable[object]]WithMaxBy([Type]$aType,[ScriptBlock]$keySelector)
-    [IEnumerable[object]]WithMaxBy([Type]$aType,[string]$aspectName)
-
-    [IEnumerable[object]]WithMinBy([Type]$aType,[ScriptBlock]$keySelector)
-    [IEnumerable[object]]WithMinBy([Type]$aType,[string]$aspectName)
-
-    [IEnumerable[object]]WithMaxBy([ScriptBlock]$keySelector)
-    [IEnumerable[object]]WithMaxBy([string]$aspectName)
-
-    [IEnumerable[object]]WithMinBy([ScriptBlock]$keySelector)
-    [IEnumerable[object]]WithMinBy([string]$aspectName)
-
 #>
-
 
 using namespace System.Collections.Generic
 
@@ -98,37 +103,9 @@ class ExtractorInstaller : ConvertingFactoryInstaller{
     }
 }
 
-<#class QuotingFactory : IQuoter{
-    static [Type]$ConformanceType = $null
-    static [ConvertingFactoryInstaller]GetInstaller(){
-        throw "Subclass responsibility"
-        return $null
-    }
 
-    [object]$substance
-
-    QuotingFactory([object]$substance){
-        $this.substance = $substance
-    }
-}
-
-class ExtractingFactory : IExtractor{
-    static [Type]$ConformanceType = $null
-    static [ConvertingFactoryInstaller]GetInstaller(){
-        throw "Subclass responsibility"
-        return $null
-    }
-
-    [object]$substance
-
-    ExtractingFactory([object]$substance){
-        $this.substance = $substance
-    }
-}
-#>
 
 class BagToSomeConvertingFactory {
-    static [Type]$PASSTHRU_FACTORY_TYPE = [BagThruFactory]
     [Bag]$substance
 
     BagToSomeConvertingFactory([Bag]$substance){
@@ -136,7 +113,7 @@ class BagToSomeConvertingFactory {
     }
     
     hidden [object]ThrowSubclassResponsibility(){
-        throw([String]::Format('{0}: Subclass responsibility.',$this.name))
+        throw([String]::Format('{0}: Subclass responsibility.',$this.gettype().name))
         return $null
     }
 
@@ -146,12 +123,39 @@ class BagToSomeConvertingFactory {
 
     <# Sublass responsibilities #>
 
-    [IEnumerable[object]]WithSelectWhere([ScriptBlock]$nominator){ return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithWhere([ScriptBlock]$nominator){ return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithWhere([BagEnumerableType]$enumType,[ScriptBlock]$nominator){ return $this.ThrowSubclassResponsibility() }
+    
+    <#
     [IEnumerable[object]]WithSelect([ScriptBlock]$operator){ return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithSelect([ScriptBlock]$getSubjectBlock,[ScriptBlock]$operator){ return $this.ThrowSubclassResponsibility() }
 
     [IEnumerable[object]]WithSelectMany([ScriptBlock]$operator){ return $this.ThrowSubclassResponsibility() }
-    [IEnumerable[object]]WithSelectMany([ScriptBlock]$colectionSelector,[ScriptBlock]$resultSelector){ return $this.ThrowSubclassResponsibility() }
+#   [IEnumerable[object]]WithSelectMany([ScriptBlock]$colectionSelector,[ScriptBlock]$resultSelector){ return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithSelectMany([ScriptBlock]$getSubjectBlock,[ScriptBlock]$operator){ return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithSelectMany([ScriptBlock]$getSubjectBlock,[ScriptBlock]$colectionSelector,[ScriptBlock]$resultSelector){ return $this.ThrowSubclassResponsibility() }
+    #>
 
+    [IEnumerable[object]]WithMaxBy([Type]$aType,[ScriptBlock]$keySelector){ return return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithMaxBy([Type]$aType,[string]$aspectName){ return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithMaxBy([BagEnumerableType]$enumType,[Type]$aType,[ScriptBlock]$keySelector){ return return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithMaxBy([BagEnumerableType]$enumType,[Type]$aType,[string]$aspectName){ return $this.ThrowSubclassResponsibility() }
+
+    [IEnumerable[object]]WithMinBy([Type]$aType,[ScriptBlock]$keySelector){ return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithMinBy([Type]$aType,[string]$aspectName){ return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithMinBy([BagEnumerableType]$enumType,[Type]$aType,[ScriptBlock]$keySelector){ return $this.ThrowSubclassResponsibility() }
+    [IEnumerable[object]]WithMinBy([BagEnumerableType]$enumType,[Type]$aType,[string]$aspectName){ return $this.ThrowSubclassResponsibility() }
+
+    <# May works as is... #>
+    [IEnumerable[object]]WithMaxBy([ScriptBlock]$keySelector){ return ($this.WithMaxBy([object],$keySelector))}
+    [IEnumerable[object]]WithMaxBy([string]$aspectName){ return ($this.WithMaxBy([object],$aspectName)) }
+
+    [IEnumerable[object]]WithMinBy([ScriptBlock]$keySelector){ return ($this.WithMinBy([object],$keySelector))}
+    [IEnumerable[object]]WithMinBy([string]$aspectName){ return ($this.WithMinBy([object],$aspectName)) }
+
+    <#
+    # 集合操作の対象はValuesAndOccurrencesのみ(Setとして)
+    #>
     [IEnumerable[object]]WithIntersect([Bag]$bag2){ return $this.ThrowSubclassResponsibility() }
     [IEnumerable[object]]WithIntersect([IEnumerable[object]]$enumerable,[ScriptBlock]$keySelector){ return $this.ThrowSubclassResponsibility() }
     [IEnumerable[object]]WithIntersectByValues([IEnumerable[object]]$enumerable){ return $this.ThrowSubclassResponsibility() }
@@ -163,71 +167,84 @@ class BagToSomeConvertingFactory {
     [IEnumerable[object]]WithUnion([Bag]$bag2){ return $this.ThrowSubclassResponsibility() }
     [IEnumerable[object]]WithUnion([IEnumerable[object]]$enumerable){ return $this.ThrowSubclassResponsibility() }
     [IEnumerable[object]]WithUnion([IEnumerable[object]]$enumerable,[ScriptBlock]$converter){ return $this.ThrowSubclassResponsibility() }
-
-    [IEnumerable[object]]WithMaxBy([Type]$aType,[ScriptBlock]$keySelector){ return return $this.ThrowSubclassResponsibility() }
-    [IEnumerable[object]]WithMaxBy([Type]$aType,[string]$aspectName){ return $this.ThrowSubclassResponsibility() }
-
-    [IEnumerable[object]]WithMinBy([Type]$aType,[ScriptBlock]$keySelector){ return $this.ThrowSubclassResponsibility() }
-    [IEnumerable[object]]WithMinBy([Type]$aType,[string]$aspectName){ return $this.ThrowSubclassResponsibility() }
-
-    <# May works as is... #>
-    [IEnumerable[object]]WithMaxBy([ScriptBlock]$keySelector){ return ($this.WithMaxBy([object],$keySelector))}
-    [IEnumerable[object]]WithMaxBy([string]$aspectName){ return ($this.WithMaxBy([object],$aspectName)) }
-
-    [IEnumerable[object]]WithMinBy([ScriptBlock]$keySelector){ return ($this.WithMinBy([object],$keySelector))}
-    [IEnumerable[object]]WithMinBy([string]$aspectName){ return ($this.WithMinBy([object],$aspectName)) }
 }
 
-class BagThruFactory : BagToSomeConvertingFactory{
-    BagThruFactory([Bag]$substance) : base($substance){}
-
-    [IEnumerable[object]]WithSelectWhere([ScriptBlock]$nominator){ return $this.substance }
-    [IEnumerable[object]]WithSelect([ScriptBlock]$operator){ return $this.substance }
-
-    [IEnumerable[object]]WithSelectMany([ScriptBlock]$operator){ return $this.substance }
-    [IEnumerable[object]]WithSelectMany([ScriptBlock]$colectionSelector,[ScriptBlock]$resultSelector){ return $this.substance }
-    
-    [IEnumerable[object]]WithIntersect([Bag]$bag2){ return $this.substance }
-    [IEnumerable[object]]WithIntersect([IEnumerable[object]]$enumerable,[ScriptBlock]$keySelector){ return $this.substance }
-    [IEnumerable[object]]WithIntersectByValues([IEnumerable[object]]$enumerable){ return $this.substance }
-    
-    [IEnumerable[object]]WithExcept([Bag]$bag2){ return $this.substance }
-    [IEnumerable[object]]WithExcept([IEnumerable[object]]$enumerable,[func[object,object]]$keySelector){ return $this.substance }
-    [IEnumerable[object]]WithExceptByValues([IEnumerable[object]]$enumerable){ return $this.substance }
-    
-    [IEnumerable[object]]WithUnion([Bag]$bag2){ return $this.substance}
-    [IEnumerable[object]]WithUnion([IEnumerable[object]]$enumerable){ return $this.substance }
-    [IEnumerable[object]]WithUnion([IEnumerable[object]]$enumerable,[ScriptBlock]$converter){ return $this.substance }
-
-    [IEnumerable[object]]WithMaxBy([ScriptBlock]$keySelector){ return $this.substance }
-    [IEnumerable[object]]WithMaxBy([string]$aspectName){ return $this.substance }
-    [IEnumerable[object]]WithMinBy([ScriptBlock]$keySelector){ return $this.substance }
-    [IEnumerable[object]]WithMinBy([string]$aspectName){ return $this.substance }
-}
 
 class BagToEnumerableFactory : BagToSomeConvertingFactory{
     BagToEnumerableFactory([Bag]$substance) : base($substance){}
- 
-    [IEnumerable[object]]WithSelectWhere([ScriptBlock]$nominator){
-        $aClone = $this.substance.Clone()
-        $selection = [Linq.Enumerable]::Where[object]($aClone,[func[object,bool]]$nominator)
-        return $this.AdjustResult($selection)
-    }
-    [IEnumerable[object]]WithSelect([ScriptBlock]$operator){
-        $aClone = $this.substance.Clone()
-        $selection = [Linq.Enumerable]::Select[object,object]($aClone,[func[object,object]]$operator)
-        return $this.AdjustResult($selection)
+
+    [IEnumerable[object]]AdjustResult([BagEnumerableType]$enumType,[IEnumerable[object]]$imResult,[Bag]$aBag){
+        $result = switch($enumType){
+            ValuesAndOccurrences {
+                $values = [Linq.Enumerable]::Select[object,object]($imResult,[func[object,object]]{ $args[0].Value })
+                $selection = [Linq.Enumerable]::IntersectBy[object,object]($aBag.ValuesAndElements,$values,[func[object,object]]{ $args[0].Value })
+                [Linq.Enumerable]::SelectMany[object,object]($selection,[func[object,IEnumerable[object]]]{ $args[0].Elements })
+                break
+            }
+            ValuesAndElements {
+                [Linq.Enumerable]::SelectMany[object,object]($imResult,[func[object,IEnumerable[object]]]{ $args[0].Elements })
+                break
+            }
+            default{
+                $imResult
+            }
+        }
+        return $this.AdjustResult($result)
     }
 
-    [IEnumerable[object]]WithSelectMany([ScriptBlock]$collectionSelector){
+    <#
+    # 指定条件に一致する要素の取り出し
+    #>
+    [IEnumerable[object]]WithWhere([BagEnumerableType]$enumType,[ScriptBlock]$nominator){
         $aClone = $this.substance.Clone()
-        $selection = [Linq.Enumerable]::SelectMany[object,object]($aClone,[func[object,IEnumerable[object]]]$collectionSelector)
-        return $this.AdjustResult($selection)
+        $subject = $aClone.GetEnumerable($enumType)
+        $selection = [Linq.Enumerable]::Where[object]($subject,[func[object,bool]]$nominator)
+        return $this.AdjustResult($enumType,$selection,$aClone)
     }
-    [IEnumerable[object]]WithSelectMany([ScriptBlock]$collectionSelector,[ScriptBlock]$resultSelector){
+    [IEnumerable[object]]WithWhere([ScriptBlock]$nominator){
+        return $this.WithWhere([BagEnumerableType]::Elements,$nominator)
+    }
+
+    <#
+    # 最大と判定された要素の取り出し
+    #>
+    [object]WithMaxBy([BagEnumerableType]$enumType,[Type]$aType,[ScriptBlock]$keySelector){
+        $execFrame = '[Linq.Enumerable]::MaxBy[object,{0}]($args[0],[func[object,{0}]]$args[1])'
+        $executer = [ScriptBlock]::create([String]::Format($execFrame,$aType))
         $aClone = $this.substance.Clone()
-        $selection = [Linq.Enumerable]::SelectMany[object,object,object]($aClone,[func[object,IEnumerable[object]]]$collectionSelector,[func[object,object,object]]$resultSelector)
-        return $this.AdjustResult($selection)
+        $subject = $aClone.GetEnumerable($enumType)
+        $result = &$executer $subject $keySelector
+        return $this.AdjustResult($enumType,@($result),$aClone)
+    }
+    [object]WithMaxBy([Type]$aType,[ScriptBlock]$keySelector){
+        return $this.WithMaxBy([BagEnumerableType]::Elements,$aType,$keySelector)
+    }
+    [object]WithMaxBy([BagEnumerableType]$enumType,[Type]$aType,[string]$aspectName){ 
+        return $this.WithMaxBy($enumType,$aType,[AspectComparer]::new($aspectName).GetSubjectBlock)
+    }
+    [object]WithMaxBy([Type]$aType,[string]$aspectName){ 
+        return $this.WithMaxBy([BagEnumerableType]::Elements,$aType,$aspectName)
+    }
+
+    <#
+    # 最小と判定された要素の取り出し
+    #>
+    [object]WithMinBy([BagEnumerableType]$enumType,[Type]$aType,[ScriptBlock]$keySelector){
+        $execFrame = '[Linq.Enumerable]::MinBy[object,{0}]($args[0],[func[object,{0}]]$args[1])'
+        $executer = [ScriptBlock]::create([String]::Format($execFrame,$aType))
+        $aClone = $this.substance.Clone()
+        $subject = $aClone.GetEnumerable($enumType)
+        $result = &$executer $subject $keySelector
+        return $this.AdjustResult(@($result))
+    }
+    [object]WithMinBy([Type]$aType,[ScriptBlock]$keySelector){
+        return $this.WithMinBy([BagEnumerableType]::Elements,$aType,$keySelector)
+    }
+    [object]WithMinBy([BagEnumerableType]$enumType,[Type]$aType,[string]$aspectName){ 
+        return $this.WithMinBy($enumType,$aType,[AspectComparer]::new($aspectName).GetSubjectBlock)
+    }
+    [object]WithMinBy([Type]$aType,[string]$aspectName){ 
+        return $this.WithMinBy([BagEnumerableType]::Elements,$aType,$aspectName)
     }
 
     [IEnumerable[object]]WithIntersect([Bag]$aBag){
@@ -286,32 +303,48 @@ class BagToEnumerableFactory : BagToSomeConvertingFactory{
         $union = [Linq.Enumerable]::Union[object]($aClone,$converted)
         return $this.AdjustResult($union)
     }
-
-    [object]WithMaxBy([Type]$aType,[ScriptBlock]$keySelector){
-        $execFrame = '[Linq.Enumerable]::MaxBy[object,{0}]($args[0],[func[object,{0}]]$args[1])'
-        $executer = [ScriptBlock]::create([String]::Format($execFrame,$aType))
-        $aClone = $this.substance.Clone()
-        $result = &$executer $aClone $keySelector
-        return $this.AdjustResult(@($result))
-    }
-    [object]WithMaxBy([Type]$aType,[string]$aspectName){ 
-        return $this.WithMaxBy($aType,[AspectComparer]::new($aspectName).GetSubjectBlock)
-    }
-
-    [object]WithMinBy([Type]$aType,[ScriptBlock]$keySelector){
-        $execFrame = '[Linq.Enumerable]::MinBy[object,{0}]($args[0],[func[object,{0}]]$args[1])'
-        $executer = [ScriptBlock]::create([String]::Format($execFrame,$aType))
-        $aClone = $this.substance.Clone()
-        $result = &$executer $aClone $keySelector
-        return $this.AdjustResult(@($result))
-    }
-    [object]WithMinBy([Type]$aType,[string]$aspectName){ 
-        return $this.WithMinBy($aType,[AspectComparer]::new($aspectName).GetSubjectBlock)
-    }
-
 }
 
-class BagToEnumerableQuoter : BagToEnumerableFactory<#, IQuoter#>{
+<#
+# Extractorが対応できない、不定要素を返すことが想定されるFactory
+#>
+class EnhancedBagToEnumerableFactory : BagToEnumerableFactory{
+    EnhancedBagToEnumerableFactory([Bag]$substance) : base($substance){}
+
+    <#
+    # 各要素の評価結果取り出し
+    #>
+    [IEnumerable[object]]WithSelect([BagEnumerableType]$enumType,[ScriptBlock]$operator){
+        $aClone = $this.substance.Clone()
+        $subject = $aClone.GetEnumerable($enumType)
+        $selection = [Linq.Enumerable]::Select[object,object]($subject,[func[object,object]]$operator)
+        return $this.AdjustResult($selection)
+    }
+    [IEnumerable[object]]WithSelect([ScriptBlock]$operator){
+        return $this.WithSelect([BagEnumerableType]::Elements,$operator)
+    }
+
+    <#
+    # 要素中の集合を射影
+    #>
+    [IEnumerable[object]]WithSelectMany([BagEnumerableType]$enumType,[ScriptBlock]$collectionSelector){
+        $aClone = $this.substance.Clone()
+        $subject = $aClone.GetEnumerable($enumType)
+        $selection = [Linq.Enumerable]::SelectMany[object,object]($subject,[func[object,IEnumerable[object]]]$collectionSelector)
+        return $this.AdjustResult($selection)
+    }
+    [IEnumerable[object]]WithSelectMany([ScriptBlock]$collectionSelector){
+        return $this.WithSelectMany([BagEnumerableType]::ValuesAndElements,$collectionSelector)
+    }
+    [IEnumerable[object]]WithSelectMany([BagEnumerableType]$enumType,[ScriptBlock]$collectionSelector,[ScriptBlock]$resultSelector){
+        $aClone = $this.substance.Clone()
+        $subject = $aClone.GetEnumerable($enumType)
+        $selection = [Linq.Enumerable]::SelectMany[object,object,object]($subject,[func[object,IEnumerable[object]]]$collectionSelector,[func[object,object,object]]$resultSelector)
+        return $this.AdjustResult($selection)
+    }
+}
+
+class BagToEnumerableQuoter : EnhancedBagToEnumerableFactory<#, IQuoter#>{
     static [ConvertingFactoryInstaller]GetInstaller(){
         return [QuoterInstaller]::new([IEnumerable[object]],[BagToEnumerableQuoter])
     }
@@ -322,7 +355,7 @@ class BagToEnumerableQuoter : BagToEnumerableFactory<#, IQuoter#>{
     BagToEnumerableQuoter([Bag]$substance) : base($substance){}
 }
 
-class BagToBagQuoter : BagToEnumerableQuoter{
+class BagToBagQuoter : EnhancedBagToEnumerableFactory{
     static [ConvertingFactoryInstaller]GetInstaller(){
         return [QuoterInstaller]::new([Bag],[BagToBagQuoter])
     }
@@ -335,7 +368,7 @@ class BagToBagQuoter : BagToEnumerableQuoter{
     }
 }
 
-class BagToSetQuoter : BagToEnumerableQuoter{
+class BagToSetQuoter : EnhancedBagToEnumerableFactory{
     static [ConvertingFactoryInstaller]GetInstaller(){
         return [QuoterInstaller]::new([HashSet[object]],[BagToSetQuoter])
     }
@@ -348,7 +381,7 @@ class BagToSetQuoter : BagToEnumerableQuoter{
     }
 }
 
-class BagToListQuoter : BagToEnumerableQuoter{
+class BagToListQuoter : EnhancedBagToEnumerableFactory{
     static [ConvertingFactoryInstaller]GetInstaller(){
         return [QuoterInstaller]::new([List[object]],[BagToListQuoter])
     }
@@ -376,7 +409,7 @@ class BagToEnumerableExtractor : BagToEnumerableFactory<#,IExtractor#>{
 
 class BagToBagExtractor: BagToEnumerableExtractor{
     static [ConvertingFactoryInstaller]GetInstaller(){
-        return [ExtractorInstaller]::new([Bag],[BagToSetExtractor])
+        return [ExtractorInstaller]::new([Bag],[BagToBagExtractor])
     }
 
     BagToBagExtractor([Bag]$substance) : base($substance){}

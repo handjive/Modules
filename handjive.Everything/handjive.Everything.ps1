@@ -62,7 +62,8 @@ enum ESAPI_SORT{
 }
 
 
-class EverythingSearchResultElement : ISearchResultElement,IComparable {
+# IClonableの実装いるみたい…
+class EverythingSearchResultElement : ISearchResultElement,IComparable, ICloneable {
     static [object]$DefaultComparer = [AspectComparer]::new('Name')
     hidden [string]$wpvQueryBase
     hidden [int]$wpvNumber
@@ -85,6 +86,15 @@ class EverythingSearchResultElement : ISearchResultElement,IComparable {
     <# Reponsibility for IComparable #>
     [int] CompareTo([object]$left){
         return ($this.Comparer.PSCompare($this,$left))
+    }
+
+    <# Responsibility for ICloneable #>
+    [object]Clone(){
+        $newOne = ($this.gettype())::new()
+        $newOne.Number = $this.Number
+        $newOne.Name = $this.Name
+        $newOne.ContainerPath = $this.ContainerPath
+        return $newOne
     }
 
     <# Property Accessors #>
@@ -140,7 +150,7 @@ class Everything : IEverything {
     static [object]$DefaultElementClass = [EverythingSearchResultElement]
 
     static [void]Search([string]$queryString){
-        [Everything]::Search('',$queryString)
+        [Everything]::Search('.',$queryString)
     }
     static [void]Search([string]$queryBase,[string]$queryString){
         $es = [Everything]::new()
@@ -311,9 +321,9 @@ class Everything : IEverything {
                 $elem = $subject.createElement($subject,$index)
                 return $elem
             }
-            $ixa.GetCountBlock.IntIndex = {
-                param($adaptor,$subject,$workingset)
-                $subject.NumberOfResults
+            $ixa.GetCountBlock = {
+                param($adaptor,$workingset)
+                $adaptor.substance.NumberOfResults
             }
    
             $this.wpvResults = $ixa
@@ -325,6 +335,16 @@ class Everything : IEverything {
     }
     [int]get_NumberOfResults(){
         return ($this.esapi::Everything_GetNumResults())
+    }
+
+    [String]ResultFullpathAt([int]$index){
+        return Join-Path -Path $this.ResultPathAt($index) -ChildPath $this.ResultFileNameAt($index) 
+    }
+
+    [void]ResultIndexDo([ScriptBlock]$performer){
+        for($i=0; $i -lt $this.NumberOfResults; $i++ ){
+            Write-Output (&$performer $i)
+        }
     }
 
     hidden [EverythingSearchResultElement]createElement([Everything]$substance,[int]$index){

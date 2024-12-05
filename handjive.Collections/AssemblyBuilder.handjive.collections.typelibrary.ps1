@@ -6,35 +6,37 @@ using SCG = System.Collections.Generic;
 using SC = System.Collections;
 
 namespace handjive{
-    public interface IErsatzClassInstanceVariable{
-        static SCG.Dictionary<System.Type,SCG.Dictionary<string,object>> _ErsatzClassInstanceVariables;
-        static protected SCG.Dictionary<System.Type,SCG.Dictionary<string,object>> CIVDictionary{
-            get{
-                if( IErsatzClassInstanceVariable._ErsatzClassInstanceVariables == null ){
-                    IErsatzClassInstanceVariable._ErsatzClassInstanceVariables = new SCG.Dictionary<System.Type,SCG.Dictionary<string,object>>();
+    namespace Prototype{
+        public interface IErsatzClassInstanceVariable{
+            static SCG.Dictionary<System.Type,SCG.Dictionary<string,object>> _ErsatzClassInstanceVariables;
+            static protected SCG.Dictionary<System.Type,SCG.Dictionary<string,object>> CIVDictionary{
+                get{
+                    if( IErsatzClassInstanceVariable._ErsatzClassInstanceVariables == null ){
+                        IErsatzClassInstanceVariable._ErsatzClassInstanceVariables = new SCG.Dictionary<System.Type,SCG.Dictionary<string,object>>();
+                    }
+                    return IErsatzClassInstanceVariable._ErsatzClassInstanceVariables;
                 }
-                return IErsatzClassInstanceVariable._ErsatzClassInstanceVariables;
             }
-        }
-        
-        static SCG.Dictionary<string,object> ErsatzClassInstanceVariablesFor(System.Type owner){
-            SCG.Dictionary<string,object> dict;
-            if( !IErsatzClassInstanceVariable.CIVDictionary.TryGetValue(owner,out dict) ){
-                IErsatzClassInstanceVariable.CIVDictionary[owner] = new SCG.Dictionary<string,object>();
+            
+            static SCG.Dictionary<string,object> ErsatzClassInstanceVariablesFor(System.Type owner){
+                SCG.Dictionary<string,object> dict;
+                if( !IErsatzClassInstanceVariable.CIVDictionary.TryGetValue(owner,out dict) ){
+                    IErsatzClassInstanceVariable.CIVDictionary[owner] = new SCG.Dictionary<string,object>();
+                }
+                return(IErsatzClassInstanceVariable.CIVDictionary[owner]);
             }
-            return(IErsatzClassInstanceVariable.CIVDictionary[owner]);
-        }
 
-        static object ErsatzClassInstanceVariableNamedFor(string name,System.Type owner){
-            object aValue;
-            SCG.Dictionary<string,object> dict = IErsatzClassInstanceVariable.ErsatzClassInstanceVariablesFor(owner);
-            if( dict.TryGetValue(name,out aValue) ){
-                return aValue;
-            }
-            else{
-                return null;
-            }
-        }        
+            static object ErsatzClassInstanceVariableNamedFor(string name,System.Type owner){
+                object aValue;
+                SCG.Dictionary<string,object> dict = IErsatzClassInstanceVariable.ErsatzClassInstanceVariablesFor(owner);
+                if( dict.TryGetValue(name,out aValue) ){
+                    return aValue;
+                }
+                else{
+                    return null;
+                }
+            }        
+        }
     }
 
     namespace Collections{
@@ -191,12 +193,35 @@ namespace handjive{
             object this[object index]{ get; set; }
             object this[int index]{ get; set; }
         }
-        public interface IItemIndexer_IntIndex{
-            object this[int index]{ get; set; }
+
+        public interface IIndexableWrapper{
+            public object this[object index]{
+                get{ return PSGetItem_ObjectIndex(index); }
+                set{ PSSetItem_ObjectIndex(index,value); }
+            }
+            public object this[int index]{
+                get{ return PSGetItem_IntIndex(index); }
+                set{ PSSetItem_IntIndex(index,value); }
+            }
+            int Count { get; }
+    
+            protected virtual object PSGetItem_ObjectIndex(object index){ return(null); }
+            protected virtual void   PSSetItem_ObjectIndex(object index,object value){  }
+            protected virtual object PSGetItem_IntIndex(int index){ return(null); }
+            protected virtual void   PSSetItem_IntIndex(int index,object value){  }
         }
-        public interface IItemIndexer_ObjectIndex{
-            object this[object index]{ get; set; }
-        }
+
+        public interface IEnumerableWrapper : SCG.IEnumerable<object>{
+            SCG.IEnumerator<object> SCG.IEnumerable<object>.GetEnumerator(){
+                return(this.PSGetEnumerator());
+            }
+            SC.IEnumerator SC.IEnumerable.GetEnumerator(){
+                return(this.PSGetEnumerator());
+            }
+            protected virtual SCG.IEnumerator<object> PSGetEnumerator(){
+                return(null);
+            }
+        }    
 
         public class IndexableEnumerableBase : IItemIndexer ,SCG.IEnumerable<object>{
             SCG.IEnumerator<object> SCG.IEnumerable<object>.GetEnumerator(){
@@ -233,7 +258,7 @@ namespace handjive{
 
             CombinedComparer Comparer{ get; set; }
 
-            IndexableEnumerableBase Elements{ get; }
+            SCG.List<object> Elements{ get; }
             IndexableEnumerableBase ValuesAndOccurrences{ get; }
             IndexableEnumerableBase ValuesAndElements{ get; }
         }
