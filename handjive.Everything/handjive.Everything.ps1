@@ -187,7 +187,7 @@ class Everything : IEverything {
         $this.Reset()
     }
 
-    Initialize([object]$elementClass){
+    hidden Initialize([object]$elementClass){
         $this.esapi = [handjive.Everything.EverythingAPI]
         
         $this.PostBuildElementListeners = [DependencyHolder]::new()
@@ -212,7 +212,7 @@ class Everything : IEverything {
         $this.isSearchStringDirty = $false
         $this.esapi::Everything_Reset()
     }
-    ResetResults(){
+    hidden ResetResults(){
         $this.wpvResults = @()
     }
 
@@ -301,7 +301,7 @@ class Everything : IEverything {
         return $this.esapi::GetResultFileName($index)
     }
 
-    BuildSearchString(){
+    hidden BuildSearchString(){
         if( $this.isSearchStringDirty ){
             $actualQueryString = $this.QueryBaseHolder.value()+' '+$this.SearchStringHolder.Value()
             $this.esapi::Everything_SetSearchW($actualQueryString)
