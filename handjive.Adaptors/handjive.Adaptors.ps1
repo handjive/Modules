@@ -1,0 +1,1 @@
+. "$PSScriptRoot\PluggableIndexer.ps1"

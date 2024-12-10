@@ -1,5 +1,6 @@
 using namespace handjive.Adaptors
-import-module handjive.Adaptors -Force
+
+import-module handjive.Adaptors -force
 
 $es = [Everything]::new()
 $es.QueryBase = '.\'
@@ -38,6 +39,8 @@ $ia.SetItemBlock = { param($adaptor,$index,$value) throw "Unable to set item for
 
     $adaptor.Enumerator = $enumerator
 }#>
+Write-Host $ia.Subject
+
 Write-Host $ia['stringIndex']
 Write-Host $ia.Count
 Write-Host $ia[0]

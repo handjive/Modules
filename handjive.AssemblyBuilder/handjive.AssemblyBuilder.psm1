@@ -7,6 +7,7 @@ function AssemblyBuilder{
         ,[Parameter(Mandatory)][string]$Source
         ,[Parameter(Mandatory)][string]$Destination
         ,[Parameter(Mandatory)][string]$AssemblyName
+        ,[object[]]$Refs = @()
     )
 
     $ASSEMBLY_PATH = Join-Path -Path $Destination -childPath $AssemblyName
@@ -21,7 +22,12 @@ function AssemblyBuilder{
     switch( $PsCmdlet.ParameterSetName ){
         'Type' {
             Write-Host 'Generating assembly (Type Definition)'
-            add-type -typeDefinition $Source -OutputAssembly $ASSEMBLY_PATH -OutputType Library
+            if( $Refs.Count -eq 0 ){
+                add-type -typeDefinition $Source -OutputAssembly $ASSEMBLY_PATH -OutputType Library
+            }
+            else{
+                add-type -typeDefinition $cscode -OutputAssembly $ASSEMBLY_PATH -ReferencedAssemblies $Refs -OutputType Library    
+            }
         }
         'Member' {
             Write-Host 'Generating assembly (Member Definition)'

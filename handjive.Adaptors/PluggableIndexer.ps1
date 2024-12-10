@@ -4,8 +4,12 @@ using namespace handjive.Adaptors
 using namespace handjive.Collections
 using module handjive.Collections
 
-class PluggableIndexer : handjive.Collections.EnumerableBase, IIndexAdaptor[object,object]{
-    [ScriptBlock]$GetEnumeratorBlock = { 
+
+<#class PluggableIndexer2 : PluggableEnumerableBase, IAdaptor, IIndexAdaptor[object,object]{
+}#>
+
+class PluggableIndexer : PluggableEnumerableBase,handjive.Foundation.IAdaptor, IIndexAdaptor[object,object]{
+    [ScriptBlock]$BuildEnumeratorBlock = { 
         param($adaptor) 
         $adaptor.Enumerator = [PluggableEnumerator]::Empty()
     }
@@ -13,7 +17,7 @@ class PluggableIndexer : handjive.Collections.EnumerableBase, IIndexAdaptor[obje
     [ScriptBlock]$GetItemBlock = { param($adaptor,$index) $adaptor.Subject[$index] }
     [ScriptBlock]$SetItemBlock = { param($adaptor,$index,$value) $adaptor.Subject[$index] = $value }
 
-    [object]$Subject
+    [object]$pvSubject
     [PluggableEnumerator]$Enumerator
 
     PluggableIndexer(){
@@ -24,9 +28,12 @@ class PluggableIndexer : handjive.Collections.EnumerableBase, IIndexAdaptor[obje
         $this.Initialize()
     }
 
+    hidden [object]get_Subject(){ return $this.pvSubject }
+    hidden set_Subject([object]$subject){ $this.pvSubject = $subject }
+
     hidden [void]Initialize()
     {
-        $this.GetEnumeratorBlock = {
+        $this.BuildEnumeratorBlock = {
             param($adaptor) # $adaptorは自分自身
             if( $null -eq $adaptor.Enumerator ){
                 $enumerator = [PluggableEnumerator]::new($adaptor)
@@ -53,7 +60,7 @@ class PluggableIndexer : handjive.Collections.EnumerableBase, IIndexAdaptor[obje
     }
 
     [Generic.IEnumerator[object]]PSGetEnumerator(){
-        &$this.GetEnumeratorBlock $this
+        &$this.BuildEnumeratorBlock $this
         return $this.Enumerator
     }
 

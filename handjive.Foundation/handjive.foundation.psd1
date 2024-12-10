@@ -51,13 +51,13 @@ Copyright = '(c) handjive. All rights reserved.'
 # ProcessorArchitecture = ''
 
 # Modules that must be imported into the global environment prior to importing this module
-# RequiredModules = @()
+#RequiredModules = @('initialize.handjive.Foundation.ps1')
 
 # Assemblies that must be loaded prior to importing this module
-RequiredAssemblies = @('handjive.Foundation.dll')
+#RequiredAssemblies = @()
 
 # Script files (.ps1) that are run in the caller's environment prior to importing this module.
-# ScriptsToProcess = @()
+ScriptsToProcess = @( "$PSScriptRoot\initialize.handjive.Foundation.ps1")
 
 # Type files (.ps1xml) to be loaded when importing this module
 # TypesToProcess = @()
@@ -66,7 +66,7 @@ RequiredAssemblies = @('handjive.Foundation.dll')
 # FormatsToProcess = @()
 
 # Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
-# NestedModules = @()
+#NestedModules = @()
 
 # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
 FunctionsToExport = @()
