@@ -1,6 +1,6 @@
 using namespace handjvie.Foundation
 
-class IndexRegurator{
+class IndexRegulator{
     static [int]ActualIndexFrom([int]$min,[int]$max,[int]$index){
         if( $index -lt 0 ){
             $actualIndex = $max + $index

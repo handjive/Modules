@@ -1,65 +1,60 @@
 using namespace handjive.Adaptors
 import-module handjive.Adaptors -force
 
-[CmdletBinding()]
-
 $es = [Everything]::new()
 $es.QueryBase = '.\'
 $es.SearchString = '*.psd1'
 $es.PerformQuery()
 
-$ia = [PluggableIndexer]::new($es)
-$ia.GetCountBlock = { 
-    param($adaptor) 
-    $adaptor.Subject.NumberOfResults 
-}
-$ia.GetItemBlock = { 
-    param($adaptor,$index) 
-    $adaptor.Subject.ResultFileNameAt($index) 
-}
-$ia.SetItemBlock = { 
-    param($adaptor,$index,$value) 
-    write-host "[$value] into [$index]"
-    #throw "Unable to set item for this object" 
+switch($args){
+    1 {
+        $ia.Subject = $null
+        Write-Host "$ErrorActionPreference"
+        $ErrorActionPreference = 'Stop'
+        try{
+            Write-Host $ia.Subject
+            #throw [handjive.Foundation.SubjectNotAssignedException]::new("HOGEEEEEE!")
+        }
+        catch {
+            Write-Error $PSItem.ToString()
+        }
+    }
+    2 {
+        $ia = [PluggableIndexer]::new($es)
+        $ia.GetCountBlock = { 
+            param($adaptor) 
+            $adaptor.Subject.NumberOfResults 
+        }
+        $ia.GetItemBlock = { 
+            param($adaptor,$index) 
+            Write-Host "Specified index=" $index
+            $adaptor.Subject.ResultFileNameAt($index) 
+        }
+        $ia.SetItemBlock = { 
+            param($adaptor,$index,$value) 
+            write-host "[$value] into [$index]"
+            #throw "Unable to set item for this object" 
+        }
+
+        write-Host '----------[ Enumerate all ]--------------'
+        $line = 0
+        $ia.foreach{
+            Write-Host "$line = " $_
+            $line++
+        }
+        Write-Host "----------------------"
+        Write-Host "Subject = " $ia.Subject
+        Write-Host "Count=" $ia.Count
+        Write-Host "0,1,3 = " $ia[0,1,3]
+        Write-Host "1..4 = " $ia[1..4]
+        Write-Host "9 = " $ia[9]
+        Write-Host "Indexing by a string = " $ia['stringIndex']
+        $ia[5] = 'HOGE'
+
+        Write-Host "0,3,-1 = " $ia[0,3,-1]
+        write-Host '------------------------'
+        Write-Host "-1..0 = " $ia[-1..0]
+        Write-Host "5..-1 = "$ia[5..-1]
+    }
 }
 
-Write-Host $ia.Subject
-$ia.Subject = $null
-Write-Host "$ErrorActionPreference"
-$ErrorActionPreference = 'Stop'
-try{
-    Write-Host $ia.Subject
-    #throw [handjive.Foundation.SubjectNotAssignedException]::new("HOGEEEEEE!")
-}
-catch {
-    Write-Error $PSItem.ToString()
-}
-
-$ia.Subject = $es
-Write-Host $ia['stringIndex']
-Write-Host $ia.Count
-Write-Host $ia[0,1,3]
-Write-Host $ia[1..4]
-Write-Host $ia[9]
-$ia[5] = 'HOGE'
-
-write-Host '------------------------'
-$ia.foreach{
-    Write-Host $_
-}
-
-write-Host '------------------------'
-Write-Host $ia[0,3,-1]
-Write-Host $ia['stringIndex']
-Write-Host $ia.Count
-Write-Host $ia[0]
-Write-Host $ia[9]
-
-write-Host '------------------------'
-Write-Host $ia[-1..0]
-
-
-write-Host '------------------------'
-$ia.foreach{
-    Write-Host $_
-}
