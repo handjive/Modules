@@ -5,3 +5,4 @@
 . "$PSScriptRoot\StringUtility.ps1"
 . "$PSScriptRoot\RandomFilename.ps1"
 . "$PSScriptRoot\RecycleableRemover.ps1"
+. "$PSScriptRoot\Envelope.ps1"
