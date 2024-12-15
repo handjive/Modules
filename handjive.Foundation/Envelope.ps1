@@ -14,10 +14,6 @@ class Envelope{
         $this.Subject = $object
     }
 
-    [void]Seal([object]$value){
-        $this.Subject = $value
-    }
-    
     [object]Unseal(){
         return $this.Subject
     }
