@@ -44,14 +44,6 @@ namespace handjive{
             SCG.IEnumerable<object> Values{ get; }
         }
 
-        public interface IPluggableEnumerator {
-            object Substance{ get; set; }
-            object OnCurrentBlock{ get; set; }
-            object OnMoveNextBlock{ get; set; }
-            object OnResetBlock{ get; set; }
-            object OnDisposeBlock{ get; set; }
-            object WorkingSet{ get; }
-        }        
 
         public interface IPluggableComparer{
             object CompareBlock{ get; set; }
@@ -124,70 +116,8 @@ namespace handjive{
             //SC.IEnumerator IndexesAndValuesAndOccurrences{ get; }
         } */
 
-        public class EnumerableBase : SCG.IEnumerable<object>{
-            SCG.IEnumerator<object> SCG.IEnumerable<object>.GetEnumerator(){
-                return(this.PSGetEnumerator());
-            }
-            SC.IEnumerator SC.IEnumerable.GetEnumerator(){
-                return(this.PSGetEnumerator());
-            }
-            protected virtual SCG.IEnumerator<object> PSGetEnumerator(){
-                return(null);
-            }
-        }
-        public class EnumerableBase<T> : SCG.IEnumerable<T>{
-            SCG.IEnumerator<T> SCG.IEnumerable<T>.GetEnumerator(){
-                return(this.PSGetEnumerator());
-            }
-            SC.IEnumerator SC.IEnumerable.GetEnumerator(){
-                return(this.PSGetEnumerator());
-            }
-            protected virtual SCG.IEnumerator<T> PSGetEnumerator(){
-                return(null);
-            }
-        }
 
 
-        public class EnumeratorBase : SCG.IEnumerator<object>{
-            object SCG.IEnumerator<object>.Current{ 
-                get{ 
-                    return(this.PSCurrent()); 
-                }
-            }
-            bool MoveNext(){
-                return(this.PSMoveNext());
-            }
-            void Reset(){
-                this.PSReset();
-            }
-
-            object SC.IEnumerator.Current{
-                get{
-                    return(this.PSCurrent());
-                }
-            }
-            bool SC.IEnumerator.MoveNext(){
-                return(this.PSMoveNext());
-            }
-            void SC.IEnumerator.Reset(){
-                this.PSReset();
-            }
-
-            void System.IDisposable.Dispose(){
-                this.PSDispose();
-            }
-            
-            protected virtual object PSCurrent(){
-                return(null);
-            }
-            protected virtual bool PSMoveNext(){
-                return(false);
-            }
-            protected virtual void PSReset(){
-            }
-            protected virtual void PSDispose(){
-            }
-        }
 
         public interface IItemIndexer{
             object this[object index]{ get; set; }
@@ -246,11 +176,84 @@ namespace handjive{
             protected virtual object PSGetItem_IntIndex(int index){ return(null); }
             protected virtual void   PSSetItem_IntIndex(int index,object value){  }
         }
+        
+        public interface IPluggableEnumerator {
+            object Substance{ get; set; }
+            object OnCurrentBlock{ get; set; }
+            object OnMoveNextBlock{ get; set; }
+            object OnResetBlock{ get; set; }
+            object OnDisposeBlock{ get; set; }
+            object WorkingSet{ get; }
+        }        
+
 
         public interface IIndexAdaptor{
             int Count { get; }
         }
-        
+                public class EnumerableBase : SCG.IEnumerable<object>{
+            SCG.IEnumerator<object> SCG.IEnumerable<object>.GetEnumerator(){
+                return(this.PSGetEnumerator());
+            }
+            SC.IEnumerator SC.IEnumerable.GetEnumerator(){
+                return(this.PSGetEnumerator());
+            }
+            protected virtual SCG.IEnumerator<object> PSGetEnumerator(){
+                return(null);
+            }
+        }
+        public class EnumerableBase<T> : SCG.IEnumerable<T>{
+            SCG.IEnumerator<T> SCG.IEnumerable<T>.GetEnumerator(){
+                return(this.PSGetEnumerator());
+            }
+            SC.IEnumerator SC.IEnumerable.GetEnumerator(){
+                return(this.PSGetEnumerator());
+            }
+            protected virtual SCG.IEnumerator<T> PSGetEnumerator(){
+                return(null);
+            }
+        }
+
+        public class EnumeratorBase : SCG.IEnumerator<object>{
+            object SCG.IEnumerator<object>.Current{ 
+                get{ 
+                    return(this.PSCurrent()); 
+                }
+            }
+            bool MoveNext(){
+                return(this.PSMoveNext());
+            }
+            void Reset(){
+                this.PSReset();
+            }
+
+            object SC.IEnumerator.Current{
+                get{
+                    return(this.PSCurrent());
+                }
+            }
+            bool SC.IEnumerator.MoveNext(){
+                return(this.PSMoveNext());
+            }
+            void SC.IEnumerator.Reset(){
+                this.PSReset();
+            }
+
+            void System.IDisposable.Dispose(){
+                this.PSDispose();
+            }
+            
+            protected virtual object PSCurrent(){
+                return(null);
+            }
+            protected virtual bool PSMoveNext(){
+                return(false);
+            }
+            protected virtual void PSReset(){
+            }
+            protected virtual void PSDispose(){
+            }
+        }
+
         public interface IBag{
             int Count { get; }
             int CountOccurrences { get; }

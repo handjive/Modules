@@ -11,39 +11,76 @@ namespace handjive{
         //
         // Interfaces
         //
-        public interface IIndexAdaptor<TIndex,TValue>{
+        public interface IItemIndexable<TIndex,TValue>{
+            int Count { get; }
+            TValue this[TIndex index]{ get; set; }
+        }
+        
+        public interface IIndexAdaptor<TIndex,TValue> : IAdaptor{
             int Count { get; }
             TValue this[TIndex index]{ get; set; }
         }
 
-        public class PluggableIndexerBase : handjive.Foundation.IAdaptor, SCG.IEnumerable<object>{
+        //
+        // Base Classes
+        //
+        public class PluggableIndexerBase : SCG.IEnumerable<object>, IIndexAdaptor<object,object> {
+            // IEnumerable
             SCG.IEnumerator<object> SCG.IEnumerable<object>.GetEnumerator(){
                 return(this.PSGetEnumerator());
             }
             SC.IEnumerator SC.IEnumerable.GetEnumerator(){
                 return(this.PSGetEnumerator());
             }
+
+            // IIndexAdaptor
+            object IIndexAdaptor<object,object>.this[object index]{
+                get{
+                    return this.PSget_Item(index);
+                }
+                set{
+                    this.PSset_Item(index,value);
+                }
+            }
+            object this[object index]{
+                get{
+                    return this.PSget_Item(index);
+                }
+                set{
+                    this.PSset_Item(index,value);
+                }
+            }
+            int IIndexAdaptor<object,object>.Count{
+                get{
+                    return this.PSget_Count();
+                }
+            }
+
+            // IAdaptor
+            object IAdaptor.Subject{
+                get{
+                    return this.PSget_Subject();
+                }
+                set{
+                    this.PSset_Subject(value);
+                }
+            }
+            
+            // PowerShell responsibilities
             protected virtual SCG.IEnumerator<object> PSGetEnumerator(){
                 return(null);
             }
-
-            object handjive.Foundation.IAdaptor.Subject{
-                get{ return null; }
-                set{}
+            protected virtual object PSget_Item(object index){
+                return null;
             }
-        }
-
-        public class PluggableEnumerableBase : SCG.IEnumerable<object>{
-            SCG.IEnumerator<object> SCG.IEnumerable<object>.GetEnumerator(){
-                return(this.PSGetEnumerator());
+            protected virtual void PSset_Item(object index,object value){
             }
-            SC.IEnumerator SC.IEnumerable.GetEnumerator(){
-                return(this.PSGetEnumerator());
+            protected virtual int PSget_Count(){
+                return 0;
             }
-            protected virtual SCG.IEnumerator<object> PSGetEnumerator(){
-                return(null);
-            }
-        }
+            protected virtual object PSget_Subject(){ return(null); }
+            protected virtual void PSset_Subject(object subject){ }
+       }
     }
 }
 "@

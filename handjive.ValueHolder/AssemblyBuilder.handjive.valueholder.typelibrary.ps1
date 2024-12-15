@@ -5,8 +5,9 @@ $cscode = @"
 namespace handjive{
     public interface IValueModel<T>{
         T Subject{ get;set; }
-        T Value();
-        void Value(T aValue);
+        T Value{ get; set; }
+        //T Value();
+        //void Value(T aValue);
         void Initialize();
     }
 }

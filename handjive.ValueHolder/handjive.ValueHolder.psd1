@@ -9,7 +9,7 @@
 @{
 
 # Script module or binary module file associated with this manifest.
-RootModule = 'ValueHolder.ps1'
+RootModule = 'handjive.ValueHolder.ps1'
 
 # Version number of this module.
 ModuleVersion = '1.0'

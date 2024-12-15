@@ -6,7 +6,15 @@ class RandomFilename : System.IDisposable{
     
     RandomFilename([string]$path){
         $this.Path = $path
-        $this.Name = [String]::Format('{0}-{1}',$golbal:PID,([IO.Path]::GetRandomFileName()))
+        $this.BuildPath()
+    }
+    RandomFilename(){
+        $this.Path = $ENV:TEMP
+        $this.BuildPath()
+    }
+
+    hidden [void]BuildPath(){
+        $this.Name = [String]::Format('{0}-{1}',$global:pid,([IO.Path]::GetRandomFileName()))
         $this.FullPath = Join-Path -Path $this.Path -ChildPath $this.Name
     }
     

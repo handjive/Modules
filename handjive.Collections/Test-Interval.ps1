@@ -36,4 +36,15 @@ switch($args){
             write-host $_
         }
     }
+    3 {
+        ([Interval]::new(1,10,2)).foreach{
+            write-host $_
+        }
+
+        $iv3 = 
+        write-host '------------------------'
+        ([Interval]::new(10,-10,1)).foreach{
+            Write-Host $_
+        }
+    }
 }

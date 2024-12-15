@@ -12,10 +12,15 @@ class RecycleableRemover{
         $this.substance.MoveHere($fsi.FullName)
     }
 
-    Remove([string]$fileOrDirectoryname){
-        $fsi = Get-Item -literalpath $fileOrDirectoryName
+    Remove([string]$fullPath){
+        $fsi = Get-Item -Path $fullPath
         $this.Remove($fsi)
     }
+
+    <#Remove([string]$fileOrDirectoryname){
+        $fsi = Get-Item -literalpath $fileOrDirectoryName
+        $this.Remove($fsi)
+    }#>
 
     RemoveAll([Collections.Generic.IEnumerable[object]]$filesOrDirectorys){
         $filesOrDirectorys.foreach{

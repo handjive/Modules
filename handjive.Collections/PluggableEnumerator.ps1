@@ -1,103 +1,3 @@
-using module handjive.ValueHolder
-
-using namespace handjive.Collections
-
-class PluggableEnumerableWrapper : EnumerableBase, handjive.IWrapper{
-    static [PluggableEnumerableWrapper]On([object]$substance){
-        $newOne = [PluggableEnumerableWrapper]::new($substance)
-        return $newOne
-    }
-
-    [object]$wpvSubstance
-    [HashTable]$WorkingSet
-    [ScriptBlock]$GetEnumeratorBlock = { param($substance,$workingset,$result) [PluggableEnumerator]::Empty() }
-
-    PluggableEnumerableWrapper([object]$substance){
-        $this.Substance = $substance
-        $this.WorkingSet = @{}
-    }
-
-    [object]get_Substance(){
-        return $this.wpvSubstance
-    }
-    set_Substance([object]$substance){
-        $this.wpvSubstance = $substance
-    }
-
-    hidden [object]extractResult([Hashtable]$result){
-        $key = $result.keys[0]
-        return ($result[$key])[-1]
-    }
-
-    [Collections.Generic.IEnumerator[object]]PSGetEnumerator(){
-        $result = @{}
-        &$this.GetEnumeratorBlock $this.Substance $this.WorkingSet $result | out-null
-        return($this.extractResult($result))
-    }
-
-    [Collections.Generic.IEnumerator[object]]GetEnumerator(){
-        return $this.PSGetEnumerator()
-    }
-}
-
-<#
-    Collections.Generic.IEnumerator<object>のCollections.Generic.IEnumerable<object>へのWrapper
-#>
-class EnumerableWrapper : EnumerableBase ,handjive.IWrapper{
-    static [EnumerableWrapper]On([Collections.Generic.IEnumerator[object]]$Substance){
-        $newOne = [EnumerableWrapper]::new($Substance)
-        return ($newOne)
-    }
-    static [EnumerableWrapper]On([Collections.IEnumerator]$Substance){
-        $newOne = [EnumerableWrapper]::new($Substance)
-        return ($newOne)
-    }
-    static [EnumerableWrapper]On([object]$Substance){
-        $newOne = [EnumerableWrapper]::new($Substance)
-        return ($newOne)
-    }
-
-    [object]$wpvSubstance
-
-    EnumerableWrapper([Collections.Generic.IEnumerator[object]]$Substance){
-        $this.Substance = $Substance
-    }
-    EnumerableWrapper([Collections.IEnumerator]$Substance){
-        $this.Substance = $Substance
-    }
-    EnumerableWrapper([object]$Substance){
-        $methods = $Substance.gettype().GetMethods() | where-object { $_.Name -eq 'GetEnumerator' }
-        if( $null -eq $methods ){
-            throw ([String]::Format('{0} has not GetEnumerator.',$Substance.gettype()))
-        }
-        else{
-            $this.Substance = $Substance
-        }
-
-    }
-
-    [object]get_Substance(){
-        return $this.wpvSubstance
-    }
-    set_Substance([object]$substance){
-        $this.wpvSubstance = $substance
-    }
-
-    [Collections.Generic.IEnumerator[object]]PSGetEnumerator(){
-        if( $this.Substance -is [Collections.Generic.IEnumerator[object]] ){
-            $this.substance.Reset()
-            return $this.Substance
-        }
-        else{
-            return ([PluggableEnumerator]::InstantWrapOn($this.Substance))
-        }
-    }
-
-    [Collections.Generic.IEnumerator[object]]GetEnumerator(){
-        return $this.PSGetEnumerator()
-    }
-}
-
 <#
 #　場当たり的なEnumerator
 #
@@ -110,6 +10,8 @@ class EnumerableWrapper : EnumerableBase ,handjive.IWrapper{
 #  $penum.OnResetBlock      Reset()が実行要求された時に実行されるScriptBlock(SubstanceとWorkingSetがパラメータとして渡される)
 #  $penum.OnDisposeBlock    Dispose()が実行要求された時に実行されるScriptBlock(SubstanceとWorkingSetがパラメータとして渡される)
 #>
+#using module handjive.Adaptors
+using namespace handjive.Collections
 
 class PluggableEnumerator : EnumeratorBase,IPluggableEnumerator {
     <#
@@ -280,9 +182,9 @@ class PluggableEnumerator : EnumeratorBase,IPluggableEnumerator {
         return($result)
     }
 
-    [EnumerableWrapper]ToEnumerable(){
+    <#[EnumerableWrapper]ToEnumerable(){
         return ([EnumerableWrapper]::on($this))
-    }
+    }#>
 }
 
 class EmptyEnumerator : PluggableEnumerator {
