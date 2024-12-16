@@ -1,4 +1,4 @@
-class ValueModel : handjive.IValueModel[object]{
+class ValueModel : handjive.IValueModel{
     hidden [DependencyHolder]$SubjectChangingListeners
     hidden [DependencyHolder]$SubjectChangedListeners
     hidden [bool]$SuppressDependents = $false
@@ -19,7 +19,7 @@ class ValueModel : handjive.IValueModel[object]{
     ValueModel([object]$Subject){
         $this.wpvSubject = $Subject
         $this.Initialize()
-    }
+    }   
 
     [object]get_Subject(){
         return($this.wpvSubject)
@@ -48,10 +48,10 @@ class ValueModel : handjive.IValueModel[object]{
         $this.Subject = $aValue
     }
 
-    [object]get_Value(){
+    hidden [object]get_Value(){
         return $this.ValueUsingSubject($this.Subject)
     }
-    set_Value([object]$aValue){
+    hidden set_Value([object]$aValue){
         if( $this.ValueChanging($this.wpvValue,$aValue) ){
             $this.wpvValue = $aValue
             $this.ValueUsingSubject($this.Subject,$aValue)

@@ -50,21 +50,21 @@ switch($args){
             [string]::format('Subject changed! new subject is"{0}"',$v1[0])
         })
 
-        $vh.Value('Hoge')
-        @(1..5).foreach{ $vh.Value($_) }
-        $vh.Value('Tara')
+        $vh.Value = 'Hoge'
+        @(1..5).foreach{ $vh.Value = $_ }
+        $vh.Value = 'Tara'
 
         $mb.Flush()
     }
     2 {
         $a = [AspectAdaptor]::new(($t1 = [Test1]::new()),'One')
 
-        $a.Value('hogee!')
-        $a.Value(),$t1.One | Write-Host
+        $a.Value = 'hogee!'
+        $a.Value,$t1.One | Write-Host
 
         $b = [PluggableAdaptor]::new($t1,{ $args[0].Two },{$args[0].Two = $args[1]})
-        $b.Value('Tara')
-        $b.Value(),$t1.Two | write-host
+        $b.Value = 'Tara'
+        $b.Value,$t1.Two | write-host
     }
     3 {
         $vh1 = [ValueHolder]::new()
@@ -82,8 +82,8 @@ switch($args){
 
         Trace-Script -ScriptBlock {
             @(1..1000).foreach{
-                $vh1.Value('Hoge')
-                $vh2.Value('Tara')
+                $vh1.Value = 'Hoge'
+                $vh2.Value = 'Tara'
             }
         }
         (Get-LatestTrace).Top50Duration
