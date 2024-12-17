@@ -191,7 +191,6 @@ class Everything : IEverything {
             $current -= $aFlag
             $this.RequestFlags =$current
         }
-        return $current
     }
     [void]SetRequestFlag([ESAPI_REQUEST]$aFlag)
     {
