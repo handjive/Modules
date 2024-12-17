@@ -1,7 +1,7 @@
 using namespace handjive.Everything
 
 using module handjive.Collections
-#using module handjive.EverythingAPI
+using module handjive.EverythingAPI
 using module handjive.ValueHolder
 
 enum ESAPI_ERROR{
@@ -183,7 +183,7 @@ class Everything : IEverything {
         $this.esapi::Everything_SetRequestFlags($aValue)
     }
 
-    [ESAPI_REQUEST]UnsetRequestFlag([ESAPI_REQUEST]$aFlag)
+    [void]UnsetRequestFlag([ESAPI_REQUEST]$aFlag)
     {
         $current = $this.RequestFlags
         if( ($current -band $aFlag) -eq $aFlag)
@@ -193,7 +193,7 @@ class Everything : IEverything {
         }
         return $current
     }
-    [ESAPI_REQUEST]SetRequestFlag([ESAPI_REQUEST]$aFlag)
+    [void]SetRequestFlag([ESAPI_REQUEST]$aFlag)
     {
         $current = $this.RequestFlags
         if( ($current -band $aFlag) -ne $aFlag )
