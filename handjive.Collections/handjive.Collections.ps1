@@ -1,4 +1,3 @@
-using module handjive.ValueHolder
 using module handjive.ChainScript
 
 using namespace handjive.Collections
@@ -9,6 +8,7 @@ using namespace handjive.Collections
 . "$PSScriptRoot\EnumerableWrapper.ps1"
 #. "$PSScriptRoot\CollectionAdaptor.ps1"
 . "$PSScriptRoot\Interval.ps1"
+. "$PSScriptRoot\PluggableIndexer.ps1"
 . "$PSScriptRoot\Bag.ps1"
 . "$PSScriptRoot\ConvertingFactory.ps1"
 . "$PSScriptRoot\EnumerableSorter.ps1"

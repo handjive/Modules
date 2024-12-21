@@ -1,6 +1,7 @@
-import-module handjive.AssemblyBuilder -Force
+param([switch]$Build,[switch]$Load)
+import-module handjive.AssemblyBuilder -force
 
-$esapi_cscode = @"
+$cscode = @"
 [DllImport("Everything64.dll", CharSet = CharSet.Unicode)]
 public static extern UInt32 Everything_SetSearchW(string lpSearchString);
 [DllImport("Everything64.dll")]
@@ -84,10 +85,13 @@ public static extern UInt32 Everything_GetResultListSort();
 public static extern void Everything_SetRequestFlags(UInt32 dwRequestFlags);
 [DllImport("Everything64.dll")]
 public static extern UInt32 Everything_GetRequestFlags();
+
 [DllImport("Everything64.dll")]
 public static extern UInt32 Everything_GetResultListRequestFlags();
+
 [DllImport("Everything64.dll")]
 public static extern bool Everything_GetResultSize(UInt32 nIndex, out long lpFileSize);
+
 [DllImport("Everything64.dll")]
 public static extern bool Everything_GetResultDateCreated(UInt32 nIndex, out long lpFileTime);
 [DllImport("Everything64.dll")]
@@ -95,13 +99,15 @@ public static extern bool Everything_GetResultDateModified(UInt32 nIndex, out lo
 [DllImport("Everything64.dll")]
 public static extern bool Everything_GetResultDateAccessed(UInt32 nIndex, out long lpFileTime);
 [DllImport("Everything64.dll")]
-public static extern UInt32 Everything_GetResultAttributes(UInt32 nIndex);
-[DllImport("Everything64.dll")]
-public static extern UInt32 Everything_GetResultRunCount(UInt32 nIndex);
-[DllImport("Everything64.dll")]
 public static extern bool Everything_GetResultDateRun(UInt32 nIndex, out long lpFileTime);
 [DllImport("Everything64.dll")]
 public static extern bool Everything_GetResultDateRecentlyChanged(UInt32 nIndex, out long lpFileTime);
+
+[DllImport("Everything64.dll")]
+public static extern UInt32 Everything_GetResultAttributes(UInt32 nIndex);
+[DllImport("Everything64.dll")]
+public static extern UInt32 Everything_GetResultRunCount(UInt32 nIndex);
+
 [DllImport("Everything64.dll")]
 public static extern UInt32 Everything_GetRunCountFromFileName(string lpFileName);
 [DllImport("Everything64.dll")]
@@ -126,16 +132,74 @@ public static string GetResultPath(UInt32 nIndex)
     return (System.Runtime.InteropServices.Marshal.PtrToStringUni(Everything_GetResultPath(nIndex)));
 }
 
+public static DateTime GetResultDateCreated(UInt32 nIndex)
+{
+    long aDate;
+    Everything_GetResultDateCreated(nIndex,out aDate);
+    return(DateTime.FromFileTime(aDate));
+}
 public static DateTime GetResultDateModified(UInt32 nIndex)
 {
-    // "これじゃだめ(基底Tickがちがってる?)"
     long aDate;
     Everything_GetResultDateModified(nIndex,out aDate);
-    return (DateTime.FromFileTime((long)aDate));
+    return(DateTime.FromFileTime(aDate));
 }
-"@
+public static DateTime GetResultDateAccessed(UInt32 nIndex)
+{
+    long aDate;
+    Everything_GetResultDateAccessed(nIndex,out aDate);
+    return(DateTime.FromFileTime(aDate));
+}
+public static DateTime GetResultDateRun(UInt32 nIndex)
+{
+    long aDate;
+    Everything_GetResultDateRun(nIndex,out aDate);
+    return(DateTime.FromFileTime(aDate));
+}
+public static DateTime GetResultDateRecentlyChanged(UInt32 nIndex)
+{
+    long aDate;
+    Everything_GetResultDateRecentlyChanged(nIndex,out aDate);
+    return(DateTime.FromFileTime(aDate));
+}
 
-Add-Type -MemberDefinition $esapi_cscode -Name 'EverythingAPI' -Namespace 'handjive.Everything' -OutputAssembly "$PSScriptRoot\handjive.everythingapi.dll" -OutputType Library
+public static long GetResultSize(UInt32 nIndex)
+{
+    long aSize;
+    Everything_GetResultSize(nIndex,out aSize);
+    return(aSize);
+}
+public static UInt32 GetResultAttributes(UInt32 nIndex)
+{
+    return (Everything_GetResultAttributes(nIndex));
+}
+public static UInt32 GetNumFileResults()
+{
+    return(Everything_GetNumFileResults());
+}
+public static UInt32 GetNumFolderResults()
+{
+    return(Everything_GetNumFolderResults());
+}
+
+"@
+$DLLNAME = 'handjive.everythingapi.dll'
+$MODULENAME = 'EverythingAPI'
+$NAMESPACE = 'handjive.Everything'
+#$REFS = @( 'handjive.Foundation.dll'  )
+#$REFS = [Reflection.Assembly]::LoadFrom('handjive.Foundation.dll')
+#$REFS = [Reflection.Assembly]::Load('handjive.Foundation, Version=1.0.0.0, Culture=neutral, PublicKeyToken=22b2bd9641469b21, processorArchitecture=MSIL')
+
+<#
+if( $Build ){
+    #add-type -typeDefinition $cscode -OutputAssembly "$PSScriptROOT\$DLLNAME" -ReferencedAssemblies @($REFS) -OutputType Library
+    AssemblyBuilder -MemberDefinition -Name $MODULENAME -Namespace $NAMESPACE -Source $cscode -AssemblyName $DLLNAME -Destination $PSScriptRoot
+}
+if( $Load ){
+    [reflection.Assembly]::LoadFrom("$PSScriptRoot\$DLLNAME")
+}
+#>
+Add-Type -MemberDefinition $cscode -Name 'EverythingAPI' -Namespace 'handjive.Everything' -OutputAssembly "$PSScriptRoot\handjive.everythingapi.dll" -OutputType Library
 <#
 $DESTINATION_PATH = 'C:\Users\handjive\Scripts.PowerShell\Modules\assemblies'
 $ASSEMBLY_NAME = 'handjive.everythingapi.dll'
@@ -151,4 +215,4 @@ Write-Host 'Generating assembly'
 #add-type -typeDefinition $cscode -OutputAssembly $ASSEMBLY_PATH -OutputType Library
 
 add-type -Name 'EverythingAPIDLL' -memberDefinition $esapi_cscode -OutputAssembly $ASSEMBLY_PATH -OutputType Library
-#>
+#>[

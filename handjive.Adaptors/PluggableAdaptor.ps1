@@ -1,23 +1,21 @@
-using module handjive.ValueHolder
-
-class PluggableAdaptor : ValueModel {
+class PluggableAdaptor : ValueAdaptor {
     [ScriptBlock]$GetValueBlock
     [ScriptBlock]$SetValueBlock
-
-    hidden [void]Initialize(){
-        ([ValueModel]$this).Initialize()
-    }
 
     PluggableAdaptor([object]$Subject,[ScriptBlock]$GetValueBlock,[ScriptBlock]$SetValueBlock) : base($Subject){
         $this.GetValueBlock = $GetValueBlock
         $this.SetValueBlock = $SetValueBlock
     }
 
-    [object]ValueUsingSubject([object]$Subject){
-        return (&$this.GetValueBlock $Subject)
+    hidden [void]Initialize(){
+        ([ValueAdaptor]$this).Initialize()
     }
-    ValueUsingSubject([object]$Subject,[object]$Value){
-        &$this.SetValueBlock $Subject $Value
+
+    [object]ValueUsingSubject(){
+        return (&$this.GetValueBlock $this.Subject)
+    }
+    ValueUsingSubject([object]$Value){
+        &$this.SetValueBlock $this.Subject $Value
     }
 }
 

@@ -50,8 +50,6 @@ class PluggableIndexer : PluggableIndexerBase{
                 }
                 $adaptor.Enumerator = $enumerator
             }
-
-            $adaptor.Enumerator.Reset()
         }
     }
 
@@ -68,6 +66,7 @@ class PluggableIndexer : PluggableIndexerBase{
 
     [Generic.IEnumerator[object]]PSGetEnumerator(){
         &$this.BuildEnumeratorBlock $this
+        $this.Enumerator.PSReset()
         return $this.Enumerator
     }
 

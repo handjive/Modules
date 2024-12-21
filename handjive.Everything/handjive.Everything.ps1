@@ -1,3 +1,5 @@
-. "$PSScriptRoot\EverythingResultAccessor.ps1"
+. "$PSScriptRoot\ESAPI.Enums.ps1"
 . "$PSScriptRoot\EverythingSearchResultElement.ps1"
+. "$PSScriptRoot\BasicResultAccessor.ps1"
+. "$PSScriptRoot\EverythingResultAccessor.ps1"
 . "$PSScriptRoot\Everything.ps1"

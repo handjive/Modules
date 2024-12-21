@@ -8,6 +8,14 @@ using handjive.Foundation;
 
 namespace handjive{
     namespace Adaptors {
+        public interface IValueModel : IValueable{
+        }
+
+        public interface IDependencyServer{
+            object Events{ get; }
+            object Dependents{ get; }
+        }
+
         //
         // Interfaces
         //

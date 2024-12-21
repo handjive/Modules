@@ -1,3 +1,6 @@
+using namespace System.Collections.Specialized
+using namespace System.Collections
+
 class DependencyListenerEntry{
     [object]$Listener
     [scriptBlock]$ScriptBlock
@@ -22,6 +25,7 @@ class DependencyHolder{
 
     [object]$ElementClass
     [Collections.ArrayList]$clients
+    [OrderedDictionary]$subscribers = [OrderedDictionary]::new()
 
     DependencyHolder(){
         $this.clients = [Collections.ArrayList]::new()
@@ -37,6 +41,40 @@ class DependencyHolder{
         return ($this.ElementClass::new())
     }
     
+    Add([object]$anEvent,[object]$listener,[scriptBlock]$aBlock)
+    {
+        [ArrayList]$entries = @()
+        
+        if( -not ($this.subscribers.Keys -contains $anEvent ) ){
+            $this.subscribers.Add($anEvent,($entries = [ArrayList]::new()))
+        }
+        else{
+            $entries = $this.subscribers[$anEvent]
+        }
+
+        $elem = $this.NewElement()
+        $elem.Listener = $listener
+        $elem.ScriptBlock = $aBlock
+        $entries.Add($elem)
+    }
+
+    [object[]]Perform([object]$anEvent,[object]$argArray,[hashtable]$workingset){
+        $result = [ArrayList]::new()
+
+        Write-Debug $anEvent.gettype()
+        # イベントのサブスクライバがいなければ終了
+        if( -not ($this.subscribers.keys -contains $anEvent) ){
+            return $null
+        }
+
+        ($this.subscribers[$anEvent]).foreach{
+            $entry = [DependencyListenerEntry]$_
+            $result.Add($entry.Perform($argarray,$workingset))
+        }
+
+        return($result)
+    }
+
     Add([object]$listener,[scriptBlock]$aBlock){
         $elem = $this.NewElement()
         $elem.Listener = $listener

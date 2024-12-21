@@ -61,11 +61,11 @@ class PluggableComparer : CombinedComparer,IPluggableComparer{
     }
     
     hidden [object]get_CompareBlock(){
-        return $this.CompareBlockHolder.Value()
+        return $this.CompareBlockHolder.Value
     }
     
     hidden set_CompareBlock([object]$aBlock){
-        $this.CompareBlockHolder.Value($aBlock)
+        $this.CompareBlockHolder.Value = $aBlock
     }
 
     SetDefaultAscending(){

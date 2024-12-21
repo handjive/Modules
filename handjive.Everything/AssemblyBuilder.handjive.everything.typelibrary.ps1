@@ -10,6 +10,7 @@ namespace handjive{
             string ContainerPath{ get;set; }
             string FullName{ get; }
        }
+       
        public interface IEverything{
             System.Collections.Generic.IEnumerable<object> ResultsEnumerable{ get; }
             object Results{ get; }
@@ -19,6 +20,19 @@ namespace handjive{
             object SortOrder{ get; set; }
             object RequestFlags{ get; set; }
             int NumberOfResults{ get; }
+        }
+
+        public interface IBasicResultAccessor{
+            int Count{ get; }
+            object LastError{ get; }
+        }
+
+        public interface IEverythingResultConverter{
+            int Count{ get; }
+        }
+
+        public interface IEverythingResultAccessor{
+            object ResultType{ get; set; }
         }
     }
 }

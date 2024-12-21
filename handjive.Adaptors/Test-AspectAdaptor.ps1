@@ -1,3 +1,8 @@
+[CmdletBinding()]
+
+$DebugPreference = 'Continue' 
+#$DebugPreference = 'SilentlyContinue' 
+
 class Test{
     [string]$a
     [string]$b
@@ -10,8 +15,10 @@ class Test2{
     [int]$age = 0
 }
 
+write-output $DebugPreference
+
 switch($args){
-    1 {
+    1 { # Simple
         $t = [Test]::new()
         $aa = [AspectAdaptor]::new($t,'a')
         $ac = [AspectAdaptor]::new($t,'c')
@@ -25,23 +32,29 @@ switch($args){
         write-host "c=" ($ac.Value)
     }
 
-    2{
-        $t2 = [Test2]::new()
-        $expStr = [String]::Format('param($subject,$value) $subject.{0} = $value','test.a')
-        $exp = [ScriptBlock]::create($expStr)
-        Invoke-Command -ScriptBlock $exp -ArgumentList @($t2,'Tara')
-
-#        $aa = [AspectAdaptor]::new($t2,'test.a')
-#        $aa.Value = 'a of a [Test]'
-
-        write-host $t2.test.a
-    }
-
-    3{
+    2{ # Traverse
         $t2 = [Test2]::new()
         $aa = [AspectAdaptor]::new($t2,'test.a')
         $aa.Value = 'a of a [Test]'
 
-        write-host $aa.Value
+        write-output $aa.Value
+        write-output $t2 $t2.Test.a
+    }
+
+    3 { # Dependency - Simply ValueChanged
+        $t = [Test]::new()
+        $aa = [AspectAdaptor]::new($t,'a')
+        $aa.Dependents.Add([EV_ValueAdaptor]::ValueChanged,'hoge',{ param($subject,$parameters,$workingset) Write-Host $parameters })
+        $aa.Value = 38
+    }
+
+    3.1 { # Dependency - ValueChanging, Reject new value
+        $t = [Test]::new()
+        $aa = [AspectAdaptor]::new($t,'a')
+        $aa.Dependents.Add([EV_ValueAdaptor]::ValueChanging,'hoge',{ param($subject,$parameters,$workingset) (($parameters[1] % 2) -ne 0) })
+        $aa.Value = 38
+        Write-Host $aa.Value
+        $aa.Value = 39
+        Write-Host $aa.Value
     }
 }

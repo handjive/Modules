@@ -1,6 +1,6 @@
 using namespace handjive.Everything
 using module handjive.Collections
-using module handjive.ValueHolder
+using module handjive.Adaptors
 
 class EverythingSearchResultElement : ISearchResultElement,IComparable, ICloneable {
     static [object]$DefaultComparer = [AspectComparer]::new('Name')

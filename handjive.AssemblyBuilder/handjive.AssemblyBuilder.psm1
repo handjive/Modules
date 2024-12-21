@@ -3,7 +3,8 @@ function AssemblyBuilder{
     param(
         [Parameter(Mandatory,ParameterSetName="Type")][switch]$TypeDefinition
         ,[Parameter(Mandatory,ParameterSetName="Member")][switch]$MemberDefinition
-        ,[Parameter(Mandatory,ParameterSetName="Member")][string]$Name
+        ,[Parameter(Mandatory,ParameterSetName="Member")][string]$Namespace
+        ,[Parameter()][string]$Name
         ,[Parameter(Mandatory)][string]$Source
         ,[Parameter(Mandatory)][string]$Destination
         ,[Parameter(Mandatory)][string]$AssemblyName
@@ -31,7 +32,12 @@ function AssemblyBuilder{
         }
         'Member' {
             Write-Host 'Generating assembly (Member Definition)'
-            add-type -Name $Name -memberDefinition $Source -OutputAssembly $ASSEMBLY_PATH -OutputType Library
+            if( $Refs.Count -eq 0 ){
+                add-type  -memberDefinition $Source -Name $Name -OutputAssembly $ASSEMBLY_PATH -ReferencedAssemblies $Refs -OutputType Library
+            }
+            else{
+                add-type  -memberDefinition $Source -Name $Name -OutputAssembly $ASSEMBLY_PATH -OutputType Library
+            }
         }
     }
 }

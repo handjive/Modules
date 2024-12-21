@@ -1,5 +1,6 @@
 using namespace handjive.Adaptors
 import-module handjive.Adaptors -force
+$ErrorActionPreference = 'Stop'
 
 $es = [Everything]::new()
 $es.QueryBase = '.\'
@@ -8,9 +9,9 @@ $es.PerformQuery()
 
 switch($args){
     1 {
+        $ia = [PluggableIndexer]::new($es)
         $ia.Subject = $null
         Write-Host "$ErrorActionPreference"
-        $ErrorActionPreference = 'Stop'
         try{
             Write-Host $ia.Subject
             #throw [handjive.Foundation.SubjectNotAssignedException]::new("HOGEEEEEE!")
@@ -33,7 +34,7 @@ switch($args){
         $ia.SetItemBlock = { 
             param($adaptor,$index,$value) 
             write-host "[$value] into [$index]"
-            #throw "Unable to set item for this object" 
+            throw "HOGEEEE!!: Unable to set item for this object" 
         }
 
         write-Host '----------[ Enumerate all ]--------------'
