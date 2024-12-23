@@ -1,3 +1,4 @@
+
 class PluggableAdaptor : ValueAdaptor {
     [ScriptBlock]$GetValueBlock
     [ScriptBlock]$SetValueBlock

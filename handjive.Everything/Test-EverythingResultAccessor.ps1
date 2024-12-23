@@ -1,5 +1,5 @@
 import-module handjive.Everything -Force
-
+$ErrorActionPreference ='Stop'
 switch($args){
     0 {
         $es = [Everything]::new()
@@ -70,12 +70,18 @@ switch($args){
     4 {
         $es.SelectResultType([string])
         $accessor = [EverythingResultAccessor]::new($es)
-        Write-Output $accessor[0]
+        Write-Host $accessor[0]
 
         $accessor.SelectConverter([hashtable])
         Write-Output $accessor[0]
-
+        
         $accessor.SelectConverter([EverythingSearchResultElement])
+        $accessor.Dependents.Add([EV_EverythingResultAccessor]::ConversionFinished,{ param($elem,$converter)
+            Write-Output $elem
+            Write-Output $converter.gettype()
+            Beep
+        })
+        
         Write-Output $accessor[0]
     }
     

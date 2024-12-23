@@ -6,3 +6,6 @@
 . "$PSScriptRoot\RandomFilename.ps1"
 . "$PSScriptRoot\RecycleableRemover.ps1"
 . "$PSScriptRoot\Envelope.ps1"
+. "$PSScriptRoot\DependencyHolder.ps1"
+. "$PSScriptRoot\ValueModel.ps1"
+. "$PSScriptRoot\ValueHolder.ps1"

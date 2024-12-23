@@ -1,22 +1,21 @@
 using namespace handjive.Everything
 using module handjive.Adaptors
 
+enum EV_EverythingResultAccessor{ ConversionFinished; }
+
 class EverythingResultAccessor : PluggableIndexer, IEverythingResultAccessor{
     static $CONVERTERCLASS = [EverythingResultConverter]
     
     [type]$pvResultType
-    [EverythingResultConverter]$pvConverter
     [IEverything]$es
     
-    EverythingResultAccessor([IEverything]$es) : base(){ 
+    EverythingResultAccessor([IEverything]$es) : base($this.ConverterFor($es,$es.ResultType)){ 
         $this.es = $es
-        $this.Subject = $this.ConverterFor($es,$es.ResultType)
-        $this.Initialize()
+        $this.ResultType = $es.ResultType
     }
-    EverythingResultAccessor([IEverything]$es,[type]$resultType) : base(){ 
+    EverythingResultAccessor([IEverything]$es,[type]$resultType) : base($this.ConverterFor($es,$resultType)){ 
         $this.es = $es
-        $this.Subject = $this.ConverterFor($es,$resultType)
-        $this.Initialize()
+        $this.ResultType = $resultType
     }
 
     hidden [EverythingResultConverter]ConverterFor([IEverything]$es,[type]$type){
@@ -24,6 +23,7 @@ class EverythingResultAccessor : PluggableIndexer, IEverythingResultAccessor{
     }
 
     hidden [void]Initialize(){
+        ([PluggableIndexer]$this).Initialize()
         $this.BuildBlocks()
     }
 
@@ -34,7 +34,9 @@ class EverythingResultAccessor : PluggableIndexer, IEverythingResultAccessor{
         }
         $this.GetItemBlock = { 
             param($adaptor,$index) 
-            $adaptor.Subject.Convert($index) 
+            $result = $adaptor.Subject.Convert($index) 
+            $this.TriggerEvent([EV_EverythingResultAccessor]::ConversionFinished,@($result))
+            $result
         }
         $this.SetItemBlock = { 
             param($adaptor,$index,$value) 
@@ -48,7 +50,7 @@ class EverythingResultAccessor : PluggableIndexer, IEverythingResultAccessor{
     }
     hidden set_ResultType([object]$type){
         $this.pvResultType = $type
-        $this.SelectConverterFor($type)
+        $this.ConverterFor($this.es,$type)
     }
         
     [void]SelectConverter([type]$type){

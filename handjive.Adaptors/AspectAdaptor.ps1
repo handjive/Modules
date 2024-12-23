@@ -1,3 +1,5 @@
+using module handjive.Foundation
+
 class AspectAdaptor : ValueAdaptor{
     [string]$Aspect
 

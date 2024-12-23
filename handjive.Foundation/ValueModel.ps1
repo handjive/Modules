@@ -1,4 +1,5 @@
 using namespace handjive.Adaptors
+using namespace handjive.Foundation
 
 enum EV_ValueModel{
     ValueChanging; ValueChanged;
@@ -8,11 +9,8 @@ class ValueModel : IValueModel, IDependencyServer{
     static [object]$EventsPublished = [EV_ValueModel]
 
     hidden [DependencyHolder]$wpvDependents
-    hidden [bool]$SuppressDependents = $false
     hidden [object]$wpvValue
     
-    [HashTable]$WorkingSet
-
     ValueModel(){
         $this.Initialize()
     }
@@ -23,9 +21,7 @@ class ValueModel : IValueModel, IDependencyServer{
 
     hidden [void]Initialize(){
         Write-Debug "Initializing in ValueModel"
-        $this.Workingset = @{}
         $this.wpvDependents = [DependencyHolder]::new()
-        $this.Dependents.Add([EV_ValueModel]::ValueChanging,$this,{ $true }) # 指定が無い時のValueChangingイベント
     }
 
     hidden [object]get_Events(){ return $this.gettype()::EventsPublished }
@@ -48,21 +44,16 @@ class ValueModel : IValueModel, IDependencyServer{
     }
 
     [object[]]TriggerEvent([object]$anEvent,[array]$parameters){ 
-        $result = @()
-        if( !$this.SuppressDependents ){
-            $result = $this.dependents.Perform($anEvent,$parameters,$this.WorkingSet)
-        }
-
-        return $result 
+        return $this.Dependents.TriggerEvent($anEvent,$parameters)
     }
 
     SuppressDependentsDo([ScriptBlock]$aBlock){
-        $this.SuppressDependents = $true
+        $this.Dependents.Supress = $true
         try{
             &$aBlock
         }
         finally{
-            $this.SuppressDependents = $false
+            $this.Dependents.Suppress = $false
         }
     }
 

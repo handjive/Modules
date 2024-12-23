@@ -1,8 +1,4 @@
 #using module handjive.LimitedList
-
-
- 
-
 class ValueHolder : ValueModel{
         
     ValueHolder() : base(){

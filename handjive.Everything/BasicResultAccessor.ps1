@@ -177,11 +177,7 @@ class EverythingResultConverter_FileSystemInfo : EverythingResultConverter {
 }
 
 class EverythingResultConverter_EverythingSearchResultElement : EverythingResultConverter {
-    hidden [DependencyHolder]$PostBuildElementListeners
-
-    EverythingResultConverter_EverythingSearchResultElement([IEverything]$subject) : base($subject){
-        $this.PostBuildElementListeners = [DependencyHolder]::new()
-    }
+    EverythingResultConverter_EverythingSearchResultElement([IEverything]$subject) : base($subject){}
     
     [EverythingSearchResultElement]Convert([int]$index)
     {
@@ -191,7 +187,6 @@ class EverythingResultConverter_EverythingSearchResultElement : EverythingResult
         $elem.ContainerPath = $this.Accessor.PathAt($index)
         $elem.QueryBase = $this.Subject.QueryBase
         $elem.OnInjectionComplete($elem) | out-null
-        $this.PostBuildElementListeners.Perform($elem,@{}) | out-null        
 
         return $elem
     }

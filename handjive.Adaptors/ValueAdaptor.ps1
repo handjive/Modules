@@ -1,6 +1,8 @@
 using namespace handjive
 using namespace handjive.Foundation
 
+using module handjive.Foundation
+
 enum EV_ValueAdaptor{ ValueChanging; ValueChanged; SubjectChanging; SubjectChanged; }
 
 class ValueAdaptor : ValueModel, IAdaptor{
@@ -16,8 +18,6 @@ class ValueAdaptor : ValueModel, IAdaptor{
         ([ValueModel]$this).Initialize()
         Write-Debug "Initializing in ValueAdaptor"
         $this.wpvDependents = [DependencyHolder]::new()
-        $this.wpvDependents.Add([EV_ValueAdaptor]::ValueChanging,$this,{ $true })
-        $this.wpvDependents.Add([EV_ValueAdaptor]::SubjectChanging,$this,{ $true })
     }
 
     hidden [object]get_Subject(){ return $this.wpvSubject }

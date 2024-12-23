@@ -2,9 +2,13 @@ using namespace System.Collections
 using namespace handjive.Foundation
 using namespace handjive.Adaptors
 using namespace handjive.Collections
+
 using module handjive.Foundation
 
-class PluggableIndexer : PluggableIndexerBase{
+enum EV_PluggableIndexer{ SubjectChanging; SubjectChanged; }
+
+class PluggableIndexer : PluggableIndexerBase, IDependencyServer{
+    [DependencyHolder]$pvDependents
     [ScriptBlock]$BuildEnumeratorBlock = { 
         param($adaptor) 
         $adaptor.Enumerator = [PluggableEnumerator]::Empty()
@@ -17,13 +21,21 @@ class PluggableIndexer : PluggableIndexerBase{
     [PluggableEnumerator]$Enumerator
 
     PluggableIndexer(){
-        $this.Subject = $null
+        $this.pvSubject = $null
+        $this.Initialize()
     }
     PluggableIndexer([object]$subject){
-        $this.Subject = $subject
+        $this.pvSubject = $subject
+        $this.Initialize()
     }
 
-    hidden [void]ConstructDefaultBuildBEnumeratorBlock()
+    hidden Initialize(){
+        $this.pvDependents = [DependencyHolder]::new()
+    }
+    hidden [object]get_Dependents(){ return $this.pvDependents }
+    hidden [object]get_Events(){ return [EV_PluggableIndexer] }
+
+    hidden [void]ConstructDefaultBuildEnumeratorBlock()
     {
         $this.BuildEnumeratorBlock = {
             param($adaptor) # $adaptorは自分自身
@@ -60,8 +72,13 @@ class PluggableIndexer : PluggableIndexerBase{
         return $this.pvSubject 
     }
     hidden PSset_Subject([object]$subject){ 
-        $this.pvSubject = $subject 
-        $this.ConstructDefaultBuildBEnumeratorBlock()
+        $result = $this.TriggerEvent([EV_PluggableIndexer]::SubjectChanging,@($this.pvSubject,$subject))
+        if( -not ($result -contains $false) ){
+            $oldSubject = $this.pvSubject
+            $this.pvSubject = $subject 
+            $this.TriggerEvent([EV_PluggableIndexer]::SubjectChanged,@($oldSubject,$this.pvSubject))
+            $this.ConstructDefaultBuildEnumeratorBlock()
+        }
     }
 
     [Generic.IEnumerator[object]]PSGetEnumerator(){
@@ -80,6 +97,10 @@ class PluggableIndexer : PluggableIndexerBase{
 
     PSset_Item([object]$index,[object]$value){
         &$this.SetItemBlock $this ([IndexRegulator]::ActualIndexFrom(0,$this.PSget_Count(),$index)) $value
+    }
+
+    [object[]]TriggerEvent([object]$anEvent,[array]$parameters){ 
+        return ($this.Dependents.TriggerEvent($anEvent,$parameters))
     }
 }
 

@@ -51,7 +51,7 @@ Copyright = '(c) handjive. All rights reserved.'
 # ProcessorArchitecture = ''
 
 # Modules that must be imported into the global environment prior to importing this module
-RequiredModules = @('handjive.misc','handjive.Adaptors','handjive.ChainScript')
+RequiredModules = @('handjive.misc','handjive.Foundation','handjive.ChainScript')
 
 # Assemblies that must be loaded prior to importing this module
 RequiredAssemblies = @('handjive.collections.typelibrary.dll')

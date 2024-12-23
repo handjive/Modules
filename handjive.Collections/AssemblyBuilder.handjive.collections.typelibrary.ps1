@@ -4,42 +4,77 @@ import-module handjive.AssemblyBuilder -force
 $cscode = @"
 using SCG = System.Collections.Generic;
 using SC = System.Collections;
+using handjive.Foundation;
 
 namespace handjive{
-    namespace Prototype{
-        public interface IErsatzClassInstanceVariable{
-            static SCG.Dictionary<System.Type,SCG.Dictionary<string,object>> _ErsatzClassInstanceVariables;
-            static protected SCG.Dictionary<System.Type,SCG.Dictionary<string,object>> CIVDictionary{
-                get{
-                    if( IErsatzClassInstanceVariable._ErsatzClassInstanceVariables == null ){
-                        IErsatzClassInstanceVariable._ErsatzClassInstanceVariables = new SCG.Dictionary<System.Type,SCG.Dictionary<string,object>>();
-                    }
-                    return IErsatzClassInstanceVariable._ErsatzClassInstanceVariables;
-                }
-            }
-            
-            static SCG.Dictionary<string,object> ErsatzClassInstanceVariablesFor(System.Type owner){
-                SCG.Dictionary<string,object> dict;
-                if( !IErsatzClassInstanceVariable.CIVDictionary.TryGetValue(owner,out dict) ){
-                    IErsatzClassInstanceVariable.CIVDictionary[owner] = new SCG.Dictionary<string,object>();
-                }
-                return(IErsatzClassInstanceVariable.CIVDictionary[owner]);
-            }
-
-            static object ErsatzClassInstanceVariableNamedFor(string name,System.Type owner){
-                object aValue;
-                SCG.Dictionary<string,object> dict = IErsatzClassInstanceVariable.ErsatzClassInstanceVariablesFor(owner);
-                if( dict.TryGetValue(name,out aValue) ){
-                    return aValue;
-                }
-                else{
-                    return null;
-                }
-            }        
-        }
-    }
-
     namespace Collections{
+        public interface IItemIndexable<TIndex,TValue> : IAdaptor{
+            int Count { get; }
+            TValue this[TIndex index]{ get; set; }
+        }
+        
+        //
+        // Base Classes
+        //
+        public class PluggableIndexerBase : SCG.IEnumerable<object>, IItemIndexable<object,object> {
+            // IEnumerable
+            SCG.IEnumerator<object> SCG.IEnumerable<object>.GetEnumerator(){
+                return(this.PSGetEnumerator());
+            }
+            SC.IEnumerator SC.IEnumerable.GetEnumerator(){
+                return(this.PSGetEnumerator());
+            }
+
+            // IItemIndexable
+            object IItemIndexable<object,object>.this[object index]{
+                get{
+                    return this.PSget_Item(index);
+                }
+                set{
+                    this.PSset_Item(index,value);
+                }
+            }
+            object this[object index]{
+                get{
+                    return this.PSget_Item(index);
+                }
+                set{
+                    this.PSset_Item(index,value);
+                }
+            }
+            int IItemIndexable<object,object>.Count{
+                get{
+                    return this.PSget_Count();
+                }
+            }
+
+            // IAdaptor
+            object IAdaptor.Subject{
+                get{
+                    return this.PSget_Subject();
+                }
+                set{
+                    this.PSset_Subject(value);
+                }
+            }
+
+            // PowerShell responsibilities
+            protected virtual SCG.IEnumerator<object> PSGetEnumerator(){
+                return(null);
+            }
+            protected virtual object PSget_Item(object index){
+                return null;
+            }
+            protected virtual void PSset_Item(object index,object value){
+            }
+            protected virtual int PSget_Count(){
+                return 0;
+            }
+            protected virtual object PSget_Subject(){ return(null); }
+            protected virtual void PSset_Subject(object subject){ }
+        }
+    
+        // ---------------------
         public interface ICollectionAdaptor{
             SCG.IEnumerable<object> Values{ get; }
         }
@@ -90,35 +125,6 @@ namespace handjive{
         public class CombinedComparer : ComparerBase<object>{
         }
         
-        /* public interface IBag{
-            int Count{ get; }
-            handjive.Collections.CombinedComparer Comparer{ get; set; }
-            object this[int index]{ get; }
-            SCG.IEnumerable<object> Values{ get; }
-            SCG.IEnumerable<object> ValuesSorted{ get; }
-            SCG.IEnumerable<object> ValuesOrdered{ get; }
-            SCG.IEnumerable<object> ElementsSorted{ get; }
-            SCG.IEnumerable<object> ElementsOrdered{ get; }
-        } */
-
-        /* public interface IIndexedBag{
-            object GetIndexBlock{ get; set; }
-            object this[object index]{ get; }
-            SCG.IEnumerable<object> Indexes{ get; }
-            SCG.IEnumerable<object> ElementsSorted{ get; }
-            SCG.IEnumerable<object> ElementsOrdered{ get; }
-
-            //SC.IEnumerator IndexesOrdered{ get; }
-            //SC.IEnumerator Values{ get; }
-            //int Count{ get; }
-            //object[] this[int index]{ get; }
-            //SC.IEnumerator ValuesAndOccurrences{ get; }
-            //SC.IEnumerator IndexesAndValuesAndOccurrences{ get; }
-        } */
-
-
-
-
         public interface IItemIndexer{
             object this[object index]{ get; set; }
             object this[int index]{ get; set; }
@@ -332,9 +338,26 @@ namespace handjive{
 }
 "@
 
-$DLLNAME = 'handjive.collections.typelibrary.dll'
+<#$DLLNAME = 'handjive.collections.typelibrary.dll'
 if( $Build ){
     AssemblyBuilder -typeDefinition -Source $cscode -AssemblyName $DLLNAME -Destination $PSScriptRoot
+}
+if( $Load ){
+    [reflection.Assembly]::LoadFrom("$PSScriptRoot\$DLLNAME")
+}#>
+
+# handjive.Foundation, Version=1.0.0.0, Culture=neutral, PublicKeyToken=22b2bd9641469b21, processorArchitecture=MSIL
+$DLLNAME = 'handjive.collections.typelibrary.dll'
+#$REFS = @( 'handjive.Foundation.dll'  )
+#$REFS = [Reflection.Assembly]::LoadFrom('handjive.Foundation.dll')
+$REFS = @(
+     'System.Collections'
+    ,'.\handjive.Foundation\handjive.foundation.typelibrary.dll'
+)
+
+if( $Build ){
+    #add-type -typeDefinition $cscode -OutputAssembly "$PSScriptROOT\$DLLNAME" -ReferencedAssemblies @($REFS) -OutputType Library
+    AssemblyBuilder -typeDefinition -Source $cscode -AssemblyName $DLLNAME -Refs @($REFS) -Destination $PSScriptRoot
 }
 if( $Load ){
     [reflection.Assembly]::LoadFrom("$PSScriptRoot\$DLLNAME")

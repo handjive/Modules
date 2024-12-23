@@ -24,14 +24,15 @@ class DependencyHolder{
     [object] static $DefaultElementClass = [DependencyListenerEntry]
 
     [object]$ElementClass
-    [Collections.ArrayList]$clients
     [OrderedDictionary]$subscribers = [OrderedDictionary]::new()
+    [hashtable]$WorkingSet = @{}
+    [bool]$Supress = $false
 
     DependencyHolder(){
-        $this.clients = [Collections.ArrayList]::new()
+        $this.subscribers = [OrderedDictionary]::new()
     }
     DependencyHolder([int]$limit){
-        $this.clients = [LimitedList]::new($limit)
+        $this.subscribers = [OrderedDictionary]::new()
     }
 
     [object]NewElement(){
@@ -41,15 +42,20 @@ class DependencyHolder{
         return ($this.ElementClass::new())
     }
     
+    Add([object]$anEvent,[scriptBlock]$aBlock)
+    {
+        $this.Add($anEvent,$null,$aBlock)
+    }
+
     Add([object]$anEvent,[object]$listener,[scriptBlock]$aBlock)
     {
         [ArrayList]$entries = @()
         
-        if( -not ($this.subscribers.Keys -contains $anEvent ) ){
-            $this.subscribers.Add($anEvent,($entries = [ArrayList]::new()))
+        if( -not ($this.subscribers.Keys -contains ([string]$anEvent) ) ){
+            $this.subscribers.Add(([string]$anEvent),($entries = [ArrayList]::new()))
         }
         else{
-            $entries = $this.subscribers[$anEvent]
+            $entries = $this.subscribers[([int]$anEvent)]
         }
 
         $elem = $this.NewElement()
@@ -63,11 +69,15 @@ class DependencyHolder{
 
         Write-Debug $anEvent.gettype()
         # イベントのサブスクライバがいなければ終了
-        if( -not ($this.subscribers.keys -contains $anEvent) ){
+        if( -not ($this.subscribers.keys -contains ([string]$anEvent)) ){
             return $null
         }
-
-        ($this.subscribers[$anEvent]).foreach{
+        
+        $anArray = $this.subscribers[([string]$anEvent)]
+        if( $null -eq $anArray  ){
+            Write-Error "HOGEEEE!!"
+        }
+        ($anArray).foreach{
             $entry = [DependencyListenerEntry]$_
             $result.Add($entry.Perform($argarray,$workingset))
         }
@@ -75,31 +85,18 @@ class DependencyHolder{
         return($result)
     }
 
-    Add([object]$listener,[scriptBlock]$aBlock){
-        $elem = $this.NewElement()
-        $elem.Listener = $listener
-        $elem.ScriptBlock = $aBlock
-        $this.clients.Add($elem)
-    }
-
-    [object]Perform([object]$argArray,[hashtable]$workingset,[ScriptBLock]$ifEmpty){
-        $lastResult = $null
-        if( $this.Count() -eq 0 ){
-            return &$ifEmpty
-        }
-        $this.clients.foreach{
-            $lastResult = $_.Perform($argArray,$workingset)
-        }
-
-        return($lastResult)
-    }
-
-    [object]Perform([object]$argArray,[hashtable]$workingset){
-        return($this.Perform($argArray,$workingset,{}))
-    }
-
     [int]Count()
     {
-        return ($this.clients.Count)
+        return ($this.subscribers.Count)
     }
+    
+    [object[]]TriggerEvent([object]$anEvent,[array]$parameters){ 
+        $result = @()
+        if( -not $this.Suppress ){
+            $result = $this.Perform($anEvent,$parameters,$this.WorkingSet)
+        }
+
+        return $result 
+    }
+
 }

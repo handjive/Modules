@@ -2,71 +2,45 @@ using namespace handjive.Everything
 
 using module handjive.Collections
 using module handjive.EverythingAPI
-using module handjive.Adaptors
+using module handjive.Foundation
 
 
 # IClonableの実装いるみたい…
 
 class Everything : IEverything {
-    static [object]$DefaultElementClass = [EverythingSearchResultElement]
-
-    static [void]Search([string]$queryString){
-        [Everything]::Search('.',$queryString)
-    }
-    static [void]Search([string]$queryBase,[string]$queryString){
-        $es = [Everything]::new()
-        $es.QueryBase = $queryBase
-        $es.PerformQuery($queryString)
-        Write-Host ([String]::Format('Status: {0}',$es.LastError))
-        Write-Host ([String]::Format('Number of results: {0}',$es.NumberOfResults))
-        Write-Host ''
-
-        $es.Results.foreach{
-            write-host $_.FullName
-        }
-        <#for( $i=0; $i -lt $es.NumberOfResults; $i++ ){
-            write-host ($es.Results[$i]).FullName
-        }#>
-    }
-
     static [object]$DEFULAT_RESULT_TYPE = [hashtable]
 
-    [object]$ElementClass
     [object]$esapi
     hidden [object]$wpvResults = @()
     hidden [ValueHolder]$SearchStringHolder
     hidden [ValueHolder]$QueryBaseHolder
     hidden [bool]$isSearchStringDirty
-    hidden [DependencyHolder]$PostBuildElementListeners
+    
     [int]$NumberingOffset = 1
     [type]$ResultType
 
     Everything()
     {
-        $this.Initialize([Everything]::DefaultElementClass)
+        $this.Initialize()
         $this.Reset()
     }
     Everything([object]$elementClass){
-        $this.Initialize($elementClass)
+        $this.Initialize()
         $this.Reset()
     }
 
-    hidden Initialize([object]$elementClass){
+    hidden Initialize(){
         $this.esapi = [handjive.Everything.EverythingAPI]
         $this.ResultType = $this.gettype()::DEFULAT_RESULT_TYPE
         
-        $this.PostBuildElementListeners = [DependencyHolder]::new()
-
         $beDirty={ param($receiver,$args1,$args2,$workingset)
             $receiver.isSearchStringDirty = $true }
 
         $this.SearchStringHolder = [ValueHolder]::new()
-        $this.SearchStringHolder.AddValueChangedListener($this,$beDirty)
+        $this.SearchStringHolder.Dependents.Add([EV_ValueModel]::ValueChanged,$this,$beDirty)
 
         $this.QueryBaseHolder = [ValueHolder]::new()  
-        $this.QueryBaseHolder.AddValueChangedListener($this,$beDirty)
-
-        $this.ElementClass = $elementClass
+        $this.QueryBaseHolder.Dependents.Add([EV_ValueModel]::ValueChanged,$this,$beDirty)
     }
 
     SelectResultType([type]$type)
@@ -77,8 +51,8 @@ class Everything : IEverything {
     Reset()
     {
         $this.ResetResults()
-        $this.SearchStringHolder.Subject = ""
-        $this.QueryBaseHolder.Subject = ""
+        $this.SearchStringHolder.Value = ""
+        $this.QueryBaseHolder.Value = ""
         $this.isSearchStringDirty = $false
         $this.esapi::Everything_Reset()
     }

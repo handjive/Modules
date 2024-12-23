@@ -1,6 +1,3 @@
-. "$PSScriptRoot\DependencyHolder.ps1"
-. "$PSScriptRoot\ValueModel.ps1"
-. "$PSScriptRoot\ValueHolder.ps1"
 . "$PSScriptRoot\ValueAdaptor.ps1"
 . "$PSScriptRoot\AspectAdaptor.ps1"
 . "$PSScriptRoot\PluggableAdaptor.ps1"
