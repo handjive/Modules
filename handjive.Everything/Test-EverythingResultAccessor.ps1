@@ -67,7 +67,7 @@ switch($args){
         Write-Output $cv.Convert(0)
     }
 
-    4 {
+    4 { # ConversionFinishedイベントの受信
         $es.SelectResultType([string])
         $accessor = [EverythingResultAccessor]::new($es)
         Write-Host $accessor[0]
@@ -85,8 +85,9 @@ switch($args){
         Write-Output $accessor[0]
     }
     
-    4.1 {
+    4.1 { # Enumerationのテスト
         $accessor = [EverythingResultAccessor]::new($es)
+        Write-Output $accessor[0]
         $accessor.foreach{
             Write-Output $_
         }
@@ -98,6 +99,11 @@ switch($args){
 
         write-host '-----------------------------'
         $accessor.SelectConverter([EverythingSearchResultElement])
+        $accessor.foreach{
+            Write-Output $_
+        }
+        write-host '-----------------------------'
+        $accessor.SelectConverter([hashtable])
         $accessor.foreach{
             Write-Output $_
         }

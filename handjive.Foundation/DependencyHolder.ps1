@@ -31,11 +31,8 @@ class DependencyHolder{
     DependencyHolder(){
         $this.subscribers = [OrderedDictionary]::new()
     }
-    DependencyHolder([int]$limit){
-        $this.subscribers = [OrderedDictionary]::new()
-    }
 
-    [object]NewElement(){
+    hidden [object]NewElement(){
         if( $null -eq $this.ElementClass ){
             $this.ElementClass = [DependencyHolder]::DefaultElementClass
         }
@@ -55,7 +52,7 @@ class DependencyHolder{
             $this.subscribers.Add(([string]$anEvent),($entries = [ArrayList]::new()))
         }
         else{
-            $entries = $this.subscribers[([int]$anEvent)]
+            $entries = $this.subscribers[([string]$anEvent)]
         }
 
         $elem = $this.NewElement()
@@ -64,20 +61,15 @@ class DependencyHolder{
         $entries.Add($elem)
     }
 
-    [object[]]Perform([object]$anEvent,[object]$argArray,[hashtable]$workingset){
+    hidden [object[]]Perform([object]$anEvent,[object]$argArray,[hashtable]$workingset){
         $result = [ArrayList]::new()
 
-        Write-Debug $anEvent.gettype()
         # イベントのサブスクライバがいなければ終了
         if( -not ($this.subscribers.keys -contains ([string]$anEvent)) ){
             return $null
         }
         
-        $anArray = $this.subscribers[([string]$anEvent)]
-        if( $null -eq $anArray  ){
-            Write-Error "HOGEEEE!!"
-        }
-        ($anArray).foreach{
+        ($this.subscribers[([string]$anEvent)]).foreach{
             $entry = [DependencyListenerEntry]$_
             $result.Add($entry.Perform($argarray,$workingset))
         }

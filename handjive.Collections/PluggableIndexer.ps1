@@ -39,29 +39,27 @@ class PluggableIndexer : PluggableIndexerBase, IDependencyServer{
     {
         $this.BuildEnumeratorBlock = {
             param($adaptor) # $adaptorは自分自身
-            if( $null -eq $adaptor.Enumerator ){
-                if( $null -eq $adaptor.Subject ){
-                    $enumerator = [PluggableEnumerator]::Empty()
-                }
-                else{
-                    $enumerator = [PluggableEnumerator]::new($adaptor)
-                
-                    $enumerator.OnMoveNextBlock = { 
-                        param($substance,$workingset)
-                        $workingset.Locator++
-                        $workingset.Locator -lt $substance.Count
-                    }
-                    $enumerator.OnCurrentBlock = { 
-                        param($substance,$workingset)
-                        Write-Output ($substance[$workingset.Locator])
-                    }
-                    $enumerator.OnResetBlock = {
-                        param($substance,$workingset)
-                        $workingset.Locator = -1
-                    }
-                }
-                $adaptor.Enumerator = $enumerator
+            if( $null -eq $adaptor.Subject ){
+                $enumerator = [PluggableEnumerator]::Empty()
             }
+            else{
+                $enumerator = [PluggableEnumerator]::new($adaptor)
+            
+                $enumerator.OnMoveNextBlock = { 
+                    param($substance,$workingset)
+                    $workingset.Locator++
+                    $workingset.Locator -lt $substance.Count
+                }
+                $enumerator.OnCurrentBlock = { 
+                    param($substance,$workingset)
+                    Write-Output ($substance[$workingset.Locator])
+                }
+                $enumerator.OnResetBlock = {
+                    param($substance,$workingset)
+                    $workingset.Locator = -1
+                }
+            }
+            $adaptor.Enumerator = $enumerator
         }
     }
 
