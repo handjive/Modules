@@ -1,31 +1,34 @@
+#using module handjive.Foundation
+
 param([switch]$Step2)
-$DebugPreference = [ActionPreference]::Continue
+#$DebugPreference = Continue
 
-import-module Profiler
-import-module handjive.ValueHolder
+#import-module handjive.Foundation
 
-
-class Test1{
+<#class Test1{
     $One
     $Two
     $Three
-}
+}#>
+$error.Clear()
 
-
-if( $Step2 ){
-    switch($args){
-        1 {
-            $vm = [ValueModel]::new()
-            $vm.dependents.Add([EV_ValueModel]::SubjectChanged,'a',{ param([object]$subject,[object[]]$argarray) Write-Host "Subject=$subject, Args=($argarray)" $true })
-            $vm.dependents.Add([EV_ValueModel]::SubjectChanged,'b',{ param([object]$subject,[object[]]$argarray) Write-Host "Subject=$subject, Args=($argarray)" $true })
-            #$vm.dependents.Add([EV_ValueModel]::SubjectChanged,'b',{ param([object]$subject,[object[]]$argarray) Write-Host "$subject=$subject, Args=($argarray)" })
-            $results = $vm.TriggerEvent([EV_ValueModel]::SubjectChanged,@( 1,2,3 ))
-            Write-Output $results
-        }
-
-        2 {
-        }
+switch($args){
+    1 {
+        $vm = [ValueModel]::new()
+        $vm.dependents.Add([EV_ValueModel]::ValueChanging,'a',{ param([object]$subject,[object[]]$argarray) Write-Host "Subject=$subject, Args=($argarray)" $true })
+        $vm.dependents.Add([EV_ValueModel]::ValueChanged,'b',{ param([object]$subject,[object[]]$argarray) Write-Host "Subject=$subject, Args=($argarray)" $true })
+        #$vm.dependents.Add([EV_ValueModel]::SubjectChanged,'b',{ param([object]$subject,[object[]]$argarray) Write-Host "$subject=$subject, Args=($argarray)" })
+        $results = $vm.TriggerEvent([EV_ValueModel]::ValueChanged,@( 1,2,3 ))
+        Write-Output $results
     }
+
+    2 {
+    }
+}
+return
+
+<#
+if( $Step2 ){
 }
 else{
     switch($args){
@@ -130,3 +133,4 @@ else{
         }
     }
 }
+    #>

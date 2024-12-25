@@ -1,4 +1,5 @@
-using namespace System.Collections.Specialized
+#using namespace System.Collections.Specialized
+using namespace System.Collections.Generic
 using namespace System.Collections
 
 class DependencyListenerEntry{
@@ -24,12 +25,13 @@ class DependencyHolder{
     [object] static $DefaultElementClass = [DependencyListenerEntry]
 
     [object]$ElementClass
-    [OrderedDictionary]$subscribers = [OrderedDictionary]::new()
     [hashtable]$WorkingSet = @{}
     [bool]$Supress = $false
+    [Dictionary[string,List[DependencyListenerEntry]]]$entries 
 
     DependencyHolder(){
-        $this.subscribers = [OrderedDictionary]::new()
+        #$this.entries = [Dictionary[string,List[DependencyListenerEntry]]]::new[string,List[DependencyListenerEntry]]()
+        $this.entries = [Dictionary[string,List[DependencyListenerEntry]]]::new()
     }
 
     hidden [object]NewElement(){
@@ -39,39 +41,69 @@ class DependencyHolder{
         return ($this.ElementClass::new())
     }
     
-    Add([object]$anEvent,[scriptBlock]$aBlock)
+    Add([enum]$anEvent,[scriptBlock]$aBlock)
     {
         $this.Add($anEvent,$null,$aBlock)
     }
 
-    Add([object]$anEvent,[object]$listener,[scriptBlock]$aBlock)
+    Add([enum]$anEvent,[object]$listener,[scriptBlock]$aBlock)
     {
-        [ArrayList]$entries = @()
+        if( $null -eq $anEvent  ){
+            return
+        }
+        Write-Debug "Event=$anEvent, listener=$listener, Block={ $aBlock }"
+        Write-Debug "this=$this"
+
+        if( $null -eq $this.entries ){
+            return
+        }
+
+        [List[DependencyListenerEntry]]$aList = [List[DependencyListenerEntry]]::new()
         
-        if( -not ($this.subscribers.Keys -contains ([string]$anEvent) ) ){
-            $this.subscribers.Add(([string]$anEvent),($entries = [ArrayList]::new()))
+        if( -not ($this.entries.Keys -contains ([string]$anEvent) ) ){
+            $this.entries.Add(([string]$anEvent),$aList)
         }
         else{
-            $entries = $this.subscribers[([string]$anEvent)]
+            Write-Debug ($null -eq $this.entries)
+            $aList = $this.entries[([string]$anEvent)]
+            Write-Debug ($null -eq $aList)
         }
 
         $elem = $this.NewElement()
         $elem.Listener = $listener
         $elem.ScriptBlock = $aBlock
-        $entries.Add($elem)
+        $aList.Add($elem)
     }
 
-    hidden [object[]]Perform([object]$anEvent,[object]$argArray,[hashtable]$workingset){
+    hidden [object[]]Perform([enum]$anEvent,[object]$argArray,[hashtable]$workingset){
         $result = [ArrayList]::new()
-
-        # イベントのサブスクライバがいなければ終了
-        if( -not ($this.subscribers.keys -contains ([string]$anEvent)) ){
-            return $null
+        if( $null -eq $anEvent  ){
+            return $result
         }
         
-        ($this.subscribers[([string]$anEvent)]).foreach{
+        Write-Debug "this=$this"
+        if( $null -eq $this.entries ){
+            return $result
+        }
+
+        # イベントのサブスクライバがいなければ終了
+        if( -not ($this.entries.keys -contains ([string]$anEvent)) ){
+            return $result
+        }
+        
+        Write-Debug ([string]$anEvent)
+        Write-Debug ($null -eq $this.entries)
+
+        $anArray = $this.entries[([string]$anEvent)]
+        if( $null -eq $anArray ){
+            Write-Error 'HOGEEEE!!'
+        }
+        ($anArray).foreach{
             $entry = [DependencyListenerEntry]$_
-            $result.Add($entry.Perform($argarray,$workingset))
+            $result = $entry.Perform($argarray,$workingset)
+            if( $null -ne $result ){
+                $result.Add($result)
+            }
         }
 
         return($result)
@@ -79,10 +111,10 @@ class DependencyHolder{
 
     [int]Count()
     {
-        return ($this.subscribers.Count)
+        return ($this.entries.Count)
     }
     
-    [object[]]TriggerEvent([object]$anEvent,[array]$parameters){ 
+    [object[]]TriggerEvent([enum]$anEvent,[array]$parameters){ 
         $result = @()
         if( -not $this.Suppress ){
             $result = $this.Perform($anEvent,$parameters,$this.WorkingSet)

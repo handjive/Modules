@@ -15,7 +15,7 @@ class ValueModel : IValueModel, IDependencyServer{
         $this.Initialize()
     }
     ValueModel([object]$value){
-        $this.Value = $value
+        $this.wpvValue = $value
         $this.Initialize()
     }   
 

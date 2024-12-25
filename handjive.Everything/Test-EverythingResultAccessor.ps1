@@ -1,5 +1,7 @@
 import-module handjive.Everything -Force
 $ErrorActionPreference ='Stop'
+$DebugPreference = 'Continue'
+
 switch($args){
     0 {
         $es = [Everything]::new()
@@ -109,4 +111,13 @@ switch($args){
         }
     }
 
+    5 {
+        $es = [Everything]::new()
+        $es.QueryBase = '.\'
+        $es.SearchString = '*.psd1'
+        $es.PerformQuery()
+        $es.Results.foreach{
+            Write-Output $_
+        }
+    }
 }

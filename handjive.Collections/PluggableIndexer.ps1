@@ -97,7 +97,7 @@ class PluggableIndexer : PluggableIndexerBase, IDependencyServer{
         &$this.SetItemBlock $this ([IndexRegulator]::ActualIndexFrom(0,$this.PSget_Count(),$index)) $value
     }
 
-    [object[]]TriggerEvent([object]$anEvent,[array]$parameters){ 
+    [object[]]TriggerEvent([enum]$anEvent,[array]$parameters){ 
         return ($this.Dependents.TriggerEvent($anEvent,$parameters))
     }
 }
