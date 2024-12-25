@@ -9,10 +9,7 @@ enum EV_PluggableIndexer{ SubjectChanging; SubjectChanged; }
 
 class PluggableIndexer : PluggableIndexerBase, IDependencyServer{
     [DependencyHolder]$pvDependents
-    [ScriptBlock]$BuildEnumeratorBlock = { 
-        param($adaptor) 
-        $adaptor.Enumerator = [PluggableEnumerator]::Empty()
-    }
+    [ScriptBlock]$BuildEnumeratorBlock
     [ScriptBlock]$GetCountBlock = { param($adaptor) $adaptor.Subject.Count }
     [ScriptBlock]$GetItemBlock = { param($adaptor,$index) $adaptor.Subject[$index] }
     [ScriptBlock]$SetItemBlock = { param($adaptor,$index,$value) $adaptor.Subject[$index] = $value }
@@ -31,12 +28,14 @@ class PluggableIndexer : PluggableIndexerBase, IDependencyServer{
 
     hidden Initialize(){
         $this.pvDependents = [DependencyHolder]::new()
+        $this.ConstructDefaultBuildEnumeratorBlock()
     }
     hidden [object]get_Dependents(){ return $this.pvDependents }
     hidden [object]get_Events(){ return [EV_PluggableIndexer] }
 
     hidden [void]ConstructDefaultBuildEnumeratorBlock()
     {
+        Write-Debug "Construbting BuildEnumeratorBlock"
         $this.BuildEnumeratorBlock = {
             param($adaptor) # $adaptorは自分自身
             if( $null -eq $adaptor.Subject ){

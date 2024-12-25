@@ -1,6 +1,6 @@
 import-module handjive.Everything -Force
 $ErrorActionPreference ='Stop'
-$DebugPreference = 'SilentlyContinue'
+$DebugPreference = 'Continue'
 
 switch($args){
     0 {
@@ -120,4 +120,37 @@ switch($args){
             Write-Output $_
         }
     }
+    5.1 {
+        $es = [Everything]::new()
+        $es.QueryBase = '.\'
+        $es.SearchString = '*.psd1'
+        $es.PerformQuery()
+        [Interval]::new(0,$es.NumberOfResults,1).foreach{
+            Write-Output $es.Results[$_]
+            Write-Output ""
+        }
+        write-host '--------------------------------'
+        $es.SelectResultType([string])
+        ([System.Collections.Generic.IEnumerable[object]]$es.pvResults).foreach{
+            Write-Output $_
+        }
+    }
+    
+    5.2 {
+        $es = [Everything]::new()
+        $es.QueryBase = '.\'
+        $es.SearchString = '*.psd1'
+        $es.PerformQuery()
+        [Interval]::new(0,$es.NumberOfResults-1,1).foreach{
+            Write-Output $es.Results[$_]
+            Write-Output ""
+        }
+        write-host '--------------------------------'
+        $es.SelectResultType([string])
+        [EverythingResultAccessor]$accessor = $es.Results
+        $accessor.foreach{
+            Write-Output $_
+        }
+    }
+
 }

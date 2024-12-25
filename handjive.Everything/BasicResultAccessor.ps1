@@ -36,11 +36,12 @@ class BasicResultAccessor : IBasicResultAccessor, IAdaptor {
     [string]PathAt([int]$index)
     {
         return $this.esapi::GetResultPath($index)
-    }
+    }   
 
     [string]FullPathAt([int]$index)
     {
-        return Join-Path -Path $this.PathAt($index) -ChildPath $this.FileNameAt($index)
+        $aPath = $this.PathAt($index)
+        return Join-Path -Path $aPath -ChildPath $this.FileNameAt($index)
     }
 
     [int]SizeAt([int]$index)

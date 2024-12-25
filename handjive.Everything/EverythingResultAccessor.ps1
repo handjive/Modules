@@ -11,11 +11,11 @@ class EverythingResultAccessor : PluggableIndexer, IEverythingResultAccessor{
     
     EverythingResultAccessor([IEverything]$es) : base($this.ConverterFor($es,$es.ResultType)){ 
         $this.es = $es
-        $this.ResultType = $es.ResultType
+        $this.pvResultType = $es.ResultType
     }
     EverythingResultAccessor([IEverything]$es,[type]$resultType) : base($this.ConverterFor($es,$resultType)){ 
         $this.es = $es
-        $this.ResultType = $resultType
+        $this.pvResultType = $resultType
     }
 
     hidden [EverythingResultConverter]ConverterFor([IEverything]$es,[type]$type){
@@ -50,7 +50,7 @@ class EverythingResultAccessor : PluggableIndexer, IEverythingResultAccessor{
     }
     hidden set_ResultType([object]$type){
         $this.pvResultType = $type
-        $this.ConverterFor($this.es,$type)
+        $this.SelectConverter($type)
     }
         
     [void]SelectConverter([type]$type){

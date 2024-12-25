@@ -1,3 +1,4 @@
+using namespace System.Collections.Generic
 using namespace handjive.Everything
 
 using module handjive.Collections
@@ -16,6 +17,7 @@ class Everything : IEverything {
     hidden [bool]$isSearchStringDirty
     
     [type]$ResultType
+    [EverythingResultAccessor]$pvResults
 
     Everything()
     {
@@ -113,8 +115,11 @@ class Everything : IEverything {
         return([ESAPI_ERROR]$this.esapi::Everything_GetLastError())
     }
 
-    hidden [object]get_Results(){
-        return [EverythingResultAccessor]::new($this)
+    hidden [System.Collections.IEnumerable]get_Results(){
+        if( $null -eq $this.pvResults ){
+            $this.pvResults = [EverythingResultAccessor]::new($this)
+        }
+        return $this.pvResults
     }
 
     hidden [int]get_NumberOfResults(){
@@ -140,6 +145,7 @@ class Everything : IEverything {
 
     Reset()
     {
+        $this.pvResults = $null
         $this.SearchStringHolder.Value = ""
         $this.QueryBaseHolder.Value = ""
         $this.isSearchStringDirty = $false
@@ -150,6 +156,7 @@ class Everything : IEverything {
     {
         $this.BuildSearchString()
         $this.esapi::Everything_QueryW($true)
+        $this.pvResults =  $null
     }
 
     PerformQuery([string]$pattern)
