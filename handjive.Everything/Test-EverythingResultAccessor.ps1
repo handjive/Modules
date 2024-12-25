@@ -1,6 +1,6 @@
 import-module handjive.Everything -Force
 $ErrorActionPreference ='Stop'
-$DebugPreference = 'Continue'
+$DebugPreference = 'SilentlyContinue'
 
 switch($args){
     0 {

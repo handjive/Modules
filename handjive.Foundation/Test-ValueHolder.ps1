@@ -1,7 +1,7 @@
 #using module handjive.Foundation
 
 param([switch]$Step2)
-#$DebugPreference = Continue
+$DebugPreference = 'Continue'
 
 #import-module handjive.Foundation
 
@@ -13,6 +13,25 @@ param([switch]$Step2)
 $error.Clear()
 
 switch($args){
+    0 {
+        $dh = [DependencyHolder]::new()
+        $dh.Add(@(1..3),{
+            param($receiver,$args1,$additionalArgs,$workingset)
+            $arg.foreach{
+                [String]::Format('{0}({1})',$_,$_.gettype()) | Write-Host
+            }
+            $additionalArgs.foreach{
+                [String]::Format('{0}({1})',$_,$_.gettype()) | Write-Host
+            }
+            $false
+        })
+        
+        $arg = @( 'hoge' )
+        $result = $dh.Perform($arg,@{},{})
+        $arg | Write-Host
+        $result |write-host
+    }
+
     1 {
         $vm = [ValueModel]::new()
         $vm.dependents.Add([EV_ValueModel]::ValueChanging,'a',{ param([object]$subject,[object[]]$argarray) Write-Host "Subject=$subject, Args=($argarray)" $true })
@@ -23,6 +42,23 @@ switch($args){
     }
 
     2 {
+        $vh = [ValueHolder]::new()
+        $vh.Dependents.Add([EV_ValueModel]::ValueChanging,{ 
+            param([object]$subject,[object[]]$argarray)
+            Write-Host "OnSubjectChanging"
+            Write-Host "Subject=$subject"
+            Write-Host "arguments=$argarray"
+            $argarray[1].Length -ge 4
+        })
+        $vh.Dependents.Add([EV_ValueModel]::ValueChanged,{ 
+            param([object]$subject,[object[]]$argarray)
+            Write-Host "OnSubjectChang[ed]"
+            Write-Host "Subject=$subject"
+            Write-Host "arguments=$argarray"
+            'TARA'
+        })
+        $vh.Value = 'Oh!'
+        $vh.Value = 'Doodledo!'
     }
 }
 return

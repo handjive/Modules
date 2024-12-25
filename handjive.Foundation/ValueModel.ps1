@@ -35,6 +35,9 @@ class ValueModel : IValueModel, IDependencyServer{
             $this.ValueUsingSubject($aValue)
             $this.TriggerEvent([EV_ValueModel]::ValueChanged,@($oldValue,$aValue))
         }
+        else{
+            Write-Debug "Value set rejected by EventHandler: value=[$aValue]"
+        }
     }
     hidden [object]ValueUsingSubject(){
         return $this.wpvValue

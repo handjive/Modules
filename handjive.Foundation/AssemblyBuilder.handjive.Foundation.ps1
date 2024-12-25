@@ -25,6 +25,13 @@ namespace handjive
             object Dependents{ get; }
         }
 
+        public interface IDependencyListenerEntry{
+        }
+
+        public interface IDependencyHolder{
+            SCG.Dictionary<string,SCG.List<object>>Subscribers{ get; }
+        }
+
         public interface IValueModel : IValueable,IDependencyServer{
         }
 

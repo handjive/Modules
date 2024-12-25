@@ -1,8 +1,9 @@
 #using namespace System.Collections.Specialized
 using namespace System.Collections.Generic
 using namespace System.Collections
+using namespace handjive.Foundation
 
-class DependencyListenerEntry{
+class DependencyListenerEntry : IDependencyListenerEntry{
     [object]$Listener
     [scriptBlock]$ScriptBlock
     [object[]]$AdditionalArguments
@@ -21,17 +22,24 @@ class DependencyListenerEntry{
         return (&$this.ScriptBlock $this.listener $arguments $this.AdditionalArguments $workingset )
     }
 }
-class DependencyHolder{
+class DependencyHolder : IDependencyHolder{
     [object] static $DefaultElementClass = [DependencyListenerEntry]
 
     [object]$ElementClass
     [hashtable]$WorkingSet = @{}
     [bool]$Supress = $false
-    [Dictionary[string,List[DependencyListenerEntry]]]$entries 
+    [Dictionary[string,List[object]]]$pvSubscribers 
 
     DependencyHolder(){
         #$this.entries = [Dictionary[string,List[DependencyListenerEntry]]]::new[string,List[DependencyListenerEntry]]()
-        $this.entries = [Dictionary[string,List[DependencyListenerEntry]]]::new()
+    }
+
+    hidden [Dictionary[string,List[object]]]get_Subscribers()
+    {
+        if( $null -eq $this.pvSubscribers ){
+            $this.pvSubscribers = [Dictionary[string,List[object]]]::new()
+        }
+        return $this.pvSubscribers
     }
 
     hidden [object]NewElement(){
@@ -48,25 +56,21 @@ class DependencyHolder{
 
     Add([enum]$anEvent,[object]$listener,[scriptBlock]$aBlock)
     {
+        $dict = [Dictionary[string,List[object]]]::new()
+        $dict.Add([string]$anEvent,[List[object]]::new())
+
         if( $null -eq $anEvent  ){
             return
         }
-        Write-Debug "Event=$anEvent, listener=$listener, Block={ $aBlock }"
-        Write-Debug "this=$this"
-
-        if( $null -eq $this.entries ){
-            return
-        }
-
-        [List[DependencyListenerEntry]]$aList = [List[DependencyListenerEntry]]::new()
         
-        if( -not ($this.entries.Keys -contains ([string]$anEvent) ) ){
-            $this.entries.Add(([string]$anEvent),$aList)
+        $aKey = [string]$anEvent
+        $aList = [List[object]]::new()
+        
+        if( -not ($this.Subscribers.Keys -contains $aKey) ){
+            $this.Subscribers.Add($aKey,$aList)
         }
         else{
-            Write-Debug ($null -eq $this.entries)
-            $aList = $this.entries[([string]$anEvent)]
-            Write-Debug ($null -eq $aList)
+            $aList = $this.Subscribers[$aKey]
         }
 
         $elem = $this.NewElement()
@@ -76,46 +80,43 @@ class DependencyHolder{
     }
 
     hidden [object[]]Perform([enum]$anEvent,[object]$argArray,[hashtable]$workingset){
-        $result = [ArrayList]::new()
         if( $null -eq $anEvent  ){
-            return $result
+            return @()
         }
-        
-        Write-Debug "this=$this"
-        if( $null -eq $this.entries ){
-            return $result
-        }
+        $aKey = [string]$anEvent
+        $results = [ArrayList]::new()
 
         # イベントのサブスクライバがいなければ終了
-        if( -not ($this.entries.keys -contains ([string]$anEvent)) ){
-            return $result
+        if( -not ($this.Subscribers.keys -contains $aKey) ){
+            return $results
         }
         
-        Write-Debug ([string]$anEvent)
-        Write-Debug ($null -eq $this.entries)
-
-        $anArray = $this.entries[([string]$anEvent)]
+        $anArray = $this.Subscribers[$aKey]
         if( $null -eq $anArray ){
             Write-Error 'HOGEEEE!!'
         }
         ($anArray).foreach{
-            $entry = [DependencyListenerEntry]$_
+            param([DependencyListenerEntry]$entry)
             $result = $entry.Perform($argarray,$workingset)
             if( $null -ne $result ){
-                $result.Add($result)
+                $results.Add($result)
             }
         }
 
-        return($result)
+        return($results)
     }
 
     [int]Count()
     {
-        return ($this.entries.Count)
+        $result = 0
+        $this.pvSubscribers.Values.foreach{
+            $result = $result + $_.Count
+        }
+        return $result
     }
     
     [object[]]TriggerEvent([enum]$anEvent,[array]$parameters){ 
-        $result = @()
+        $result = $null
         if( -not $this.Suppress ){
             $result = $this.Perform($anEvent,$parameters,$this.WorkingSet)
         }
