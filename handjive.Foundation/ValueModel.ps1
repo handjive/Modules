@@ -60,56 +60,12 @@ class ValueModel : IValueModel, IDependencyServer{
         }
     }
 
-
-    ### Obsoletes ###
-    <#SetSubjectChangingValidator([object]$listener,[scriptBlock]$aBlock){
-        $this.SubjectChangingValidator.Add($listener,$aBlock)
-    }
-    AddSubjectChangedListener([object]$listener,[scriptBlock]$aBlock){
-        $this.SubjectChangedListeners.Add($listener,$aBlock)
-    }
-    hidden [object]get_Subject(){
-        return($this.wpvSubject)
-    }
-    [object]ValueUsingSubject([object]$aSubject){
-        return $aSubject
-    }
-    ValueUsingSubject([object]$Subject,[object]$aValue){
-        $this.Subject = $aValue
-    }
-
-    hidden [object]get_Value(){
-        return $this.ValueUsingSubject($this.Subject)
-    }
-
-    hidden set_Subject([object]$Subject){
-        $result = $this.TriggerEvent([EV_ValueModel]::SubjectChanging,$this.Subject,$Subject)
-        if( -not ($result -contains $false) ){
-            $oldSubject = $this.wpvSubject
-            $this.wpvSubject = $Subject
-            $this.TriggerEvent([EV_ValueModel]::SubjectChanged,@($oldSubject,$Subject))
-        }
-    }
-
-    [bool]SubjectChanging([object]$current,[object]$new){
-        if( !$this.SuppressDependents ){
-            return($this.SubjectChangingListeners.Perform(@($current,$new),$this.Workingset,{$true}))
+    [object]ValueOr([ScriptBlock]$complementBlock){
+        if( $null -eq ($result = $this.Value ) ){
+            return(&$complementBlock)
         }
         else{
-            return $true
+            return($result)
         }
     }
-
-    SubjectChanged([object]$old,[object]$new){
-        if( !$this.SuppressDependents ){
-            $this.SubjectChangedListeners.Perform(@( $old,$new ),$this.WorkingSet,{})|out-null
-        }
-    }
-
-    [bool]ValueChanging([object]$Subject,[object]$aValue){
-        return $true
-    }
-
-    ValueChanged([object]$newValue){
-    }#>
 }
